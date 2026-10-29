@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
@@ -33,6 +34,7 @@ import com.nitsutech.whosyourbias.data.IdolCard;
 import com.nitsutech.whosyourbias.game.TournamentEngine;
 import com.nitsutech.whosyourbias.util.CardImageLoader;
 import com.nitsutech.whosyourbias.util.ShareImportManager;
+import com.nitsutech.whosyourbias.util.ThemeManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -132,22 +134,24 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     /**
-     * Clean, spacious Vibrary-style full-photo Duel Card with 3D Flip Info & 1-Tap Selection.
+     * Clean, spacious Vibrary-style full-photo Duel Card with Slide-to-3D-Rotate Info & Dedicated Pick Button.
      */
     private View buildCleanPhotoDuelCard(IdolCard card, boolean isTopSlot) {
         float density = getResources().getDisplayMetrics().density;
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+
         FrameLayout wrapper = new FrameLayout(this);
         wrapper.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         wrapper.setCameraDistance(8500f * density);
 
-        // ================= FRONT: CLEAN FULL-BLEED ROUNDED PHOTO CARD =================
+        // ================= FRONT: CLEAN FULL-FIT UNCROPPED ROUNDED PHOTO CARD =================
         CardView frontCard = new CardView(this);
         frontCard.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         frontCard.setRadius(dp(24));
         frontCard.setCardElevation(dp(4));
-        frontCard.setCardBackgroundColor(Color.parseColor("#F3F4F6"));
+        frontCard.setCardBackgroundColor(theme.surfaceColor);
 
         FrameLayout frontInner = new FrameLayout(this);
         frontInner.setLayoutParams(new FrameLayout.LayoutParams(
@@ -156,22 +160,21 @@ public class MatchActivity extends AppCompatActivity {
         ImageView ivPhoto = new ImageView(this);
         ivPhoto.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        ivPhoto.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        CardImageLoader.loadCardImage(this, card, ivPhoto);
+        CardImageLoader.loadCardImageWithSize(this, card, ivPhoto, 480, 380);
         frontInner.addView(ivPhoto);
 
         // Soft bottom gradient overlay for crisp text readability
         View bottomScrim = new View(this);
         GradientDrawable scrimGd = new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.TRANSPARENT, Color.parseColor("#B8000000")});
+                new int[]{Color.TRANSPARENT, Color.parseColor("#B0000000")});
         bottomScrim.setBackground(scrimGd);
         FrameLayout.LayoutParams scrimLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(115), Gravity.BOTTOM);
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(100), Gravity.BOTTOM);
         bottomScrim.setLayoutParams(scrimLp);
         frontInner.addView(bottomScrim);
 
-        // Top-Left Photocard Switcher Pill (only if multiple photocards or stylized art)
+        // Top-Left Photocard Switcher Pill
         final int[] pcIndex = {0};
         List<String> allPhotos = new ArrayList<>();
         if (card.getPhotoUri() != null && !card.getPhotoUri().isEmpty()) {
@@ -186,11 +189,11 @@ public class MatchActivity extends AppCompatActivity {
             btnCyclePc.setTextColor(Color.WHITE);
             btnCyclePc.setTextSize(11f);
             btnCyclePc.setTypeface(Typeface.DEFAULT_BOLD);
-            btnCyclePc.setPadding(dp(10), dp(5), dp(10), dp(5));
             GradientDrawable pillBg = new GradientDrawable();
             pillBg.setColor(Color.parseColor("#88111827"));
             pillBg.setCornerRadius(dp(16));
             btnCyclePc.setBackground(pillBg);
+            btnCyclePc.setPadding(dp(10), dp(5), dp(10), dp(5));
             FrameLayout.LayoutParams pcLp = new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
             pcLp.setMargins(dp(12), dp(12), 0, 0);
@@ -202,22 +205,22 @@ public class MatchActivity extends AppCompatActivity {
                 IdolCard temp = new IdolCard(card.getId() + "_pc" + pcIndex[0], card.getStageName(),
                         card.getFullName(), card.getGroupName(), card.isSoloist(), card.getCountry(),
                         card.getBirthDate(), card.getRole(), chosenUri, card.getAccentColor(), card.getBio(), card.getCollections());
-                CardImageLoader.loadCardImage(this, temp, ivPhoto);
+                CardImageLoader.loadCardImageWithSize(this, temp, ivPhoto, 480, 380);
             });
             frontInner.addView(btnCyclePc);
         }
 
         // Top-Right 3D Info Flip Pill
         TextView btnFlipInfo = new TextView(this);
-        btnFlipInfo.setText("🔄 Info");
+        btnFlipInfo.setText("🔄 Deslizá o tocá para Info");
         btnFlipInfo.setTextColor(Color.parseColor("#111827"));
-        btnFlipInfo.setTextSize(11.5f);
+        btnFlipInfo.setTextSize(10.5f);
         btnFlipInfo.setTypeface(Typeface.DEFAULT_BOLD);
-        btnFlipInfo.setPadding(dp(12), dp(6), dp(12), dp(6));
         GradientDrawable infoPillBg = new GradientDrawable();
         infoPillBg.setColor(Color.parseColor("#EEFFFFFF"));
         infoPillBg.setCornerRadius(dp(18));
         btnFlipInfo.setBackground(infoPillBg);
+        btnFlipInfo.setPadding(dp(10), dp(5), dp(10), dp(5));
         FrameLayout.LayoutParams flipLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
         flipLp.setMargins(0, dp(12), dp(12), 0);
@@ -239,7 +242,7 @@ public class MatchActivity extends AppCompatActivity {
 
         TextView tvGroupTag = new TextView(this);
         tvGroupTag.setText((card.isSoloist() ? "SOLOIST" : card.getGroupName()) + "  •  " + card.getCountryWithFlag());
-        tvGroupTag.setTextColor(Color.parseColor("#FFC700"));
+        tvGroupTag.setTextColor(theme.secondaryColor);
         tvGroupTag.setTextSize(11.5f);
         tvGroupTag.setTypeface(Typeface.DEFAULT_BOLD);
         nameCol.addView(tvGroupTag);
@@ -247,33 +250,34 @@ public class MatchActivity extends AppCompatActivity {
         TextView tvStageName = new TextView(this);
         tvStageName.setText(card.getStageName());
         tvStageName.setTextColor(Color.WHITE);
-        tvStageName.setTextSize(24f);
+        tvStageName.setTextSize(23f);
         tvStageName.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         tvStageName.setSingleLine(true);
         nameCol.addView(tvStageName);
 
         bottomInfo.addView(nameCol);
 
-        // Golden Check/Pick Circle Badge on bottom right (Vibrary style)
+        // Dedicated Pick Pill Button on bottom right
         TextView tvPickBadge = new TextView(this);
         tvPickBadge.setText("✓ Elegir");
-        tvPickBadge.setTextColor(Color.parseColor("#111827"));
-        tvPickBadge.setTextSize(12f);
+        tvPickBadge.setGravity(Gravity.CENTER);
+        tvPickBadge.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+        tvPickBadge.setTextSize(13f);
         tvPickBadge.setTypeface(Typeface.DEFAULT_BOLD);
-        tvPickBadge.setPadding(dp(14), dp(8), dp(14), dp(8));
-        tvPickBadge.setBackgroundResource(R.drawable.bg_btn_primary);
+        tvPickBadge.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+        tvPickBadge.setPadding(dp(18), dp(10), dp(18), dp(10));
         bottomInfo.addView(tvPickBadge);
 
         frontInner.addView(bottomInfo);
         frontCard.addView(frontInner);
 
-        // ================= BACK: CLEAN WHITE 3D DOSSIER CARD =================
+        // ================= BACK: CLEAN 3D DOSSIER CARD =================
         CardView backCard = new CardView(this);
         backCard.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         backCard.setRadius(dp(24));
         backCard.setCardElevation(dp(4));
-        backCard.setCardBackgroundColor(Color.parseColor("#F8F9FB"));
+        backCard.setCardBackgroundColor(theme.surfaceColor);
         backCard.setVisibility(View.GONE);
 
         LinearLayout backInner = new LinearLayout(this);
@@ -286,7 +290,7 @@ public class MatchActivity extends AppCompatActivity {
 
         TextView tvBackTitle = new TextView(this);
         tvBackTitle.setText(card.getStageName() + " (" + card.getFullName() + ")");
-        tvBackTitle.setTextColor(Color.parseColor("#111827"));
+        tvBackTitle.setTextColor(theme.textColor);
         tvBackTitle.setTextSize(17f);
         tvBackTitle.setTypeface(Typeface.DEFAULT_BOLD);
         tvBackTitle.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -294,11 +298,12 @@ public class MatchActivity extends AppCompatActivity {
 
         TextView btnFancam = new TextView(this);
         btnFancam.setText("🎬 Fancam");
-        btnFancam.setTextColor(Color.parseColor("#111827"));
+        btnFancam.setGravity(Gravity.CENTER);
+        btnFancam.setTextColor(theme.getButtonTextColor(theme.secondaryColor));
         btnFancam.setTextSize(11f);
         btnFancam.setTypeface(Typeface.DEFAULT_BOLD);
-        btnFancam.setPadding(dp(10), dp(6), dp(10), dp(6));
-        btnFancam.setBackgroundResource(R.drawable.bg_btn_gold);
+        btnFancam.setBackground(ThemeManager.createPillDrawable(this, theme.secondaryColor, 16));
+        btnFancam.setPadding(dp(12), dp(6), dp(12), dp(6));
         btnFancam.setOnClickListener(v -> openYoutubeFancamSearch(card));
         backTopRow.addView(btnFancam);
         backInner.addView(backTopRow);
@@ -336,8 +341,8 @@ public class MatchActivity extends AppCompatActivity {
         btnFlipBack.setTextColor(Color.parseColor("#111827"));
         btnFlipBack.setTypeface(Typeface.DEFAULT_BOLD);
         btnFlipBack.setGravity(Gravity.CENTER);
-        btnFlipBack.setPadding(dp(14), dp(9), dp(14), dp(9));
         btnFlipBack.setBackgroundResource(R.drawable.bg_btn_secondary);
+        btnFlipBack.setPadding(dp(14), dp(10), dp(14), dp(10));
         LinearLayout.LayoutParams fbLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         fbLp.setMargins(0, 0, dp(8), 0);
@@ -346,11 +351,11 @@ public class MatchActivity extends AppCompatActivity {
 
         TextView btnPickBack = new TextView(this);
         btnPickBack.setText("✓ Elegir a " + card.getStageName());
-        btnPickBack.setTextColor(Color.parseColor("#111827"));
+        btnPickBack.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         btnPickBack.setTypeface(Typeface.DEFAULT_BOLD);
         btnPickBack.setGravity(Gravity.CENTER);
-        btnPickBack.setPadding(dp(14), dp(9), dp(14), dp(9));
-        btnPickBack.setBackgroundResource(R.drawable.bg_btn_primary);
+        btnPickBack.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+        btnPickBack.setPadding(dp(14), dp(10), dp(14), dp(10));
         btnPickBack.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         backActions.addView(btnPickBack);
 
@@ -363,18 +368,53 @@ public class MatchActivity extends AppCompatActivity {
         btnFlipInfo.setOnClickListener(v -> flipCard3D(wrapper, frontCard, backCard));
         btnFlipBack.setOnClickListener(v -> flipCard3D(wrapper, backCard, frontCard));
 
+        // Slide / Swipe finger on card (or tap card background) rotates the card in 3D to see info!
+        // Only tapping the "✓ Elegir" button selects the idol as winner!
+        attachSlideOrTapToFlipGesture(frontInner, () -> flipCard3D(wrapper, frontCard, backCard));
+        attachSlideOrTapToFlipGesture(backInner, () -> flipCard3D(wrapper, backCard, frontCard));
+
         View.OnClickListener pickAction = v -> onCardPicked(wrapper, isTopSlot);
-        frontInner.setOnClickListener(pickAction);
         tvPickBadge.setOnClickListener(pickAction);
         btnPickBack.setOnClickListener(pickAction);
 
         return wrapper;
     }
 
+    private void attachSlideOrTapToFlipGesture(View targetView, Runnable onFlip) {
+        final float[] downXY = new float[2];
+        final boolean[] triggered = new boolean[1];
+        targetView.setOnTouchListener((v, ev) -> {
+            switch (ev.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downXY[0] = ev.getRawX();
+                    downXY[1] = ev.getRawY();
+                    triggered[0] = false;
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (!triggered[0]) {
+                        float dx = Math.abs(ev.getRawX() - downXY[0]);
+                        float dy = Math.abs(ev.getRawY() - downXY[1]);
+                        if (dx > dp(16) || dy > dp(16)) {
+                            triggered[0] = true;
+                            onFlip.run();
+                        }
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    if (!triggered[0]) {
+                        onFlip.run();
+                    }
+                    return true;
+            }
+            return false;
+        });
+    }
+
     private void addCleanInfoRow(LinearLayout parent, String label, String value) {
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
         TextView tv = new TextView(this);
         tv.setText(label + ": " + value);
-        tv.setTextColor(Color.parseColor("#374151"));
+        tv.setTextColor(theme.textColor);
         tv.setTextSize(12.5f);
         tv.setPadding(0, dp(3), 0, dp(3));
         parent.addView(tv);
@@ -425,6 +465,7 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     private void showVictoryScreen() {
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
         arenaDuelContainer.setVisibility(View.GONE);
         victoryScrollContainer.setVisibility(View.VISIBLE);
         victoryContentBox.removeAllViews();
@@ -441,7 +482,7 @@ public class MatchActivity extends AppCompatActivity {
 
         TextView tvSlogan = new TextView(this);
         tvSlogan.setText("“Who is your bias? I am your bias, it's me!”");
-        tvSlogan.setTextColor(Color.parseColor("#6B7280"));
+        tvSlogan.setTextColor(theme.getMutedTextColor());
         tvSlogan.setTextSize(13f);
         tvSlogan.setGravity(Gravity.CENTER);
         tvSlogan.setPadding(0, dp(4), 0, dp(12));
@@ -450,8 +491,8 @@ public class MatchActivity extends AppCompatActivity {
         // Large Clean Vibrary-style Champion Card
         CardView champCard = new CardView(this);
         champCard.setRadius(dp(26));
-        champCard.setCardElevation(dp(6));
-        champCard.setCardBackgroundColor(Color.WHITE);
+        champCard.setCardElevation(dp(4));
+        champCard.setCardBackgroundColor(theme.surfaceColor);
         LinearLayout.LayoutParams ccLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         ccLp.setMargins(0, 0, 0, dp(16));
@@ -465,30 +506,30 @@ public class MatchActivity extends AppCompatActivity {
         CardView photoCard = new CardView(this);
         photoCard.setRadius(dp(22));
         photoCard.setCardElevation(0f);
-        LinearLayout.LayoutParams pcLp = new LinearLayout.LayoutParams(dp(220), dp(260));
+        LinearLayout.LayoutParams pcLp = new LinearLayout.LayoutParams(dp(230), dp(270));
         pcLp.setMargins(0, 0, 0, dp(14));
         photoCard.setLayoutParams(pcLp);
 
         ImageView ivChamp = new ImageView(this);
         ivChamp.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        ivChamp.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        CardImageLoader.loadCardImage(this, champ, ivChamp);
+        CardImageLoader.loadCardImageWithSize(this, champ, ivChamp, 400, 470);
         photoCard.addView(ivChamp);
         champInner.addView(photoCard);
 
         TextView tvCrownTag = new TextView(this);
         tvCrownTag.setText("👑 BIAS GANADOR • " + (champ.isSoloist() ? "SOLISTA" : champ.getGroupName().toUpperCase()));
-        tvCrownTag.setTextColor(Color.parseColor("#111827"));
+        tvCrownTag.setGravity(Gravity.CENTER);
+        tvCrownTag.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         tvCrownTag.setTextSize(11.5f);
         tvCrownTag.setTypeface(Typeface.DEFAULT_BOLD);
-        tvCrownTag.setPadding(dp(12), dp(5), dp(12), dp(5));
-        tvCrownTag.setBackgroundResource(R.drawable.bg_btn_primary);
+        tvCrownTag.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 18));
+        tvCrownTag.setPadding(dp(14), dp(6), dp(14), dp(6));
         champInner.addView(tvCrownTag);
 
         TextView tvChampName = new TextView(this);
         tvChampName.setText(champ.getStageName());
-        tvChampName.setTextColor(Color.parseColor("#111827"));
+        tvChampName.setTextColor(theme.textColor);
         tvChampName.setTextSize(28f);
         tvChampName.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         tvChampName.setPadding(0, dp(6), 0, dp(2));
@@ -496,7 +537,7 @@ public class MatchActivity extends AppCompatActivity {
 
         TextView tvChampMeta = new TextView(this);
         tvChampMeta.setText(champ.getFullName() + " • " + champ.getCountryWithFlag() + " • " + champ.getCalculatedAge() + " años");
-        tvChampMeta.setTextColor(Color.parseColor("#6B7280"));
+        tvChampMeta.setTextColor(theme.getMutedTextColor());
         tvChampMeta.setTextSize(13f);
         tvChampMeta.setGravity(Gravity.CENTER);
         champInner.addView(tvChampMeta);
@@ -505,7 +546,9 @@ public class MatchActivity extends AppCompatActivity {
         victoryContentBox.addView(champCard);
 
         // Clean Action Buttons
-        TextView btnSharePoster = createActionButton(getString(R.string.btn_share_victory_poster), R.drawable.bg_btn_primary, Color.parseColor("#111827"));
+        TextView btnSharePoster = createActionButton(getString(R.string.btn_share_victory_poster), R.drawable.bg_btn_primary, theme.getButtonTextColor(theme.primaryColor));
+        btnSharePoster.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+        btnSharePoster.setPadding(dp(16), dp(13), dp(16), dp(13));
         btnSharePoster.setOnClickListener(v -> ShareImportManager.shareVictoryPoster(
                 this, champ, engine.getRunnerUp(), engine.getSemiFinalists(),
                 engine.getTournamentTitle(), engine.getGameMode()));
@@ -537,36 +580,37 @@ public class MatchActivity extends AppCompatActivity {
 
         victoryContentBox.addView(rowRematch);
 
-        // Podium Summary Box
+        // Podium Summary Box (1° Puesto, 2° Puesto, 3° Puesto)
         LinearLayout podiumBox = new LinearLayout(this);
         podiumBox.setOrientation(LinearLayout.VERTICAL);
+        podiumBox.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.primaryColor, 20));
         podiumBox.setPadding(dp(16), dp(16), dp(16), dp(16));
-        podiumBox.setBackgroundResource(R.drawable.bg_glass_card);
         LinearLayout.LayoutParams podLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         podLp.setMargins(0, 0, 0, dp(14));
         podiumBox.setLayoutParams(podLp);
 
         TextView tvPodTitle = new TextView(this);
-        tvPodTitle.setText("🏅 Podio Final");
-        tvPodTitle.setTextColor(Color.parseColor("#111827"));
+        tvPodTitle.setText("🏅 Podio Final (1° • 2° • 3° Puesto)");
+        tvPodTitle.setTextColor(theme.textColor);
         tvPodTitle.setTextSize(15f);
         tvPodTitle.setTypeface(Typeface.DEFAULT_BOLD);
         tvPodTitle.setPadding(0, 0, 0, dp(6));
         podiumBox.addView(tvPodTitle);
 
-        addCleanInfoRow(podiumBox, "🥇 1° Lugar", champ.getStageName() + " (" + champ.getGroupName() + ")");
+        addCleanInfoRow(podiumBox, "🥇 1° Puesto", champ.getStageName() + " (" + champ.getGroupName() + ")");
         if (engine.getRunnerUp() != null) {
             IdolCard ru = engine.getRunnerUp();
-            addCleanInfoRow(podiumBox, "🥈 2° Lugar", ru.getStageName() + " (" + ru.getGroupName() + ")");
+            addCleanInfoRow(podiumBox, "🥈 2° Puesto", ru.getStageName() + " (" + ru.getGroupName() + ")");
         }
         if (!engine.getSemiFinalists().isEmpty()) {
             StringBuilder sfSb = new StringBuilder();
             for (int i = 0; i < engine.getSemiFinalists().size(); i++) {
-                if (i > 0) sfSb.append(", ");
-                sfSb.append(engine.getSemiFinalists().get(i).getStageName());
+                if (i > 0) sfSb.append(" • ");
+                IdolCard sf = engine.getSemiFinalists().get(i);
+                sfSb.append(sf.getStageName()).append(" (").append(sf.getGroupName()).append(")");
             }
-            addCleanInfoRow(podiumBox, "🏅 Top 4", sfSb.toString());
+            addCleanInfoRow(podiumBox, "🥉 3° Puesto", sfSb.toString());
         }
         victoryContentBox.addView(podiumBox);
     }
@@ -578,8 +622,8 @@ public class MatchActivity extends AppCompatActivity {
         btn.setTypeface(Typeface.DEFAULT_BOLD);
         btn.setTextSize(13.5f);
         btn.setGravity(Gravity.CENTER);
-        btn.setPadding(dp(16), dp(13), dp(16), dp(13));
         btn.setBackgroundResource(bgRes);
+        btn.setPadding(dp(16), dp(13), dp(16), dp(13));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 0, dp(10));

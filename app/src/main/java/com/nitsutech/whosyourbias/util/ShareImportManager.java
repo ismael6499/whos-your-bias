@@ -10,6 +10,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
@@ -267,98 +268,130 @@ public class ShareImportManager {
     }
 
     /**
-     * Generates a high-resolution Victory Poster PNG and shares it via WhatsApp / Instagram Stories.
+     * Generates a high-resolution Victory Poster PNG styled with the active App Theme colors
+     * and shares it via WhatsApp / Instagram Stories.
      */
     public static void shareVictoryPoster(Activity activity, IdolCard champion, IdolCard runnerUp,
                                           List<IdolCard> semiFinalists, String tournamentTitle, String gameMode) {
         try {
             int w = 1080;
-            int h = 1520;
+            int h = 1560;
             Bitmap poster = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(poster);
 
-            int accent = CardImageLoader.parseColorSafe(champion.getAccentColor(), Color.parseColor("#7B61FF"));
+            ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(activity);
+            boolean isDark = ThemeManager.isColorDark(theme.backgroundColor);
+
             Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
             bg.setShader(new LinearGradient(0, 0, w, h,
-                    new int[]{Color.parseColor("#0B0E17"), Color.parseColor("#1B1638"), Color.parseColor("#0D1528")},
+                    new int[]{theme.backgroundColor, theme.surfaceColor, theme.backgroundColor},
                     null, Shader.TileMode.CLAMP));
             canvas.drawRect(0, 0, w, h, bg);
 
-            // Decorative Neon Glow Border
+            // Soft Decorative Pastel Circles in corners
+            Paint decoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            decoPaint.setColor(Color.argb(28, Color.red(theme.primaryColor), Color.green(theme.primaryColor), Color.blue(theme.primaryColor)));
+            canvas.drawCircle(120, 140, 240, decoPaint);
+            decoPaint.setColor(Color.argb(28, Color.red(theme.secondaryColor), Color.green(theme.secondaryColor), Color.blue(theme.secondaryColor)));
+            canvas.drawCircle(w - 120, h - 160, 260, decoPaint);
+
+            // Outer Theme Frame Border
             Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
             border.setStyle(Paint.Style.STROKE);
-            border.setStrokeWidth(8f);
-            border.setColor(Color.parseColor("#FFD166"));
-            canvas.drawRoundRect(new RectF(36, 36, w - 36, h - 36), 44, 44, border);
+            border.setStrokeWidth(10f);
+            border.setColor(theme.primaryColor);
+            canvas.drawRoundRect(new RectF(42, 42, w - 42, h - 42), 52, 52, border);
 
             Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
             text.setTextAlign(Paint.Align.CENTER);
 
-            // Header Slogan
-            text.setColor(Color.parseColor("#00F0FF"));
+            // 1. Top Pill Slogan
+            text.setColor(theme.primaryColor);
             text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-            text.setTextSize(34f);
-            canvas.drawText("WHO IS YOUR BIAS? I AM YOUR BIAS, IT'S ME!", w / 2f, 115f, text);
+            drawFittedCenteredText(canvas, "✨ WHO IS YOUR BIAS? I AM YOUR BIAS, IT'S ME! ✨", w / 2f, 118f, text, 30f, w - 140f);
 
-            text.setColor(Color.parseColor("#FFD166"));
-            text.setTextSize(48f);
-            canvas.drawText("👑 SUPREME BIAS CHAMPION 👑", w / 2f, 185f, text);
+            text.setColor(theme.textColor);
+            text.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+            drawFittedCenteredText(canvas, "👑 MI BIAS SUPREMO 👑", w / 2f, 182f, text, 48f, w - 140f);
 
-            text.setColor(Color.parseColor("#94A3B8"));
-            text.setTextSize(30f);
-            canvas.drawText(tournamentTitle + " • " + gameMode, w / 2f, 240f, text);
+            String friendlyMode = formatFriendlyGameMode(gameMode);
+            String cleanTourneyTitle = (tournamentTitle != null ? tournamentTitle.trim() : "Torneo K-Pop");
+            text.setColor(theme.getMutedTextColor());
+            text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+            drawFittedCenteredText(canvas, cleanTourneyTitle + "  •  " + friendlyMode, w / 2f, 232f, text, 28f, w - 150f);
 
-            // Champion Portrait Card
-            Bitmap champBmp = CardImageLoader.getCardBitmapSync(activity, champion, 560, 640);
+            // 2. Champion Portrait Card (Rounded Clipped so corners NEVER poke out & Full-Fit so face is NEVER cropped!)
+            Bitmap champBmp = CardImageLoader.getCardBitmapSync(activity, champion, 580, 650);
             if (champBmp != null) {
-                Bitmap scaled = Bitmap.createScaledBitmap(champBmp, 560, 640, true);
-                RectF dst = new RectF(w / 2f - 280, 285, w / 2f + 280, 925);
-                canvas.drawBitmap(scaled, null, dst, null);
-                border.setStrokeWidth(6f);
-                border.setColor(accent);
-                canvas.drawRoundRect(dst, 28, 28, border);
+                RectF dst = new RectF(w / 2f - 290, 268, w / 2f + 290, 918);
+
+                // White/Surface Polaroid Backing Shadow
+                Paint cardBg = new Paint(Paint.ANTI_ALIAS_FLAG);
+                cardBg.setColor(isDark ? Color.parseColor("#2A2438") : Color.WHITE);
+                canvas.drawRoundRect(new RectF(dst.left - 12, dst.top - 12, dst.right + 12, dst.bottom + 12), 44, 44, cardBg);
+
+                canvas.save();
+                Path clipPath = new Path();
+                clipPath.addRoundRect(dst, 36f, 36f, Path.Direction.CW);
+                canvas.clipPath(clipPath);
+                Paint bmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                canvas.drawBitmap(champBmp, null, dst, bmpPaint);
+                canvas.restore();
+
+                border.setStrokeWidth(7f);
+                border.setColor(theme.secondaryColor);
+                canvas.drawRoundRect(dst, 36f, 36f, border);
             }
 
-            // Champion Name & Info
-            text.setColor(Color.WHITE);
-            text.setTextSize(72f);
-            canvas.drawText(champion.getStageName(), w / 2f, 1020f, text);
+            // 3. Champion Name & Info
+            text.setColor(theme.textColor);
+            text.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+            drawFittedCenteredText(canvas, champion.getStageName(), w / 2f, 1005f, text, 68f, w - 140f);
 
-            text.setColor(accent);
-            text.setTextSize(40f);
-            String grpLine = (champion.isSoloist() ? "Soloist" : champion.getGroupName()) + "  •  " + champion.getCountryWithFlag();
-            canvas.drawText(grpLine, w / 2f, 1080f, text);
+            text.setColor(theme.primaryColor);
+            text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+            String grpLine = (champion.isSoloist() ? "Solista" : champion.getGroupName()) + "  •  " + champion.getCountryWithFlag();
+            drawFittedCenteredText(canvas, grpLine, w / 2f, 1062f, text, 38f, w - 140f);
 
-            text.setColor(Color.parseColor("#CBD5E1"));
+            text.setColor(theme.getMutedTextColor());
             text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-            text.setTextSize(32f);
-            canvas.drawText(champion.getFullName() + " • Age " + champion.getCalculatedAge() + " (" + champion.getZodiacSign() + ")", w / 2f, 1135f, text);
+            String bioLine = champion.getFullName() + " • " + champion.getCalculatedAge() + " años (" + champion.getZodiacSign() + ")";
+            drawFittedCenteredText(canvas, bioLine, w / 2f, 1112f, text, 29f, w - 140f);
 
-            // Podium Box
+            // 4. Clean Podium Box (1° Puesto, 2° Puesto, 3° Puesto)
+            RectF podRect = new RectF(78, 1152, w - 78, 1412);
             Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            boxPaint.setColor(Color.parseColor("#182039"));
-            canvas.drawRoundRect(new RectF(80, 1190, w - 80, 1410), 28, 28, boxPaint);
+            boxPaint.setColor(isDark ? Color.parseColor("#241E33") : Color.WHITE);
+            canvas.drawRoundRect(podRect, 34, 34, boxPaint);
+
+            Paint boxStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+            boxStroke.setStyle(Paint.Style.STROKE);
+            boxStroke.setStrokeWidth(3f);
+            boxStroke.setColor(Color.argb(90, Color.red(theme.primaryColor), Color.green(theme.primaryColor), Color.blue(theme.primaryColor)));
+            canvas.drawRoundRect(podRect, 34, 34, boxStroke);
 
             text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-            text.setTextSize(32f);
-            text.setColor(Color.parseColor("#FFD166"));
-            String rUp = runnerUp != null ? runnerUp.getStageName() + " (" + runnerUp.getGroupName() + ")" : "N/A";
-            canvas.drawText("🥈 2nd Place: " + rUp, w / 2f, 1255f, text);
+            text.setColor(theme.textColor);
+            String firstStr = "🥇 1° Puesto: " + champion.getStageName() + " (" + champion.getGroupName() + ")";
+            drawFittedCenteredText(canvas, firstStr, w / 2f, 1214f, text, 31f, w - 200f);
+
+            String rUp = runnerUp != null ? runnerUp.getStageName() + " (" + runnerUp.getGroupName() + ")" : "—";
+            text.setColor(theme.textColor);
+            drawFittedCenteredText(canvas, "🥈 2° Puesto: " + rUp, w / 2f, 1272f, text, 30f, w - 200f);
 
             if (semiFinalists != null && !semiFinalists.isEmpty()) {
-                StringBuilder sb = new StringBuilder("🏅 Top 4: ");
+                StringBuilder sb = new StringBuilder("🥉 3° Puesto: ");
                 for (int i = 0; i < semiFinalists.size(); i++) {
-                    if (i > 0) sb.append("  •  ");
-                    sb.append(semiFinalists.get(i).getStageName());
+                    if (i > 0) sb.append(" • ");
+                    IdolCard sf = semiFinalists.get(i);
+                    sb.append(sf.getStageName()).append(" (").append(sf.getGroupName()).append(")");
                 }
-                text.setColor(Color.parseColor("#00F0FF"));
-                text.setTextSize(28f);
-                canvas.drawText(sb.toString(), w / 2f, 1320f, text);
+                text.setColor(theme.getMutedTextColor());
+                drawFittedCenteredText(canvas, sb.toString(), w / 2f, 1330f, text, 27f, w - 200f);
             }
 
-            text.setColor(Color.parseColor("#64748B"));
-            text.setTextSize(24f);
-            canvas.drawText("Played on Who's your Bias • com.nitsutech.whosyourbias", w / 2f, 1380f, text);
+            text.setColor(theme.primaryColor);
+            drawFittedCenteredText(canvas, "✨ Who's your Bias • K-Pop Edition ✨", w / 2f, 1384f, text, 24f, w - 200f);
 
             File sharedDir = new File(activity.getCacheDir(), "shared");
             if (!sharedDir.exists()) sharedDir.mkdirs();
@@ -369,11 +402,42 @@ public class ShareImportManager {
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("image/jpeg");
             intent.putExtra(Intent.EXTRA_STREAM, uri);
-            intent.putExtra(Intent.EXTRA_TEXT, "👑 My Supreme Bias in \"" + tournamentTitle + "\" is " + champion.getStageName() + " (" + champion.getGroupName() + ")! Who is your bias? It's me!");
+            intent.putExtra(Intent.EXTRA_TEXT, "👑 Mi Bias Supremo en \"" + cleanTourneyTitle + "\" es " + champion.getStageName() + " (" + champion.getGroupName() + ")! ✨ Who is your bias? It's me!");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            activity.startActivity(Intent.createChooser(intent, "Share Victory Poster"));
+            activity.startActivity(Intent.createChooser(intent, "Compartir Póster de Victoria"));
         } catch (Exception e) {
-            Toast.makeText(activity, "Error sharing poster: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, "Error compartiendo póster: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private static String formatFriendlyGameMode(String mode) {
+        if (mode == null) return "Torneo";
+        switch (mode) {
+            case "KING_OF_THE_HILL":
+                return "Rey de la Colina (1v1)";
+            case "ROUND_ROBIN":
+                return "Liga Todos contra Todos";
+            case "DOUBLE_ELIMINATION":
+                return "Doble Eliminación";
+            default:
+                return "Torneo Eliminatoria";
+        }
+    }
+
+    private static void drawFittedCenteredText(Canvas canvas, String str, float cx, float y, Paint paint, float idealSize, float maxWidth) {
+        if (str == null) return;
+        float size = idealSize;
+        paint.setTextSize(size);
+        while (size > 18f && paint.measureText(str) > maxWidth) {
+            size -= 1.5f;
+            paint.setTextSize(size);
+        }
+        if (paint.measureText(str) > maxWidth) {
+            while (str.length() > 6 && paint.measureText(str + "...") > maxWidth) {
+                str = str.substring(0, str.length() - 1);
+            }
+            str = str + "...";
+        }
+        canvas.drawText(str, cx, y, paint);
     }
 }

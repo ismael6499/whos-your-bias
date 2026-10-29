@@ -22,6 +22,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.nitsutech.whosyourbias.R;
+import com.nitsutech.whosyourbias.util.ThemeManager;
 
 public class SplashActivity extends AppCompatActivity {
 
@@ -29,17 +30,23 @@ public class SplashActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Clean Vibrary-inspired Minimalist White Splash Screen with Animated Logo
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.WHITE);
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
 
-        // Soft decorative golden & blush circles in background
+        // Soft Pastel Gradient Splash Screen
+        FrameLayout root = new FrameLayout(this);
+        GradientDrawable splashBg = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{theme.backgroundColor, theme.surfaceColor, Color.parseColor("#F3E8FF")}
+        );
+        root.setBackground(splashBg);
+
+        // Soft decorative pastel circles in background
         View haloOuter = new View(this);
         GradientDrawable haloDrawable = new GradientDrawable();
         haloDrawable.setShape(GradientDrawable.OVAL);
-        haloDrawable.setColor(Color.parseColor("#FFF8DB"));
+        haloDrawable.setColor(Color.parseColor("#66FFE4EF"));
         haloOuter.setBackground(haloDrawable);
-        FrameLayout.LayoutParams haloLp = new FrameLayout.LayoutParams(dp(220), dp(220), Gravity.CENTER);
+        FrameLayout.LayoutParams haloLp = new FrameLayout.LayoutParams(dp(230), dp(230), Gravity.CENTER);
         haloLp.bottomMargin = dp(30);
         haloOuter.setLayoutParams(haloLp);
         haloOuter.setScaleX(0.2f);
@@ -54,17 +61,19 @@ public class SplashActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
         centerBox.setLayoutParams(cbLp);
 
-        // Rounded Squircle Icon Container
+        // Rounded Squircle Pastel Icon Container
         FrameLayout logoCard = new FrameLayout(this);
-        GradientDrawable cardBg = new GradientDrawable();
-        cardBg.setColor(Color.parseColor("#111827"));
-        cardBg.setCornerRadius(dp(34));
-        cardBg.setStroke(dp(4), Color.parseColor("#FFC700"));
+        GradientDrawable cardBg = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.parseColor("#FFF5F8"), Color.parseColor("#FFE4EF"), Color.parseColor("#F3E8FF")}
+        );
+        cardBg.setCornerRadius(dp(36));
+        cardBg.setStroke(dp(3), theme.primaryColor);
         logoCard.setBackground(cardBg);
-        LinearLayout.LayoutParams lcLp = new LinearLayout.LayoutParams(dp(116), dp(116));
+        LinearLayout.LayoutParams lcLp = new LinearLayout.LayoutParams(dp(120), dp(120));
         lcLp.bottomMargin = dp(22);
         logoCard.setLayoutParams(lcLp);
-        logoCard.setElevation(dp(10));
+        logoCard.setElevation(dp(8));
 
         ImageView ivLogo = new ImageView(this);
         ivLogo.setImageResource(R.drawable.ic_launcher_foreground);
@@ -81,7 +90,7 @@ public class SplashActivity extends AppCompatActivity {
         // App Title
         TextView tvTitle = new TextView(this);
         tvTitle.setText("Who's your Bias");
-        tvTitle.setTextColor(Color.parseColor("#111827"));
+        tvTitle.setTextColor(theme.textColor);
         tvTitle.setTextSize(28f);
         tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         tvTitle.setGravity(Gravity.CENTER);
@@ -89,13 +98,13 @@ public class SplashActivity extends AppCompatActivity {
         tvTitle.setTranslationY(dp(20));
         centerBox.addView(tvTitle);
 
-        // Golden Accent Bar under Title (Vibrary style)
+        // Pastel Accent Bar under Title
         View goldUnderline = new View(this);
         GradientDrawable lineGd = new GradientDrawable();
-        lineGd.setColor(Color.parseColor("#FFC700"));
+        lineGd.setColor(theme.primaryColor);
         lineGd.setCornerRadius(dp(4));
         goldUnderline.setBackground(lineGd);
-        LinearLayout.LayoutParams lineLp = new LinearLayout.LayoutParams(dp(64), dp(5));
+        LinearLayout.LayoutParams lineLp = new LinearLayout.LayoutParams(dp(68), dp(5));
         lineLp.topMargin = dp(8);
         lineLp.bottomMargin = dp(12);
         goldUnderline.setLayoutParams(lineLp);
@@ -105,7 +114,7 @@ public class SplashActivity extends AppCompatActivity {
         // Lyric Subtitle
         TextView tvSub = new TextView(this);
         tvSub.setText("“Who is your bias? I am your bias, it's me!”");
-        tvSub.setTextColor(Color.parseColor("#6B7280"));
+        tvSub.setTextColor(theme.getMutedTextColor());
         tvSub.setTextSize(13.5f);
         tvSub.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         tvSub.setGravity(Gravity.CENTER);
@@ -117,10 +126,10 @@ public class SplashActivity extends AppCompatActivity {
 
         // Footer Studio Brand
         TextView tvFooter = new TextView(this);
-        tvFooter.setText("NITSUTECH • K-POP COLLECTION & ARENA");
-        tvFooter.setTextColor(Color.parseColor("#9CA3AF"));
-        tvFooter.setTextSize(10.5f);
-        tvFooter.setLetterSpacing(0.12f);
+        tvFooter.setText("✨ K-POP PHOTOCARD & BIAS ARENA ✨");
+        tvFooter.setTextColor(theme.getMutedTextColor());
+        tvFooter.setTextSize(11f);
+        tvFooter.setLetterSpacing(0.10f);
         tvFooter.setGravity(Gravity.CENTER);
         FrameLayout.LayoutParams ftLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
@@ -148,7 +157,6 @@ public class SplashActivity extends AppCompatActivity {
                 .setInterpolator(new OvershootInterpolator(1.6f))
                 .start();
 
-        // Subtle pulse on the icon inside
         ObjectAnimator pulse = ObjectAnimator.ofPropertyValuesHolder(
                 ivLogo,
                 PropertyValuesHolder.ofFloat("scaleX", 1f, 1.12f, 1f),
@@ -195,7 +203,7 @@ public class SplashActivity extends AppCompatActivity {
             startActivity(intent);
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
-        }, 1850);
+        }, 1750);
     }
 
     private int dp(int v) {

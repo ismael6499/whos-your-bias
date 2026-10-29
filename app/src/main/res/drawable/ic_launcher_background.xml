@@ -13,17 +13,17 @@
                 android:endX="108"
                 android:endY="108"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#0D111C" />
-                <item android:offset="0.5" android:color="#181F36" />
-                <item android:offset="1.0" android:color="#271B4B" />
+                <item android:offset="0.0" android:color="#FFF5F8" />
+                <item android:offset="0.48" android:color="#FFE4EF" />
+                <item android:offset="1.0" android:color="#F3E8FF" />
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Glossy ambient glow -->
+    <!-- Soft Pastel Glow Circles -->
     <path
         android:pathData="M54,54m-42,0a42,42 0,1 1,84 0a42,42 0,1 1,-84 0"
-        android:fillColor="#2200F0FF" />
+        android:fillColor="#44FFD1DC" />
     <path
-        android:pathData="M54,54m-28,0a28,28 0,1 1,56 0a28,28 0,1 1,-56 0"
-        android:fillColor="#257B61FF" />
+        android:pathData="M54,54m-29,0a29,29 0,1 1,58 0a29,29 0,1 1,-58 0"
+        android:fillColor="#55FFF8DB" />
 </vector>
