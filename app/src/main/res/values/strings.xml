@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Who\'s your Bias</string>
+    <string name="app_subtitle">Who is your bias? I am your bias, it\'s me!</string>
+
+    <!-- Navigation Tabs -->
+    <string name="nav_arena">Arena &amp; Play</string>
+    <string name="nav_idols">Idol Cards</string>
+    <string name="nav_groups">Groups &amp; Decks</string>
+    <string name="nav_hall_of_fame">Hall of Fame</string>
+
+    <!-- YouTube & BGM Player -->
+    <string name="bgm_now_playing">BGM • ILLIT - It\'s Me / Jellyous</string>
+    <string name="bgm_play">▶ Play</string>
+    <string name="bgm_pause">⏸ Pause</string>
+    <string name="bgm_mute">🔇</string>
+    <string name="bgm_unmute">🔊</string>
+    <string name="bgm_change_song">🎵 Song</string>
+    <string name="bgm_video_toggle">📺 Video</string>
+    <string name="bgm_dialog_title">Background Music &amp; YouTube Player</string>
+    <string name="bgm_dialog_desc">Choose a preset song or paste any YouTube URL / Video ID to play in the background while you pick your bias.</string>
+    <string name="bgm_custom_url_hint">Paste YouTube link or video ID…</string>
+    <string name="bgm_apply">Play Song</string>
+
+    <!-- Arena & Quick Play -->
+    <string name="arena_quick_title">⚡ CPU Quick Tournament</string>
+    <string name="arena_quick_desc">Pick your game mode, deck filter, and card count. The CPU will deal a random tournament bracket!</string>
+    <string name="label_game_mode">Game Mode</string>
+    <string name="mode_bracket">🏆 Classic World Cup (Elimination Bracket)</string>
+    <string name="mode_koth">👑 King of the Hill (Winner Stays On)</string>
+    <string name="mode_round_robin">📊 Points League (Round Robin Ranking)</string>
+    <string name="mode_double_elim">⚔️ Double Elimination (Redemption Bracket)</string>
+    <string name="label_card_count">Number of Cards</string>
+    <string name="label_filter_deck">Filter Pool (Group / Collection)</string>
+    <string name="btn_start_cpu_match">🚀 START RANDOM MATCH</string>
+
+    <!-- Custom Matches & Sharing -->
+    <string name="arena_custom_title">🎯 Custom Matches &amp; Challenge Friends</string>
+    <string name="arena_custom_desc">Build your own hand-picked idol roster for a friend to play on your phone or share via WhatsApp!</string>
+    <string name="btn_create_custom_match">➕ Create Custom Match</string>
+    <string name="btn_import_whatsapp">📥 Import File (.wyb) or WhatsApp Code</string>
+    <string name="empty_custom_matches">No custom matches yet. Create one to challenge a friend!</string>
+
+    <!-- Idol Cards Tab -->
+    <string name="search_idols_hint">Search by idol, real name, group, country, role…</string>
+    <string name="btn_add_idol">➕ New Idol Card</string>
+    <string name="btn_share_idols">📤 Share Idols to WhatsApp</string>
+    <string name="btn_select_all">Select All</string>
+    <string name="btn_clear_selection">Cancel</string>
+
+    <!-- Card Creation / Editing -->
+    <string name="dialog_create_idol">Create / Edit Idol Card</string>
+    <string name="hint_stage_name">Display / Stage Name (e.g. Minju, Wonhee, Felix)</string>
+    <string name="hint_full_name">Full Real Name &amp; Surname (e.g. Park Min-ju)</string>
+    <string name="hint_group_name">Group Name (e.g. ILLIT, Stray Kids) or leave for Soloist</string>
+    <string name="check_is_soloist">Is Soloist Artist</string>
+    <string name="hint_country">Country / Origin (e.g. South Korea, Japan, Australia)</string>
+    <string name="hint_birth_date">Birthdate YYYY-MM-DD (e.g. 2004-05-11)</string>
+    <string name="hint_role">Role / Position (e.g. Main Vocal, Dancer, Visual)</string>
+    <string name="hint_photo_url">Photo URL (or tap button below to pick from device files)</string>
+    <string name="btn_pick_photo_file">📁 Pick Photo from Gallery / Files</string>
+    <string name="hint_collections">Collections / Decks (comma separated, e.g. 5th Gen, Girl Groups)</string>
+    <string name="hint_bio">Catchphrase / Bio / Fun Facts</string>
+    <string name="label_card_color">Card Theme Color</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_delete">Delete</string>
+
+    <!-- Share & Selective Import -->
+    <string name="share_mode_title">Share via WhatsApp</string>
+    <string name="share_mode_desc">How would you like to send this to your friend?</string>
+    <string name="share_option_file">📎 Direct File (.wyb) — Tap in WhatsApp to open directly in the app (Includes local photos!)</string>
+    <string name="share_option_code">💬 WhatsApp Message + Link/Code — Copy or tap link in chat</string>
+    <string name="import_preview_title">📥 Incoming Pack / Challenge Preview</string>
+    <string name="import_preview_desc">Select which Idols you want to save to your collection. Tap ✏️ on any card to edit its details before importing!</string>
+    <string name="btn_import_selected">💾 Save Selected Cards</string>
+    <string name="btn_play_imported_match">🎮 Play Shared Match Now!</string>
+
+    <!-- Match Arena -->
+    <string name="match_choose_prompt">TAP YOUR BIAS TO ADVANCE • TAP 🔄 TO FLIP 3D</string>
+    <string name="btn_flip_card">🔄 3D Flip Info</string>
+    <string name="btn_pick_this_bias">⚡ PICK BIAS</string>
+    <string name="card_back_real_name">Full Name:</string>
+    <string name="card_back_age_zodiac">Age &amp; Zodiac:</string>
+    <string name="card_back_country">Origin:</string>
+    <string name="card_back_role">Position / Role:</string>
+    <string name="card_back_group_mates">Fellow Group Members:</string>
+    <string name="card_back_stats">Record:</string>
+
+    <!-- Victory Screen -->
+    <string name="victory_slogan">WHO IS YOUR BIAS? I AM YOUR BIAS, IT\'S ME!</string>
+    <string name="victory_champion_badge">👑 SUPREME BIAS CHAMPION 👑</string>
+    <string name="victory_podium_title">🏅 Tournament Podium &amp; Final Standings</string>
+    <string name="victory_path_title">⚔️ Championship Path (Defeated Opponents)</string>
+    <string name="btn_share_victory_poster">📸 Share Victory Card (WhatsApp / Stories)</string>
+    <string name="btn_rematch_same">🔄 Rematch (Same Roster)</string>
+    <string name="btn_finish_home">🏠 Back to Arena</string>
+</resources>

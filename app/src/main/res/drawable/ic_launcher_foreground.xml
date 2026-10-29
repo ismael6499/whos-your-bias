@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Left Tilted Card (Cyan Neon) -->
+    <group
+        android:pivotX="42"
+        android:pivotY="58"
+        android:rotation="-12">
+        <path
+            android:fillColor="#162238"
+            android:strokeColor="#00F0FF"
+            android:strokeWidth="2.5"
+            android:pathData="M28,34 C28,31.5 30,29.5 32.5,29.5 L53.5,29.5 C56,29.5 58,31.5 58,34 L58,72 C58,74.5 56,76.5 53.5,76.5 L32.5,76.5 C30,76.5 28,74.5 28,72 Z" />
+        <path
+            android:fillColor="#00F0FF"
+            android:pathData="M43,43 L45.5,48.5 L51.5,49.2 L47,53.2 L48.2,59 L43,56 L37.8,59 L39,53.2 L34.5,49.2 L40.5,48.5 Z" />
+    </group>
+
+    <!-- Right Tilted Card (Electric Violet/Coral) -->
+    <group
+        android:pivotX="66"
+        android:pivotY="58"
+        android:rotation="12">
+        <path
+            android:fillColor="#23193E"
+            android:strokeColor="#FF3366"
+            android:strokeWidth="2.5"
+            android:pathData="M50,34 C50,31.5 52,29.5 54.5,29.5 L75.5,29.5 C78,29.5 80,31.5 80,34 L80,72 C80,74.5 78,76.5 75.5,76.5 L54.5,76.5 C52,76.5 50,74.5 50,72 Z" />
+        <path
+            android:fillColor="#FF3366"
+            android:pathData="M65,43 L67.5,48.5 L73.5,49.2 L69,53.2 L70.2,59 L65,56 L59.8,59 L61,53.2 L56.5,49.2 L62.5,48.5 Z" />
+    </group>
+
+    <!-- Center Golden Crown Badge -->
+    <path
+        android:fillColor="#0E1017"
+        android:strokeColor="#FFD166"
+        android:strokeWidth="2.2"
+        android:pathData="M54,56m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0" />
+    <path
+        android:fillColor="#FFD166"
+        android:pathData="M45,61 L47,50 L51,54 L54,48 L57,54 L61,50 L63,61 Z" />
+    <!-- Top Sparkle -->
+    <path
+        android:fillColor="#00F0FF"
+        android:pathData="M54,20 L56,26 L62,28 L56,30 L54,36 L52,30 L46,28 L52,26 Z" />
+</vector>
