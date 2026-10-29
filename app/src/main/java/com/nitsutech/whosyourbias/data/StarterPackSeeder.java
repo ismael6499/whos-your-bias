@@ -482,7 +482,7 @@ public class StarterPackSeeder {
         PHOTO_MAP.put("idol_illit_yunah", "https://static.wikia.nocookie.net/kpop/images/5/56/ILLIT_Yunah_Break_Even_concept_photo_8.png/revision/latest/scale-to-width-down/428?cb=20261006122441");
         PHOTO_MAP.put("idol_nj_hyein", "https://static.wikia.nocookie.net/kpop/images/b/b9/NewJeans_Hyein_2026_Summer_of_NewJeans_concept_photo_6.png/revision/latest/scale-to-width-down/400?cb=20260721195827");
         PHOTO_MAP.put("idol_lsf_kazuha", "https://static.wikia.nocookie.net/kpop/images/1/1d/LE_SSERAFIM_Kazuha_Made_My_Night_concept_photo_3.png/revision/latest/scale-to-width-down/400?cb=20260901155418");
-        PHOTO_MAP.put("idol_illit_moka", "https://static.wikia.nocookie.net/kpop/images/6/69/ILLIT_Moka_I_Got_Your_Back_concept_photo_4.png/revision/latest/scale-to-width-down/400?cb=20260626104728");
+        PHOTO_MAP.put("idol_illit_moka", "https://static.wikia.nocookie.net/kpop/images/7/76/ILLIT_Moka_Almond_Chocolate_concept_photo_1.png/revision/latest/scale-to-width-down/600?cb=20250210164514");
         PHOTO_MAP.put("idol_lsf_eunchae", "https://static.wikia.nocookie.net/kpop/images/d/d4/LE_SSERAFIM_Hong_Eunchae_Made_My_Night_concept_photo_3.png/revision/latest/scale-to-width-down/400?cb=20260901155409");
         PHOTO_MAP.put("idol_lsf_sakura", "https://static.wikia.nocookie.net/kpop/images/2/2c/LE_SSERAFIM_Sakura_Made_My_Night_concept_photo_3.png/revision/latest/scale-to-width-down/400?cb=20260901155413");
         PHOTO_MAP.put("idol_lsf_chaewon", "https://static.wikia.nocookie.net/kpop/images/e/ee/LE_SSERAFIM_Kim_Chaewon_Made_My_Night_concept_photo_5.png/revision/latest/scale-to-width-down/400?cb=20260901155421");
