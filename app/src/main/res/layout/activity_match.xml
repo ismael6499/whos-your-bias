@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/matchRootFrame"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark_primary">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Top Match Status Bar -->
+        <LinearLayout
+            android:id="@+id/matchTopBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="8dp"
+            android:background="@color/bg_dark_surface">
+
+            <TextView
+                android:id="@+id/btnExitMatch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✕"
+                android:textColor="@color/text_secondary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:background="@drawable/bg_chip_tag" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingStart="10dp"
+                android:paddingEnd="8dp">
+
+                <TextView
+                    android:id="@+id/tvMatchTournamentTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Who's your Bias"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:singleLine="true" />
+
+                <TextView
+                    android:id="@+id/tvMatchRoundBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ROUND OF 16 • MATCH 1/8"
+                    android:textColor="@color/accent_cyan"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:singleLine="true" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/btnLightstickCheer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🪄 Lightstick"
+                android:textColor="@color/accent_gold"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
+                android:background="@drawable/bg_chip_tag" />
+        </LinearLayout>
+
+        <!-- Match Progress Bar -->
+        <ProgressBar
+            android:id="@+id/matchProgressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:max="100"
+            android:progress="15"
+            android:progressTint="@color/accent_cyan"
+            android:progressBackgroundTint="#1E293B" />
+
+        <!-- YouTube BGM Bar in Arena -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#101524"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvMatchBgmTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/bgm_now_playing"
+                    android:textColor="@color/accent_cyan"
+                    android:textSize="11sp"
+                    android:singleLine="true" />
+
+                <TextView
+                    android:id="@+id/btnMatchBgmPlayPause"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/bgm_play"
+                    android:textColor="@color/text_primary"
+                    android:textSize="10sp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/bg_chip_tag" />
+
+                <TextView
+                    android:id="@+id/btnMatchBgmMute"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/bgm_unmute"
+                    android:textColor="@color/text_primary"
+                    android:textSize="10sp"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/bg_chip_tag" />
+
+                <TextView
+                    android:id="@+id/btnMatchBgmVideo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/bgm_video_toggle"
+                    android:textColor="@color/text_primary"
+                    android:textSize="10sp"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/bg_chip_tag" />
+
+                <TextView
+                    android:id="@+id/btnMatchBgmSong"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/bgm_change_song"
+                    android:textColor="@color/accent_gold"
+                    android:textSize="10sp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:background="@drawable/bg_chip_tag" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/matchBgmVideoContainer"
+                android:layout_width="match_parent"
+                android:layout_height="110dp"
+                android:layout_marginTop="4dp"
+                android:visibility="gone">
+
+                <WebView
+                    android:id="@+id/matchBgmWebView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- 1v1 DUEL ARENA VIEW -->
+        <LinearLayout
+            android:id="@+id/arenaDuelContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="10dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/match_choose_prompt"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:letterSpacing="0.06"
+                android:paddingBottom="6dp" />
+
+            <!-- CARD 1 (TOP CONTENDER) -->
+            <FrameLayout
+                android:id="@+id/cardSlotTop"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <!-- GLOWING VS DIVIDER -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="4dp">
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1.5dp"
+                    android:layout_weight="1"
+                    android:background="#3300F0FF" />
+
+                <TextView
+                    android:id="@+id/tvVsBadge"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:gravity="center"
+                    android:text="VS"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold"
+                    android:textSize="13sp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="12dp"
+                    android:background="@drawable/bg_vs_circle" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1.5dp"
+                    android:layout_weight="1"
+                    android:background="#33FF3366" />
+            </LinearLayout>
+
+            <!-- CARD 2 (BOTTOM CONTENDER) -->
+            <FrameLayout
+                android:id="@+id/cardSlotBottom"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+        </LinearLayout>
+
+        <!-- VICTORY CORONATION VIEW (Hidden until tournament completes) -->
+        <ScrollView
+            android:id="@+id/victoryScrollContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/victoryContentBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:gravity="center_horizontal" />
+        </ScrollView>
+
+    </LinearLayout>
+
+    <!-- Celebratory Confetti & Lightstick Particle Overlay -->
+    <com.nitsutech.whosyourbias.ui.ConfettiView
+        android:id="@+id/confettiOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="false"
+        android:focusable="false" />
+
+</FrameLayout>
