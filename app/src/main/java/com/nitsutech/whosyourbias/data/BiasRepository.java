@@ -60,17 +60,23 @@ public class BiasRepository {
             idols.addAll(StarterPackSeeder.getInitialIdols());
             saveIdols();
         } else {
-            // Ensure any newly added starter groups (like CORTIS / BIGBANG) exist
-            Set<String> existingIds = new LinkedHashSet<>();
-            for (IdolCard c : idols) existingIds.add(c.getId());
-            boolean addedAny = false;
+            // Ensure any newly added starter groups exist AND backfill new Kpop Wiki photo URLs
+            java.util.Map<String, IdolCard> existingMap = new java.util.HashMap<>();
+            for (IdolCard c : idols) existingMap.put(c.getId(), c);
+            boolean updatedAny = false;
             for (IdolCard seed : StarterPackSeeder.getInitialIdols()) {
-                if (!existingIds.contains(seed.getId())) {
+                IdolCard ex = existingMap.get(seed.getId());
+                if (ex == null) {
                     idols.add(seed);
-                    addedAny = true;
+                    updatedAny = true;
+                } else if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty() || ex.getPhotoUri().contains("wikimedia.org"))
+                        && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
+                    ex.setPhotoUri(seed.getPhotoUri());
+                    ex.addPhotocard(seed.getPhotoUri());
+                    updatedAny = true;
                 }
             }
-            if (addedAny) saveIdols();
+            if (updatedAny) saveIdols();
         }
 
         customMatches.clear();

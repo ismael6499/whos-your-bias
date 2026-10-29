@@ -144,22 +144,21 @@ public class CardImageLoader {
     }
 
     private static Bitmap tryFetchWikipediaPortrait(IdolCard card) {
-        String[] candidates = new String[]{
-                card.getStageName() + " (" + card.getGroupName() + ")",
-                card.getStageName() + " (singer)",
-                card.getFullName(),
-                card.getStageName(),
-                card.getGroupName()
-        };
+        String cleanStage = card.getStageName().replaceAll("\\s*\\([^)]*\\)", "").trim();
+        String[] candidates = card.isSoloist()
+                ? new String[]{cleanStage, card.getFullName()}
+                : new String[]{cleanStage + " (" + card.getGroupName() + ")", card.getGroupName() + " " + cleanStage, cleanStage};
+
         for (String query : candidates) {
-            if (query == null || query.trim().isEmpty() || "Soloist".equalsIgnoreCase(query.trim())) continue;
+            if (query == null || query.trim().isEmpty()) continue;
             try {
-                String encoded = URLEncoder.encode(query.trim().replace(" ", "_"), "UTF-8");
-                String apiUrl = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encoded;
+                String encoded = URLEncoder.encode(query.trim(), "UTF-8");
+                String apiUrl = "https://kpop.fandom.com/api.php?action=query&generator=search&gsrsearch="
+                        + encoded + "&gsrlimit=2&prop=pageimages&piprop=thumbnail|original&pithumbsize=600&format=json";
                 HttpURLConnection conn = (HttpURLConnection) new URL(apiUrl).openConnection();
-                conn.setConnectTimeout(3500);
-                conn.setReadTimeout(3500);
-                conn.setRequestProperty("User-Agent", "WhosYourBiasApp/1.0 (Android)");
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(4000);
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14)");
                 if (conn.getResponseCode() == 200) {
                     StringBuilder sb = new StringBuilder();
                     try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
@@ -167,12 +166,21 @@ public class CardImageLoader {
                         while ((line = br.readLine()) != null) sb.append(line);
                     }
                     JSONObject json = new JSONObject(sb.toString());
-                    JSONObject thumb = json.optJSONObject("thumbnail");
-                    if (thumb != null) {
-                        String src = thumb.optString("source", "");
-                        if (!src.isEmpty()) {
-                            Bitmap b = downloadBitmap(src);
-                            if (b != null) return b;
+                    JSONObject qObj = json.optJSONObject("query");
+                    if (qObj != null) {
+                        JSONObject pages = qObj.optJSONObject("pages");
+                        if (pages != null && pages.names() != null) {
+                            for (int i = 0; i < pages.names().length(); i++) {
+                                JSONObject page = pages.optJSONObject(pages.names().optString(i));
+                                if (page != null) {
+                                    JSONObject thumb = page.optJSONObject("thumbnail");
+                                    String src = thumb != null ? thumb.optString("source", "") : "";
+                                    if (!src.isEmpty() && !src.contains("Placeholder")) {
+                                        Bitmap b = downloadBitmap(src);
+                                        if (b != null) return b;
+                                    }
+                                }
+                            }
                         }
                     }
                 }

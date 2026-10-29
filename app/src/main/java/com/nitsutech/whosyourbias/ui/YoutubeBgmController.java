@@ -1,176 +1,293 @@
 package com.nitsutech.whosyourbias.ui;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.nitsutech.whosyourbias.R;
 import com.nitsutech.whosyourbias.data.BiasRepository;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class YoutubeBgmController {
-    private static final String PREF_BGM_ID = "bgm_video_id";
-    private static final String PREF_BGM_TITLE = "bgm_title";
-    private static final String PREF_BGM_AUTOPLAY = "bgm_autoplay";
+    private static final String PREF_BGM_URL = "bgm_stream_url_v2";
+    private static final String PREF_BGM_TITLE = "bgm_stream_title_v2";
+    private static final String PREF_BGM_AUTOPLAY = "bgm_autoplay_v2";
 
-    // Presets: Video ID or "SYNTH_BEAT" for built-in copyright-free K-Pop synth loop
+    // Verified high-speed studio audio streams (.m4a)
     public static final String[][] PRESETS = new String[][]{
-            {"🎶 ILLIT - It's Me (Who is your bias?)", "utr3G6G3kI0"},
-            {"🍬 ILLIT - Jellyous / I'LL LIKE YOU", "tbDGl7jEazA"},
-            {"🧲 ILLIT - Magnetic", "Vk5-c_v4gMU"},
-            {"🍒 ILLIT - Cherish (My Love)", "tbDGl7jEazA"},
-            {"💖 RESCENE - LOVE ATTACK", "X9_n8jakvWU"},
-            {"✨ KATSEYE - Touch", "l9CZykYZkOQ"},
-            {"🐱 MEOVV - MEOW", "jpLHg-AsQV0"},
-            {"🌿 KiiiKiii - I DO ME", "5K8W1_2wNRE"},
-            {"⚡ aespa - Supernova", "phuiiNCxRMg"},
-            {"🔥 Stray Kids - Chk Chk Boom", "0P0aQreFs8w"},
-            {"🎹 K-Pop Jellyous Synth Beat (Built-in Offline BGM)", "SYNTH_BEAT"}
+            {"🍬 ILLIT - Jellyous", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/13/13/20/13132098-7412-2b3b-f54b-5f9515c4a075/mzaf_12702295383222688240.plus.aac.p.m4a"},
+            {"🎵 ILLIT - Tick-Tack (It's Me Theme)", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/68/e9/78/68e978c1-6d32-713d-c91b-836669da6ee3/mzaf_14472264782207748518.plus.aac.p.m4a"},
+            {"🧲 ILLIT - Magnetic", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/e8/7e/67/e87e6795-4ada-2f65-d562-1fd2a3eddfdf/mzaf_11263458879279601822.plus.aac.p.m4a"},
+            {"🍒 ILLIT - Cherish (My Love)", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/ff/c5/9d/ffc59d63-bd5d-0b93-4592-2dd7d797de8e/mzaf_7002868842246643213.plus.aac.p.m4a"},
+            {"✨ ILLIT - IYKYK (If You Know You Know)", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/eb/4a/ea/eb4aea2f-9b99-0c18-7f4e-5c9930a3d4b7/mzaf_17432026377570440264.plus.aac.p.m4a"},
+            {"🍀 ILLIT - Lucky Girl Syndrome", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/09/d9/7e/09d97e5a-d322-77f1-824f-17631d8c350b/mzaf_2514770446263700121.plus.aac.p.m4a"},
+            {"💖 RESCENE - LOVE ATTACK", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/6a/c5/ec/6ac5ecf5-6e26-e551-0b1d-d9f2fcb253a2/mzaf_18228858557779313654.plus.aac.p.m4a"},
+            {"🌟 KATSEYE - Touch", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/9f/1d/86/9f1d8632-0842-ba50-107d-1f3bc5b7b362/mzaf_6667750882234216216.plus.aac.p.m4a"},
+            {"🐱 MEOVV - MEOW", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/66/cc/27/66cc271e-8a4f-61d8-f60a-8950c8c7b9fa/mzaf_3451951594926395113.plus.aac.p.m4a"},
+            {"🌿 KiiiKiii - I DO ME", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/8e/57/4e/8e574e26-8147-8430-6ace-93a8eb7a01d6/mzaf_5228116227050500579.plus.aac.p.m4a"},
+            {"⚡ aespa - Supernova", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/f6/cc/58/f6cc5863-c60a-caac-e7f8-bd66b414a917/mzaf_8631809138360097160.plus.aac.p.m4a"},
+            {"🔥 Stray Kids - Chk Chk Boom", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/36/77/87/367787a9-a2f2-0684-6611-5a78d855782d/mzaf_1227971913921381507.plus.aac.p.m4a"},
+            {"🛹 NEXZ - Ride the Vibe", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/1d/90/b4/1d90b4a1-39f0-2cb7-e10b-4c7fdbc1453f/mzaf_7679262427092888355.plus.aac.p.m4a"},
+            {"🐰 NewJeans - Super Shy", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/a0/0c/47/a00c4790-3bbe-c669-fc8b-d8779508b512/mzaf_4170831274187670095.plus.aac.p.m4a"},
+            {"⚡ LE SSERAFIM - CRAZY", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/46/0b/ae/460bae7f-536e-9df1-8aa4-ef1ed6d3b314/mzaf_17541894071969246196.plus.aac.p.m4a"},
+            {"🧛 ENHYPEN - XO (Only If You Say Yes)", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/03/67/e1/0367e19c-00be-22c0-77e0-50395fa347fa/mzaf_5914760408694089352.plus.aac.p.m4a"},
+            {"👑 BLACKPINK - Shut Down", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/c3/15/06/c31506be-4ea9-81b8-4f7f-803ee7305721/mzaf_5655789092813624412.plus.aac.p.m4a"},
+            {"😈 BABYMONSTER - DRIP", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/11/49/8d/11498d26-33f8-d33e-9641-0931f48c1530/mzaf_16154189721053536181.plus.aac.p.m4a"}
     };
 
+    // Shared static MediaPlayer so music continues seamlessly between MainActivity and MatchActivity!
+    private static MediaPlayer sharedPlayer;
+    private static String activeStreamUrl = "";
+    private static String activeTitle = PRESETS[0][0];
+    private static boolean isPlaying = false;
+    private static boolean isMuted = false;
+    private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final Handler mainHandler = new Handler(Looper.getMainLooper());
+
     private final Activity activity;
-    private final WebView webView;
     private final TextView titleLabel;
     private final TextView btnPlayPause;
     private final TextView btnMute;
-    private final View videoContainer;
 
-    private String currentVideoId;
-    private String currentTitle;
-    private boolean isPlaying = false;
-    private boolean isMuted = false;
-    private boolean isVideoExpanded = false;
-
-    @SuppressLint("SetJavaScriptEnabled")
-    public YoutubeBgmController(Activity activity, WebView webView, View videoContainer,
+    public YoutubeBgmController(Activity activity, WebView unusedWebView, View unusedVideoContainer,
                                 TextView titleLabel, TextView btnPlayPause, TextView btnMute,
                                 TextView btnToggleVideo, TextView btnChangeSong) {
         this.activity = activity;
-        this.webView = webView;
-        this.videoContainer = videoContainer;
         this.titleLabel = titleLabel;
         this.btnPlayPause = btnPlayPause;
         this.btnMute = btnMute;
 
+        if (unusedVideoContainer != null) unusedVideoContainer.setVisibility(View.GONE);
+        if (btnToggleVideo != null) btnToggleVideo.setVisibility(View.GONE);
+
         SharedPreferences prefs = BiasRepository.getInstance(activity).getPrefs();
-        this.currentVideoId = prefs.getString(PREF_BGM_ID, PRESETS[0][1]);
-        this.currentTitle = prefs.getString(PREF_BGM_TITLE, PRESETS[0][0]);
+        String savedUrl = prefs.getString(PREF_BGM_URL, PRESETS[0][1]);
+        String savedTitle = prefs.getString(PREF_BGM_TITLE, PRESETS[0][0]);
 
-        WebSettings ws = webView.getSettings();
-        ws.setJavaScriptEnabled(true);
-        ws.setDomStorageEnabled(true);
-        ws.setMediaPlaybackRequiresUserGesture(false);
-        webView.setBackgroundColor(Color.BLACK);
-        webView.setWebChromeClient(new WebChromeClient());
-        webView.setWebViewClient(new WebViewClient());
+        if (activeStreamUrl.isEmpty()) {
+            activeStreamUrl = savedUrl;
+            activeTitle = savedTitle;
+        }
 
-        titleLabel.setText(currentTitle);
+        titleLabel.setText(activeTitle);
         updateButtonsUi();
 
         btnPlayPause.setOnClickListener(v -> togglePlayPause());
         btnMute.setOnClickListener(v -> toggleMute());
-        btnToggleVideo.setOnClickListener(v -> {
-            isVideoExpanded = !isVideoExpanded;
-            videoContainer.setVisibility(isVideoExpanded ? View.VISIBLE : View.GONE);
-        });
         btnChangeSong.setOnClickListener(v -> showSongPickerDialog());
+        titleLabel.setOnClickListener(v -> showSongPickerDialog());
 
-        if (prefs.getBoolean(PREF_BGM_AUTOPLAY, true)) {
-            loadAndPlay(currentVideoId, currentTitle, true);
+        boolean auto = prefs.getBoolean(PREF_BGM_AUTOPLAY, true);
+        if (auto && sharedPlayer == null) {
+            loadAndPlay(activeStreamUrl, activeTitle, true);
         }
     }
 
-    public void loadAndPlay(String videoIdOrMode, String title, boolean autoStart) {
-        this.currentVideoId = videoIdOrMode;
-        this.currentTitle = title;
-        this.isPlaying = autoStart;
+    public synchronized void loadAndPlay(String streamUrl, String title, boolean autoStart) {
+        activeStreamUrl = streamUrl;
+        activeTitle = title;
         titleLabel.setText(title);
-        updateButtonsUi();
 
         SharedPreferences prefs = BiasRepository.getInstance(activity).getPrefs();
         prefs.edit()
-                .putString(PREF_BGM_ID, currentVideoId)
-                .putString(PREF_BGM_TITLE, currentTitle)
+                .putString(PREF_BGM_URL, activeStreamUrl)
+                .putString(PREF_BGM_TITLE, activeTitle)
                 .putBoolean(PREF_BGM_AUTOPLAY, autoStart)
                 .apply();
 
         if (!autoStart) {
-            webView.loadUrl("about:blank");
+            stopCurrentPlayer();
+            isPlaying = false;
+            updateButtonsUi();
             return;
         }
 
-        if ("SYNTH_BEAT".equals(videoIdOrMode)) {
-            webView.loadDataWithBaseURL("https://whosyourbias.local", buildWebAudioSynthHtml(), "text/html", "UTF-8", null);
-        } else {
-            String html = buildYoutubeIframeHtml(videoIdOrMode);
-            webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
+        stopCurrentPlayer();
+        isPlaying = true;
+        updateButtonsUi();
+
+        executor.execute(() -> {
+            try {
+                MediaPlayer mp = new MediaPlayer();
+                mp.setAudioAttributes(new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build());
+                mp.setDataSource(streamUrl);
+                mp.setLooping(true);
+                float vol = isMuted ? 0f : 1f;
+                mp.setVolume(vol, vol);
+                mp.setOnPreparedListener(player -> {
+                    sharedPlayer = player;
+                    if (isPlaying) {
+                        player.start();
+                    }
+                    mainHandler.post(this::updateButtonsUi);
+                });
+                mp.setOnErrorListener((player, what, extra) -> {
+                    isPlaying = false;
+                    mainHandler.post(this::updateButtonsUi);
+                    return true;
+                });
+                mp.prepareAsync();
+            } catch (Exception e) {
+                isPlaying = false;
+                mainHandler.post(this::updateButtonsUi);
+            }
+        });
+    }
+
+    private static synchronized void stopCurrentPlayer() {
+        if (sharedPlayer != null) {
+            try {
+                if (sharedPlayer.isPlaying()) sharedPlayer.stop();
+                sharedPlayer.release();
+            } catch (Exception ignored) {
+            }
+            sharedPlayer = null;
         }
     }
 
     public void togglePlayPause() {
-        if (!isPlaying) {
-            loadAndPlay(currentVideoId, currentTitle, true);
-        } else {
-            isPlaying = false;
-            webView.loadUrl("about:blank");
-            BiasRepository.getInstance(activity).getPrefs().edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
-            updateButtonsUi();
+        SharedPreferences prefs = BiasRepository.getInstance(activity).getPrefs();
+        if (sharedPlayer != null) {
+            try {
+                if (sharedPlayer.isPlaying()) {
+                    sharedPlayer.pause();
+                    isPlaying = false;
+                    prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
+                } else {
+                    sharedPlayer.start();
+                    isPlaying = true;
+                    prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
+                }
+                updateButtonsUi();
+                return;
+            } catch (Exception ignored) {
+            }
         }
+        loadAndPlay(activeStreamUrl, activeTitle, !isPlaying);
     }
 
     public void toggleMute() {
         isMuted = !isMuted;
-        webView.evaluateJavascript("if(window.toggleMuteBgm) window.toggleMuteBgm(" + isMuted + ");", null);
+        if (sharedPlayer != null) {
+            try {
+                float vol = isMuted ? 0f : 1f;
+                sharedPlayer.setVolume(vol, vol);
+            } catch (Exception ignored) {
+            }
+        }
         updateButtonsUi();
     }
 
-    private void updateButtonsUi() {
-        btnPlayPause.setText(isPlaying ? activity.getString(R.string.bgm_pause) : activity.getString(R.string.bgm_play));
-        btnMute.setText(isMuted ? activity.getString(R.string.bgm_mute) : activity.getString(R.string.bgm_unmute));
+    public void updateButtonsUi() {
+        titleLabel.setText(activeTitle);
+        btnPlayPause.setText(isPlaying ? "⏸" : "▶");
+        btnMute.setText(isMuted ? "🔇" : "🔊");
     }
 
     public void showSongPickerDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(activity, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-        builder.setTitle(activity.getString(R.string.bgm_dialog_title));
-
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity);
         ScrollView scroll = new ScrollView(activity);
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(16);
+        int pad = dp(18);
         root.setPadding(pad, pad, pad, pad);
-        root.setBackgroundColor(Color.parseColor("#141827"));
-
-        TextView desc = new TextView(activity);
-        desc.setText(activity.getString(R.string.bgm_dialog_desc));
-        desc.setTextColor(Color.parseColor("#94A3B8"));
-        desc.setTextSize(13f);
-        desc.setPadding(0, 0, 0, dp(12));
-        root.addView(desc);
+        root.setBackgroundColor(Color.WHITE);
 
         AlertDialog[] dialogRef = new AlertDialog[1];
 
+        TextView tvHeader = new TextView(activity);
+        tvHeader.setText("🎵 Background Music (K-Pop Studio Audio)");
+        tvHeader.setTextColor(Color.parseColor("#111827"));
+        tvHeader.setTextSize(17f);
+        tvHeader.setTypeface(Typeface.DEFAULT_BOLD);
+        root.addView(tvHeader);
+
+        TextView desc = new TextView(activity);
+        desc.setText("Pick any song below or search any K-Pop song/artist to stream in the background.");
+        desc.setTextColor(Color.parseColor("#6B7280"));
+        desc.setTextSize(12.5f);
+        desc.setPadding(0, dp(4), 0, dp(12));
+        root.addView(desc);
+
+        // Live Song Search Bar
+        LinearLayout searchRow = new LinearLayout(activity);
+        searchRow.setOrientation(LinearLayout.HORIZONTAL);
+        searchRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams sLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        sLp.setMargins(0, 0, 0, dp(12));
+        searchRow.setLayoutParams(sLp);
+
+        EditText etSearchSong = new EditText(activity);
+        etSearchSong.setHint("🔍 Search any K-Pop song (e.g. TWICE, G-Dragon, YENA)...");
+        etSearchSong.setTextColor(Color.parseColor("#111827"));
+        etSearchSong.setHintTextColor(Color.parseColor("#9CA3AF"));
+        etSearchSong.setTextSize(12.5f);
+        etSearchSong.setSingleLine(true);
+        etSearchSong.setPadding(dp(12), dp(10), dp(12), dp(10));
+        etSearchSong.setBackgroundResource(R.drawable.bg_chip_tag);
+        LinearLayout.LayoutParams etLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        etLp.setMargins(0, 0, dp(8), 0);
+        etSearchSong.setLayoutParams(etLp);
+        searchRow.addView(etSearchSong);
+
+        TextView btnFind = new TextView(activity);
+        btnFind.setText("Play");
+        btnFind.setTextColor(Color.parseColor("#111827"));
+        btnFind.setTypeface(Typeface.DEFAULT_BOLD);
+        btnFind.setTextSize(12.5f);
+        btnFind.setPadding(dp(14), dp(10), dp(14), dp(10));
+        btnFind.setBackgroundResource(R.drawable.bg_btn_gold);
+        searchRow.addView(btnFind);
+        root.addView(searchRow);
+
+        btnFind.setOnClickListener(v -> {
+            String q = etSearchSong.getText().toString().trim();
+            if (q.isEmpty()) return;
+            Toast.makeText(activity, "🎵 Searching \"" + q + "\"...", Toast.LENGTH_SHORT).show();
+            searchAndPlayItunesSong(q, () -> {
+                if (dialogRef[0] != null) dialogRef[0].dismiss();
+            });
+        });
+
         for (String[] preset : PRESETS) {
             TextView item = new TextView(activity);
-            item.setText(preset[0]);
-            item.setTextColor(Color.WHITE);
-            item.setTextSize(14f);
+            boolean active = preset[0].equals(activeTitle);
+            item.setText((active ? "🔊 " : "") + preset[0]);
+            item.setTextColor(Color.parseColor("#111827"));
+            item.setTypeface(null, active ? Typeface.BOLD : Typeface.NORMAL);
+            item.setTextSize(13.5f);
             item.setPadding(dp(14), dp(12), dp(14), dp(12));
-            item.setBackgroundResource(R.drawable.bg_btn_secondary);
+            item.setBackgroundResource(active ? R.drawable.bg_btn_gold : R.drawable.bg_chip_tag);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.setMargins(0, 0, 0, dp(8));
@@ -182,42 +299,6 @@ public class YoutubeBgmController {
             root.addView(item);
         }
 
-        // Custom YouTube link or Search input
-        TextView customLabel = new TextView(activity);
-        customLabel.setText("🔗 Custom YouTube URL or Video ID:");
-        customLabel.setTextColor(Color.parseColor("#00F0FF"));
-        customLabel.setTextSize(13f);
-        customLabel.setPadding(0, dp(10), 0, dp(6));
-        root.addView(customLabel);
-
-        EditText input = new EditText(activity);
-        input.setHint(activity.getString(R.string.bgm_custom_url_hint));
-        input.setTextColor(Color.WHITE);
-        input.setHintTextColor(Color.parseColor("#64748B"));
-        input.setBackgroundResource(R.drawable.bg_chip_tag);
-        input.setPadding(dp(12), dp(10), dp(12), dp(10));
-        root.addView(input);
-
-        TextView btnApply = new TextView(activity);
-        btnApply.setText(activity.getString(R.string.bgm_apply));
-        btnApply.setTextColor(Color.WHITE);
-        btnApply.setGravity(Gravity.CENTER);
-        btnApply.setBackgroundResource(R.drawable.bg_btn_primary);
-        btnApply.setPadding(dp(14), dp(12), dp(14), dp(12));
-        LinearLayout.LayoutParams applyLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        applyLp.setMargins(0, dp(10), 0, 0);
-        btnApply.setLayoutParams(applyLp);
-        btnApply.setOnClickListener(v -> {
-            String raw = input.getText().toString().trim();
-            if (!raw.isEmpty()) {
-                String vid = extractYoutubeId(raw);
-                loadAndPlay(vid, "🎵 Custom YouTube (" + vid + ")", true);
-                if (dialogRef[0] != null) dialogRef[0].dismiss();
-            }
-        });
-        root.addView(btnApply);
-
         scroll.addView(root);
         builder.setView(scroll);
         builder.setNegativeButton(activity.getString(R.string.btn_cancel), null);
@@ -225,75 +306,44 @@ public class YoutubeBgmController {
         dialogRef[0].show();
     }
 
-    public static String extractYoutubeId(String urlOrId) {
-        if (urlOrId == null) return "utr3G6G3kI0";
-        String s = urlOrId.trim();
-        Pattern p = Pattern.compile("(?:v=|youtu\\.be/|embed/|shorts/)([A-Za-z0-9_\\-]{11})");
-        Matcher m = p.matcher(s);
-        if (m.find()) return m.group(1);
-        if (s.length() == 11) return s;
-        return s;
-    }
-
-    private String buildYoutubeIframeHtml(String videoId) {
-        return "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-                + "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#0B0E17;overflow:hidden;}"
-                + "#player{width:100%;height:100%;}</style></head><body>"
-                + "<div id='player'></div>"
-                + "<script>"
-                + "var tag = document.createElement('script');"
-                + "tag.src = 'https://www.youtube.com/iframe_api';"
-                + "var firstScriptTag = document.getElementsByTagName('script')[0];"
-                + "firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);"
-                + "var player;"
-                + "function onYouTubeIframeAPIReady() {"
-                + "  player = new YT.Player('player', {"
-                + "    height: '100%', width: '100%',"
-                + "    videoId: '" + videoId + "',"
-                + "    playerVars: { 'autoplay': 1, 'playsinline': 1, 'loop': 1, 'playlist': '" + videoId + "', 'controls': 1, 'rel': 0 },"
-                + "    events: {"
-                + "      'onReady': function(e) { e.target.playVideo(); }"
-                + "    }"
-                + "  });"
-                + "}"
-                + "window.toggleMuteBgm = function(m) { if(!player) return; if(m) player.mute(); else player.unMute(); };"
-                + "</script></body></html>";
-    }
-
-    /**
-     * Built-in copyright-free K-Pop "Jellyous / Pluggnb" upbeat synth loop using WebAudio API.
-     */
-    private String buildWebAudioSynthHtml() {
-        return "<!DOCTYPE html><html><body style='background:#0B0E17;color:#00F0FF;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100%;margin:0;'>"
-                + "<div style='font-size:12px;'>🎹 Playing K-Pop Jellyous Synth Loop</div>"
-                + "<script>"
-                + "var ctx = new (window.AudioContext || window.webkitAudioContext)();"
-                + "var muted = false;"
-                + "var notes = [523.25, 659.25, 783.99, 987.77, 1046.50, 783.99, 659.25, 587.33];"
-                + "var step = 0;"
-                + "setInterval(function(){"
-                + "  if(muted) return;"
-                + "  if(ctx.state === 'suspended') ctx.resume();"
-                + "  var osc = ctx.createOscillator();"
-                + "  var gain = ctx.createGain();"
-                + "  osc.type = (step % 2 === 0) ? 'triangle' : 'sine';"
-                + "  osc.frequency.setValueAtTime(notes[step % notes.length], ctx.currentTime);"
-                + "  gain.gain.setValueAtTime(0.09, ctx.currentTime);"
-                + "  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);"
-                + "  osc.connect(gain); gain.connect(ctx.destination);"
-                + "  osc.start(); osc.stop(ctx.currentTime + 0.23);"
-                + "  step++;"
-                + "}, 240);"
-                + "window.toggleMuteBgm = function(m) { muted = m; };"
-                + "</script></body></html>";
+    private void searchAndPlayItunesSong(String query, Runnable onSuccess) {
+        executor.execute(() -> {
+            try {
+                String u = "https://itunes.apple.com/search?term=" + URLEncoder.encode(query, "UTF-8") + "&entity=song&limit=1";
+                HttpURLConnection conn = (HttpURLConnection) new URL(u).openConnection();
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(4000);
+                if (conn.getResponseCode() == 200) {
+                    StringBuilder sb = new StringBuilder();
+                    try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                        String line;
+                        while ((line = br.readLine()) != null) sb.append(line);
+                    }
+                    JSONObject j = new JSONObject(sb.toString());
+                    JSONArray res = j.optJSONArray("results");
+                    if (res != null && res.length() > 0) {
+                        JSONObject song = res.getJSONObject(0);
+                        String preview = song.optString("previewUrl", "");
+                        String trackName = song.optString("trackName", query);
+                        String artistName = song.optString("artistName", "");
+                        if (!preview.isEmpty()) {
+                            String label = "🎵 " + artistName + " - " + trackName;
+                            mainHandler.post(() -> {
+                                loadAndPlay(preview, label, true);
+                                if (onSuccess != null) onSuccess.run();
+                            });
+                            return;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+            mainHandler.post(() -> Toast.makeText(activity, "Could not find audio stream for: " + query, Toast.LENGTH_SHORT).show());
+        });
     }
 
     public void destroy() {
-        try {
-            webView.loadUrl("about:blank");
-            webView.destroy();
-        } catch (Exception ignored) {
-        }
+        // Keep sharedPlayer alive across screens so music never cuts off!
     }
 
     private int dp(int v) {
