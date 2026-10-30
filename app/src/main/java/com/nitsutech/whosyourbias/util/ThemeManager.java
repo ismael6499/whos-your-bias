@@ -45,6 +45,7 @@ public class ThemeManager {
         public int primaryColor;
         public int secondaryColor;
         public int textColor;
+        public int cardBorderColor = Color.parseColor("#E5E7EB");
         public boolean isCustomUserPreset;
 
         public AppTheme(String id, String name, int backgroundColor, int surfaceColor,

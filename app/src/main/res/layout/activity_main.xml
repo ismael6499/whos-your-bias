@@ -155,12 +155,12 @@
     <LinearLayout
         android:id="@+id/bottomNavLayout"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
+        android:layout_height="66dp"
         android:orientation="horizontal"
         android:background="#FFFFFF"
         android:gravity="center"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp">
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
 
         <TextView
             android:id="@+id/tabBtnArena"
@@ -168,10 +168,12 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="🏠\nArena"
+            android:text="🏟️\nArena"
             android:textColor="#111827"
             android:textStyle="bold"
-            android:textSize="11sp" />
+            android:fontFamily="sans-serif-medium"
+            android:textSize="11.5sp"
+            android:lineSpacingExtra="2dp" />
 
         <TextView
             android:id="@+id/tabBtnIdols"
@@ -179,26 +181,29 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="🔍\nIdols"
+            android:text="🎴\nIdols"
             android:textColor="#9CA3AF"
-            android:textSize="11sp" />
+            android:fontFamily="sans-serif-medium"
+            android:textSize="11.5sp"
+            android:lineSpacingExtra="2dp" />
 
-        <!-- Center Moshicam '+' Floating Action Pill -->
+        <!-- Center Moshicam '+' Floating Action Button -->
         <FrameLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1">
+            android:layout_weight="1.05">
 
             <TextView
                 android:id="@+id/btnCenterPlus"
-                android:layout_width="46dp"
-                android:layout_height="46dp"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
                 android:layout_gravity="center"
                 android:gravity="center"
                 android:text="+"
                 android:textColor="#111827"
-                android:textSize="24sp"
+                android:textSize="28sp"
                 android:textStyle="bold"
+                android:elevation="6dp"
                 android:background="@drawable/bg_btn_gold" />
         </FrameLayout>
 
@@ -208,9 +213,11 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="✨\nArtistas"
+            android:text="✦\nArtistas"
             android:textColor="#9CA3AF"
-            android:textSize="11sp" />
+            android:fontFamily="sans-serif-medium"
+            android:textSize="11.5sp"
+            android:lineSpacingExtra="2dp" />
 
         <TextView
             android:id="@+id/tabBtnHallOfFame"
@@ -220,7 +227,9 @@
             android:gravity="center"
             android:text="👤\nMi página"
             android:textColor="#9CA3AF"
-            android:textSize="11sp" />
+            android:fontFamily="sans-serif-medium"
+            android:textSize="11.5sp"
+            android:lineSpacingExtra="2dp" />
     </LinearLayout>
 
 </LinearLayout>

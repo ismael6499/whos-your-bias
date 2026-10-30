@@ -95,7 +95,7 @@
     <!-- Victory Screen -->
     <string name="victory_slogan">WHO IS YOUR BIAS? I AM YOUR BIAS, IT\'S ME!</string>
     <string name="victory_champion_badge">👑 BIAS SUPREMO CONSAGRADO 👑</string>
-    <string name="victory_podium_title">🏅 Podio del Torneo y Posiciones</string>
+    <string name="victory_podium_title">🏅 Podio Final</string>
     <string name="victory_path_title">⚔️ Camino a la Corona (Rivales Vencidos)</string>
     <string name="btn_share_victory_poster">📸 Compartir Tarjeta de Victoria (WhatsApp / Stories)</string>
     <string name="btn_rematch_same">🔄 Revancha (Mismas Cartas)</string>
