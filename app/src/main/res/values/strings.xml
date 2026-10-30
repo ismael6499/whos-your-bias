@@ -40,6 +40,11 @@
     <string name="btn_create_custom_match">➕ Create Custom Match</string>
     <string name="btn_import_whatsapp">📥 Import File (.wyb) or WhatsApp Code</string>
     <string name="empty_custom_matches">No custom matches yet. Create one to challenge a friend!</string>
+    <string name="hint_match_custom_title">Match title (e.g. Dream Battle, K-Pop Queens)</string>
+    <string name="title_custom_match_default">Custom Match</string>
+    <string name="tap_or_slide_hint">Slide or tap card to flip 3D info</string>
+    <string name="action_share_whatsapp">Share via WhatsApp</string>
+    <string name="action_select_idols_share">Select Idols to share</string>
 
     <!-- Idol Cards Tab -->
     <string name="search_idols_hint">Search by idol, real name, group, country, role…</string>
@@ -95,4 +100,13 @@
     <string name="btn_share_victory_poster">📸 Share Victory Card (WhatsApp / Stories)</string>
     <string name="btn_rematch_same">🔄 Rematch (Same Roster)</string>
     <string name="btn_finish_home">🏠 Back to Arena</string>
+    <string name="btn_deselect_all">Deselect All</string>
+    <string name="btn_reset_selection">Reset</string>
+    <string name="btn_save_and_play">Save &amp; Play / Share</string>
+    <string name="filter_group_or_name_hint">🔍 Filter by group or name…</string>
+    <string name="share_idols_header">📤 Select Idols to share via WhatsApp</string>
+    <string name="toast_pick_min_2_idols">Pick at least 2 idols by tapping their cards</string>
+    <string name="toast_pick_min_1_idol">Tap at least one idol to share</string>
+    <string name="dialog_match_created_title">✅ Match Created: %1$s</string>
+    <string name="btn_play_now">▶ Play Now</string>
 </resources>

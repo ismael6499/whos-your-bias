@@ -68,12 +68,6 @@ public class CardImageLoader {
         final String rawKey = card.getId() + "_" + (card.getPhotoUri() != null ? card.getPhotoUri() : "");
         final String fittedKey = rawKey + "_" + targetW + "x" + targetH;
 
-        // If this ImageView is already displaying this exact fitted image, do nothing (zero flicker!)
-        if (fittedKey.equals(imageView.getTag()) && imageView.getDrawable() != null) {
-            return;
-        }
-        imageView.setTag(fittedKey);
-
         Bitmap cachedFitted = fittedMemoryCache.get(fittedKey);
         if (cachedFitted != null && !cachedFitted.isRecycled()) {
             imageView.setImageBitmap(cachedFitted);

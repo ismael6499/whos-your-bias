@@ -13,7 +13,12 @@ public class StarterPackSeeder {
         String illitCol = "5th Gen, Girl Groups, HYBE / Belift";
         list.add(card("idol_illit_yunah", "Yunah", "Noh Yun-ah", "ILLIT", false, "South Korea", "2004-01-15", "Leader, Main Vocal, Dancer", illitColor, "Charismatic all-rounder and oldest member of ILLIT ('Super Real Me', 'Jellyous').", illitCol));
         list.add(card("idol_illit_minju", "Minju", "Park Min-ju", "ILLIT", false, "South Korea", "2004-05-11", "Main Vocal, Visual", illitColor, "Dreamy honey vocals & iconic tone in 'Magnetic', 'It's Me', and 'Cherish'.", illitCol));
-        list.add(card("idol_illit_moka", "Moka", "Sakai Moka", "ILLIT", false, "Japan", "2004-10-08", "Lead Dancer, Vocalist, Visual", illitColor, "Master of facial expressions and stage charm from Fukuoka, Japan.", illitCol));
+        IdolCard mokaCard = card("idol_illit_moka", "Moka", "Sakai Moka", "ILLIT", false, "Japan", "2004-10-08", "Lead Dancer, Vocalist, Visual", illitColor, "Master of facial expressions and stage charm from Fukuoka, Japan.", illitCol);
+        mokaCard.addPhotocard("https://static.wikia.nocookie.net/kpop/images/a/a8/ILLIT_Moka_I%27ll_Like_You_concept_photo_1.webp/revision/latest/scale-to-width-down/600?cb=20240930160615");
+        mokaCard.addPhotocard("https://static.wikia.nocookie.net/kpop/images/c/c5/ILLIT_Moka_I%27ll_Like_You_concept_photo_10.webp/revision/latest/scale-to-width-down/600?cb=20241001151335");
+        mokaCard.addPhotocard("https://static.wikia.nocookie.net/kpop/images/5/57/ILLIT_Moka_Super_Real_Me_concept_photo_1.webp/revision/latest/scale-to-width-down/600?cb=20240305151932");
+        mokaCard.addPhotocard("https://static.wikia.nocookie.net/kpop/images/0/06/ILLIT_Moka_Super_Real_Me_concept_photo_5.webp/revision/latest/scale-to-width-down/600?cb=20240305151931");
+        list.add(mokaCard);
         list.add(card("idol_illit_wonhee", "Wonhee", "Lee Won-hee", "ILLIT", false, "South Korea", "2007-06-26", "Center, Lead Vocal", illitColor, "Bright vocal tone and magnetic center presence ('Who is your bias? It's me!').", illitCol));
         list.add(card("idol_illit_iroha", "Iroha", "Hokazono Iroha", "ILLIT", false, "Japan", "2008-02-04", "Main Dancer, Maknae", illitColor, "Hip-hop dance prodigy from Tokyo and beloved maknae of ILLIT.", illitCol));
 
