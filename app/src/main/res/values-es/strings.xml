@@ -109,4 +109,51 @@
     <string name="toast_pick_min_1_idol">Tocá al menos un idol para compartir</string>
     <string name="dialog_match_created_title">✅ Partida Creada: %1$s</string>
     <string name="btn_play_now">▶ Jugar Ahora</string>
+
+    <!-- Splash Preloader -->
+    <string name="splash_preloading_title">✨ Preparando Colección de Photocards HD…</string>
+    <string name="splash_preloading_progress">Descargando fotos de idols (%1$d / %2$d) • %3$d%%</string>
+    <string name="splash_preloading_ready">✨ ¡Colección lista! Entrando a la Arena…</string>
+
+    <!-- Card Loader -->
+    <string name="card_loading_label">✨ Cargando… ✨</string>
+
+    <!-- Photocard Binder & Zoom Preview -->
+    <string name="binder_title_format">📸 Photocards de %1$s (%2$d/%3$d)</string>
+    <string name="binder_zoom_hint">🔍 Tocá cualquier photocard para ver en Full HD con Zoom (Pinch-to-Zoom)</string>
+    <string name="binder_cover_active">⭐ Portada</string>
+    <string name="binder_cover_set">☆ Portada</string>
+    <string name="binder_locked">Bloqueada</string>
+    <string name="binder_locked_gacha_toast">🔒 ¡Desbloqueá esta photocard abriendo sobres Gacha en la Arena!</string>
+    <string name="binder_cover_updated_toast">⭐ Portada principal actualizada para %1$s</string>
+    <string name="zoom_preview_title_format">📸 %1$s  •  Photocard #%2$d</string>
+    <string name="zoom_preview_hint">🔍 Pellizcá con 2 dedos o hacé doble toque para hacer Zoom</string>
+    <string name="zoom_btn_current_cover">⭐ Es tu Portada Principal actual</string>
+    <string name="zoom_btn_set_cover">⭐ Definir como Portada Principal</string>
+    <string name="zoom_btn_close">Cerrar Vista Previa</string>
+    <string name="btn_close">Cerrar</string>
+    <string name="btn_upload_photo">📁 Subir Foto</string>
+    <string name="btn_paste_clipboard">📋 Pegar Copiada</string>
+    <string name="btn_link_url">🔗 Link URL</string>
+    <string name="btn_edit_data">✏️ Editar Datos</string>
+    <string name="btn_share_short">📤 Compartir</string>
+    <string name="random_pc_on">🎲 Photocards aleatorias en partidas: ACTIVADO</string>
+    <string name="random_pc_off">📌 Photocards en partidas: FOTO FIJA</string>
+    <string name="gacha_opening_pack">✨ Abriendo sobre Gacha…</string>
+    <string name="gacha_unlocked_sub">✨ ¡Nueva photocard desbloqueada! (%1$d/%2$d en tu binder)</string>
+    <string name="gacha_btn_view_binder">📸 Ver Binder</string>
+
+    <!-- GitHub Auto-Updater -->
+    <string name="update_badge_github">🚀 NUEVA VERSIÓN EN GITHUB</string>
+    <string name="update_title_available">Actualización %1$s disponible</string>
+    <string name="update_version_compare">Versión actual: v%1$s  →  Nueva: %2$s%3$s</string>
+    <string name="update_btn_download_install">⬇️ Descargar e Instalar Ahora</string>
+    <string name="update_btn_later">Más tarde</string>
+    <string name="update_downloading_title">⬇️ Descargando %1$s…</string>
+    <string name="update_connecting_github">Conectando con GitHub Releases…</string>
+    <string name="update_already_latest">✨ Ya tenés la última versión instalada (v%1$s)</string>
+    <string name="update_check_error">No se pudo conectar a GitHub para buscar actualizaciones</string>
+    <string name="update_download_error">Error al descargar la actualización: %1$s</string>
+    <string name="update_install_perm_toast">Habilitá \'Instalar apps desconocidas\' para actualizar Who\'s your Bias</string>
+    <string name="btn_check_updates">🔄 Buscar Actualización</string>
 </resources>
