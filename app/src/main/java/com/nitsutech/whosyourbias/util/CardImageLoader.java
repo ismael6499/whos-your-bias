@@ -19,6 +19,7 @@ import android.util.LruCache;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
+import com.nitsutech.whosyourbias.R;
 import com.nitsutech.whosyourbias.data.IdolCard;
 
 import org.json.JSONObject;
@@ -65,7 +66,128 @@ public class CardImageLoader {
     );
 
     private static final ConcurrentHashMap<String, List<Runnable>> inFlightCallbacks = new ConcurrentHashMap<>();
+    private static final ExecutorService preloadExecutor = Executors.newFixedThreadPool(16);
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    public interface PreloadProgressListener {
+        void onProgress(int loaded, int total);
+        void onComplete();
+    }
+
+    private static String getRawCacheKey(IdolCard card) {
+        if (card == null) return "null";
+        String uri = card.getPhotoUri();
+        if (uri != null && !uri.trim().isEmpty()) {
+            return "uri_" + IdolCard.normalizePhotoIdentity(uri);
+        }
+        return "id_" + card.getId();
+    }
+
+    public static void preloadSingleCardAsync(Context context, IdolCard card, Runnable onReadyUi) {
+        if (context == null || card == null) {
+            if (onReadyUi != null) mainHandler.post(onReadyUi);
+            return;
+        }
+        final String rawKey = getRawCacheKey(card);
+        Bitmap cached = rawMemoryCache.get(rawKey);
+        if (cached != null && !cached.isRecycled()) {
+            if (onReadyUi != null) mainHandler.post(onReadyUi);
+            return;
+        }
+        final Context appCtx = context.getApplicationContext();
+        networkExecutor.execute(() -> {
+            try {
+                File diskCached = getExistingDiskCacheFile(appCtx, card);
+                if (diskCached != null) {
+                    Bitmap diskBmp = decodeSampledFile(diskCached, 540, 540);
+                    if (diskBmp != null) {
+                        rawMemoryCache.put(rawKey, diskBmp);
+                        if (onReadyUi != null) mainHandler.post(onReadyUi);
+                        return;
+                    }
+                }
+                Bitmap loaded = fetchOrResolveBitmap(appCtx, card);
+                if (loaded != null) {
+                    rawMemoryCache.put(rawKey, loaded);
+                }
+            } finally {
+                if (onReadyUi != null) mainHandler.post(onReadyUi);
+            }
+        });
+    }
+
+    public static boolean needsInitialPreload(Context context, List<IdolCard> idols) {
+        if (context == null || idols == null || idols.isEmpty()) return false;
+        int cachedCount = 0;
+        int checkLimit = Math.min(idols.size(), 60);
+        for (int i = 0; i < checkLimit; i++) {
+            if (getExistingDiskCacheFile(context, idols.get(i)) != null) {
+                cachedCount++;
+            }
+        }
+        return cachedCount < (checkLimit * 0.75);
+    }
+
+    public static void preloadAllInitialImages(Context context, List<IdolCard> idols, PreloadProgressListener listener) {
+        if (context == null || idols == null || idols.isEmpty()) {
+            if (listener != null) mainHandler.post(listener::onComplete);
+            return;
+        }
+        final Context appCtx = context.getApplicationContext();
+        preloadExecutor.execute(() -> {
+            List<IdolCard> missing = new ArrayList<>();
+            for (IdolCard c : idols) {
+                if (getExistingDiskCacheFile(appCtx, c) == null) {
+                    missing.add(c);
+                }
+            }
+            final int total = idols.size();
+            final int alreadyCached = total - missing.size();
+            if (missing.isEmpty()) {
+                if (listener != null) {
+                    mainHandler.post(() -> {
+                        listener.onProgress(total, total);
+                        listener.onComplete();
+                    });
+                }
+                return;
+            }
+
+            if (listener != null) {
+                mainHandler.post(() -> listener.onProgress(alreadyCached, total));
+            }
+
+            final java.util.concurrent.atomic.AtomicInteger doneCounter = new java.util.concurrent.atomic.AtomicInteger(alreadyCached);
+            final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(missing.size());
+
+            for (final IdolCard item : missing) {
+                preloadExecutor.execute(() -> {
+                    try {
+                        Bitmap b = fetchOrResolveBitmap(appCtx, item);
+                        if (b != null) {
+                            rawMemoryCache.put(getRawCacheKey(item), b);
+                        }
+                    } catch (Exception ignored) {
+                    } finally {
+                        final int currentDone = doneCounter.incrementAndGet();
+                        if (listener != null) {
+                            mainHandler.post(() -> listener.onProgress(currentDone, total));
+                        }
+                        latch.countDown();
+                    }
+                });
+            }
+
+            try {
+                // Wait up to 35 seconds max so offline connections never hang forever
+                latch.await(35, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+            }
+            if (listener != null) {
+                mainHandler.post(listener::onComplete);
+            }
+        });
+    }
 
     public static void loadCardImage(Context context, IdolCard card, ImageView imageView) {
         if (card == null || imageView == null) return;
@@ -98,19 +220,30 @@ public class CardImageLoader {
                 effectiveUri,
                 baseCard != null ? baseCard.getAccentColor() : "#FF85A2",
                 "", "");
-        final String rawKey = temp.getId() + "_" + effectiveUri;
+        final String rawKey = getRawCacheKey(temp);
         Bitmap cachedRaw = rawMemoryCache.get(rawKey);
         if (cachedRaw != null && !cachedRaw.isRecycled()) {
             zoomImageView.setImageBitmap(cachedRaw);
             return;
         }
-        zoomImageView.setImageBitmap(createCuteKawaiiLoadingArt(temp, 480, 620));
         final Context appCtx = context.getApplicationContext();
+        File diskCached = getExistingDiskCacheFile(appCtx, temp);
+        if (diskCached != null) {
+            Bitmap diskBmp = decodeSampledFile(diskCached, 720, 720);
+            if (diskBmp != null) {
+                rawMemoryCache.put(rawKey, diskBmp);
+                zoomImageView.setImageBitmap(diskBmp);
+                return;
+            }
+        }
+        zoomImageView.setImageBitmap(createCuteKawaiiLoadingArt(context, temp, 480, 620));
         networkExecutor.execute(() -> {
             Bitmap loaded = fetchOrResolveBitmap(appCtx, temp);
             if (loaded != null) {
                 rawMemoryCache.put(rawKey, loaded);
                 mainHandler.post(() -> zoomImageView.setImageBitmap(loaded));
+            } else {
+                mainHandler.post(() -> zoomImageView.setImageBitmap(createStylizedPortrait(temp, 480, 620)));
             }
         });
     }
@@ -119,7 +252,7 @@ public class CardImageLoader {
         if (card == null || imageView == null) return;
         imageView.setScaleType(ImageView.ScaleType.FIT_XY);
 
-        final String rawKey = card.getId() + "_" + (card.getPhotoUri() != null ? card.getPhotoUri() : "");
+        final String rawKey = getRawCacheKey(card);
         final String fittedKey = rawKey + "_" + targetW + "x" + targetH;
 
         Bitmap cachedFitted = fittedMemoryCache.get(fittedKey);
@@ -139,7 +272,7 @@ public class CardImageLoader {
         }
 
         // Instant 0ms cached cute kitten placeholder on UI thread
-        Bitmap cuteLoader = createCuteKawaiiLoadingArt(card, targetW, targetH);
+        Bitmap cuteLoader = createCuteKawaiiLoadingArt(context, card, targetW, targetH);
         imageView.setTag(fittedKey);
         imageView.setImageBitmap(cuteLoader);
 
@@ -451,7 +584,7 @@ public class CardImageLoader {
 
     public static Bitmap getCardBitmapSync(Context context, IdolCard card, int width, int height) {
         if (card == null) return null;
-        String rawKey = card.getId() + "_" + (card.getPhotoUri() != null ? card.getPhotoUri() : "");
+        String rawKey = getRawCacheKey(card);
         Bitmap cached = rawMemoryCache.get(rawKey);
         if (cached != null && !cached.isRecycled()) {
             return createUncroppedFittedPhoto(cached, width, height);
@@ -480,9 +613,13 @@ public class CardImageLoader {
                     File f = new File(uri.startsWith("file://") ? uri.substring(7) : uri);
                     if (f.exists() && f.length() > 200) return f;
                 } else if (uri.startsWith("http://") || uri.startsWith("https://")) {
+                    String norm = IdolCard.normalizePhotoIdentity(uri);
+                    File fNorm = new File(cacheDir, "url_" + Math.abs(norm.hashCode()) + ".jpg");
+                    if (fNorm.exists() && fNorm.length() > 500) return fNorm;
                     File f = new File(cacheDir, "url_" + Math.abs(uri.hashCode()) + ".jpg");
                     if (f.exists() && f.length() > 500) return f;
                 }
+                return null;
             }
             File wikiCache = new File(cacheDir, "wiki_" + card.getId() + ".jpg");
             if (wikiCache.exists() && wikiCache.length() > 500) return wikiCache;
@@ -525,9 +662,14 @@ public class CardImageLoader {
                     }
                 }
                 if (uri.startsWith("http://") || uri.startsWith("https://")) {
-                    File cachedFile = new File(cacheDir, "url_" + Math.abs(uri.hashCode()) + ".jpg");
+                    String norm = IdolCard.normalizePhotoIdentity(uri);
+                    File cachedFile = new File(cacheDir, "url_" + Math.abs(norm.hashCode()) + ".jpg");
                     if (cachedFile.exists() && cachedFile.length() > 500) {
                         return decodeSampledFile(cachedFile, 600, 600);
+                    }
+                    File legacyFile = new File(cacheDir, "url_" + Math.abs(uri.hashCode()) + ".jpg");
+                    if (legacyFile.exists() && legacyFile.length() > 500) {
+                        return decodeSampledFile(legacyFile, 600, 600);
                     }
                     Bitmap dl = downloadBitmap(uri);
                     if (dl != null) {
@@ -673,19 +815,24 @@ public class CardImageLoader {
     }
 
     /**
-     * Cute Kawaii Pastel Kitten (Gatito ILLIT-style) Loading Illustration, cached by size for 0ms UI performance!
+     * Cute Kawaii Pastel Kitten Loading Illustration, cached by size for 0ms UI performance!
      */
-    public static Bitmap createCuteKawaiiLoadingArt(IdolCard card, int width, int height) {
+    public static Bitmap createCuteKawaiiLoadingArt(Context context, IdolCard card, int width, int height) {
         int w = Math.max(240, width);
         int h = Math.max(240, height);
-        String key = "kitten_loader_" + w + "x" + h;
+        String loadingText = context != null ? context.getString(R.string.card_loading_label) : "✨ Loading… ✨";
+        String key = "kitten_loader_" + w + "x" + h + "_" + loadingText;
         Bitmap cached = kawaiiLoaderCache.get(key);
         if (cached != null && !cached.isRecycled()) {
             return cached;
         }
-        Bitmap bmp = drawCuteKittenCardArt(w, h, "✨ Cargando... ✨", "🐾 ILLIT Vibe");
+        Bitmap bmp = drawCuteKittenCardArt(w, h, loadingText, "");
         kawaiiLoaderCache.put(key, bmp);
         return bmp;
+    }
+
+    public static Bitmap createCuteKawaiiLoadingArt(IdolCard card, int width, int height) {
+        return createCuteKawaiiLoadingArt(null, card, width, height);
     }
 
     /**

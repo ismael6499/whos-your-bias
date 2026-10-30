@@ -109,4 +109,51 @@
     <string name="toast_pick_min_1_idol">Tap at least one idol to share</string>
     <string name="dialog_match_created_title">✅ Match Created: %1$s</string>
     <string name="btn_play_now">▶ Play Now</string>
+
+    <!-- Splash Preloader -->
+    <string name="splash_preloading_title">✨ Preparing HD Photocard Collection…</string>
+    <string name="splash_preloading_progress">Downloading idol photos (%1$d / %2$d) • %3$d%%</string>
+    <string name="splash_preloading_ready">✨ Collection ready! Entering Arena…</string>
+
+    <!-- Card Loader -->
+    <string name="card_loading_label">✨ Loading… ✨</string>
+
+    <!-- Photocard Binder & Zoom Preview -->
+    <string name="binder_title_format">📸 %1$s\'s Photocards (%2$d/%3$d)</string>
+    <string name="binder_zoom_hint">🔍 Tap any photocard to view in Full HD with Pinch-to-Zoom</string>
+    <string name="binder_cover_active">⭐ Cover</string>
+    <string name="binder_cover_set">☆ Cover</string>
+    <string name="binder_locked">Locked</string>
+    <string name="binder_locked_gacha_toast">🔒 Unlock this photocard by opening Gacha packs in the Arena!</string>
+    <string name="binder_cover_updated_toast">⭐ Main cover photo updated for %1$s</string>
+    <string name="zoom_preview_title_format">📸 %1$s  •  Photocard #%2$d</string>
+    <string name="zoom_preview_hint">🔍 Pinch with 2 fingers or double-tap to Zoom</string>
+    <string name="zoom_btn_current_cover">⭐ Current Main Cover</string>
+    <string name="zoom_btn_set_cover">⭐ Set as Main Cover Photo</string>
+    <string name="zoom_btn_close">Close Preview</string>
+    <string name="btn_close">Close</string>
+    <string name="btn_upload_photo">📁 Upload Photo</string>
+    <string name="btn_paste_clipboard">📋 Paste Copied</string>
+    <string name="btn_link_url">🔗 Link URL</string>
+    <string name="btn_edit_data">✏️ Edit Info</string>
+    <string name="btn_share_short">📤 Share</string>
+    <string name="random_pc_on">🎲 Random Photocards in matches: ON</string>
+    <string name="random_pc_off">📌 Match Photocards: FIXED COVER</string>
+    <string name="gacha_opening_pack">✨ Opening Gacha Pack…</string>
+    <string name="gacha_unlocked_sub">✨ New photocard unlocked! (%1$d/%2$d in your binder)</string>
+    <string name="gacha_btn_view_binder">📸 View Binder</string>
+
+    <!-- GitHub Auto-Updater -->
+    <string name="update_badge_github">🚀 NEW GITHUB RELEASE</string>
+    <string name="update_title_available">Update %1$s Available</string>
+    <string name="update_version_compare">Current: v%1$s  →  New: %2$s%3$s</string>
+    <string name="update_btn_download_install">⬇️ Download &amp; Install Now</string>
+    <string name="update_btn_later">Later</string>
+    <string name="update_downloading_title">⬇️ Downloading %1$s…</string>
+    <string name="update_connecting_github">Connecting to GitHub Releases…</string>
+    <string name="update_already_latest">✨ You already have the latest version installed (v%1$s)</string>
+    <string name="update_check_error">Could not check for updates on GitHub</string>
+    <string name="update_download_error">Update download failed: %1$s</string>
+    <string name="update_install_perm_toast">Please allow \'Install unknown apps\' to update Who\'s your Bias</string>
+    <string name="btn_check_updates">🔄 Check for Updates</string>
 </resources>

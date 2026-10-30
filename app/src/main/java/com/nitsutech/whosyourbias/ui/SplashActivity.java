@@ -22,7 +22,12 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.nitsutech.whosyourbias.R;
+import com.nitsutech.whosyourbias.data.BiasRepository;
+import com.nitsutech.whosyourbias.data.IdolCard;
+import com.nitsutech.whosyourbias.util.CardImageLoader;
 import com.nitsutech.whosyourbias.util.ThemeManager;
+
+import java.util.List;
 
 public class SplashActivity extends AppCompatActivity {
 
@@ -122,6 +127,54 @@ public class SplashActivity extends AppCompatActivity {
         tvSub.setTranslationY(dp(16));
         centerBox.addView(tvSub);
 
+        // First-time Preload Progress Box (shown when downloading initial idol gallery)
+        LinearLayout preloadBox = new LinearLayout(this);
+        preloadBox.setOrientation(LinearLayout.VERTICAL);
+        preloadBox.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams pbBoxLp = new LinearLayout.LayoutParams(dp(260), ViewGroup.LayoutParams.WRAP_CONTENT);
+        pbBoxLp.topMargin = dp(24);
+        preloadBox.setLayoutParams(pbBoxLp);
+        preloadBox.setVisibility(View.GONE);
+
+        TextView tvPreloadStatus = new TextView(this);
+        tvPreloadStatus.setText(getString(R.string.splash_preloading_title));
+        tvPreloadStatus.setTextColor(theme.primaryColor);
+        tvPreloadStatus.setTextSize(12.5f);
+        tvPreloadStatus.setTypeface(Typeface.DEFAULT_BOLD);
+        tvPreloadStatus.setGravity(Gravity.CENTER);
+        preloadBox.addView(tvPreloadStatus);
+
+        FrameLayout barTrack = new FrameLayout(this);
+        GradientDrawable trackBg = new GradientDrawable();
+        trackBg.setColor(Color.parseColor("#E5E7EB"));
+        trackBg.setCornerRadius(dp(8));
+        barTrack.setBackground(trackBg);
+        LinearLayout.LayoutParams trLp = new LinearLayout.LayoutParams(dp(230), dp(10));
+        trLp.topMargin = dp(8);
+        trLp.bottomMargin = dp(6);
+        barTrack.setLayoutParams(trLp);
+
+        View barFill = new View(this);
+        GradientDrawable fillBg = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{theme.primaryColor, Color.parseColor("#A855F7")}
+        );
+        fillBg.setCornerRadius(dp(8));
+        barFill.setBackground(fillBg);
+        FrameLayout.LayoutParams fillLp = new FrameLayout.LayoutParams(dp(8), ViewGroup.LayoutParams.MATCH_PARENT);
+        barFill.setLayoutParams(fillLp);
+        barTrack.addView(barFill);
+        preloadBox.addView(barTrack);
+
+        TextView tvPreloadCount = new TextView(this);
+        tvPreloadCount.setText(getString(R.string.splash_preloading_progress, 0, 287, 0));
+        tvPreloadCount.setTextColor(theme.getMutedTextColor());
+        tvPreloadCount.setTextSize(11.5f);
+        tvPreloadCount.setGravity(Gravity.CENTER);
+        preloadBox.addView(tvPreloadCount);
+
+        centerBox.addView(preloadBox);
+
         root.addView(centerBox);
 
         // Footer Studio Brand
@@ -194,7 +247,8 @@ public class SplashActivity extends AppCompatActivity {
                 .setDuration(500)
                 .start();
 
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+        Runnable goNext = () -> {
+            if (isFinishing()) return;
             Intent intent = new Intent(SplashActivity.this, MainActivity.class);
             if (getIntent() != null && getIntent().getData() != null) {
                 intent.setAction(getIntent().getAction());
@@ -203,7 +257,44 @@ public class SplashActivity extends AppCompatActivity {
             startActivity(intent);
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
-        }, 1750);
+        };
+
+        List<IdolCard> allIdols = BiasRepository.getInstance(this).getAllIdols();
+        if (CardImageLoader.needsInitialPreload(this, allIdols)) {
+            preloadBox.setVisibility(View.VISIBLE);
+            preloadBox.setAlpha(0f);
+            preloadBox.animate().alpha(1f).setStartDelay(550).setDuration(400).start();
+
+            ObjectAnimator loopPulse = ObjectAnimator.ofPropertyValuesHolder(
+                    logoCard,
+                    PropertyValuesHolder.ofFloat("scaleX", 1f, 1.06f, 1f),
+                    PropertyValuesHolder.ofFloat("scaleY", 1f, 1.06f, 1f)
+            );
+            loopPulse.setDuration(1100);
+            loopPulse.setRepeatCount(ObjectAnimator.INFINITE);
+            loopPulse.setStartDelay(850);
+            loopPulse.start();
+
+            final int maxTrackWidth = dp(230);
+            CardImageLoader.preloadAllInitialImages(this, allIdols, new CardImageLoader.PreloadProgressListener() {
+                @Override
+                public void onProgress(int loaded, int total) {
+                    int pct = total > 0 ? Math.min(100, (loaded * 100) / total) : 100;
+                    tvPreloadCount.setText(getString(R.string.splash_preloading_progress, loaded, total, pct));
+                    FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) barFill.getLayoutParams();
+                    lp.width = Math.max(dp(10), (maxTrackWidth * pct) / 100);
+                    barFill.setLayoutParams(lp);
+                }
+
+                @Override
+                public void onComplete() {
+                    tvPreloadStatus.setText(getString(R.string.splash_preloading_ready));
+                    new Handler(Looper.getMainLooper()).postDelayed(goNext, 280);
+                }
+            });
+        } else {
+            new Handler(Looper.getMainLooper()).postDelayed(goNext, 1350);
+        }
     }
 
     private int dp(int v) {
