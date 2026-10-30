@@ -42,6 +42,7 @@ import com.nitsutech.whosyourbias.R;
 import com.nitsutech.whosyourbias.data.BiasRepository;
 import com.nitsutech.whosyourbias.data.CustomMatch;
 import com.nitsutech.whosyourbias.data.IdolCard;
+import com.nitsutech.whosyourbias.util.AppUpdateManager;
 import com.nitsutech.whosyourbias.util.CardImageLoader;
 import com.nitsutech.whosyourbias.util.KpopWikiImporter;
 import com.nitsutech.whosyourbias.util.ShareImportManager;
@@ -131,6 +132,7 @@ public class MainActivity extends AppCompatActivity {
         applyThemeToShell();
         switchTab(0);
         handleIncomingIntent(getIntent());
+        AppUpdateManager.checkOnAppLaunch(this);
     }
 
     private void applyThemeToShell() {
@@ -1452,6 +1454,21 @@ public class MainActivity extends AppCompatActivity {
         }));
         profActRow.addView(btnThemeColors);
 
+        TextView btnCheckUpd = new TextView(this);
+        btnCheckUpd.setText(getString(R.string.btn_check_updates));
+        btnCheckUpd.setTextColor(theme.textColor);
+        btnCheckUpd.setTextSize(11.5f);
+        btnCheckUpd.setTypeface(Typeface.DEFAULT_BOLD);
+        btnCheckUpd.setGravity(Gravity.CENTER);
+        btnCheckUpd.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 16));
+        btnCheckUpd.setPadding(dp(10), dp(7), dp(10), dp(7));
+        LinearLayout.LayoutParams bcuLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        bcuLp.leftMargin = dp(6);
+        btnCheckUpd.setLayoutParams(bcuLp);
+        btnCheckUpd.setOnClickListener(v -> AppUpdateManager.checkForUpdates(this, true));
+        profActRow.addView(btnCheckUpd);
+
         profileHeader.addView(profActRow);
 
         // Quick Share Idols Pill Button
@@ -2297,24 +2314,38 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showIdolDetailAndPhotocardBinderDialog(IdolCard card) {
+        card.deduplicatePhotocards();
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        ThemeManager.AppTheme themeBinder = ThemeManager.getActiveTheme(this);
+        int pad = dp(18);
+
+        LinearLayout dialogCard = new LinearLayout(this);
+        dialogCard.setOrientation(LinearLayout.VERTICAL);
+        dialogCard.setPadding(pad, pad, pad, pad);
+        dialogCard.setBackground(ThemeManager.createCardDrawable(this, themeBinder.surfaceColor, themeBinder.cardBorderColor, 26));
+
         ScrollView scroll = new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        scroll.setLayoutParams(scrollLp);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        ThemeManager.AppTheme themeBinder = ThemeManager.getActiveTheme(this);
-        int pad = dp(20);
-        root.setPadding(pad, pad, pad, pad);
-        root.setBackground(ThemeManager.createCardDrawable(this, themeBinder.surfaceColor, themeBinder.cardBorderColor, 26));
 
         AlertDialog[] dialogRef = new AlertDialog[1];
+
+        FrameLayout photoHeaderFrame = new FrameLayout(this);
+        LinearLayout.LayoutParams mpLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(245));
+        mpLp.setMargins(0, 0, 0, dp(12));
+        photoHeaderFrame.setLayoutParams(mpLp);
 
         CardView mainPhotoCard = new CardView(this);
         mainPhotoCard.setRadius(dp(22));
         mainPhotoCard.setCardElevation(dp(2));
-        LinearLayout.LayoutParams mpLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(290));
-        mpLp.setMargins(0, 0, 0, dp(14));
-        mainPhotoCard.setLayoutParams(mpLp);
+        mainPhotoCard.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         ImageView ivMain = new ImageView(this);
         ivMain.setLayoutParams(new FrameLayout.LayoutParams(
@@ -2322,12 +2353,35 @@ public class MainActivity extends AppCompatActivity {
         ivMain.setScaleType(ImageView.ScaleType.CENTER_CROP);
         CardImageLoader.loadCardImage(this, card, ivMain);
         mainPhotoCard.addView(ivMain);
-        root.addView(mainPhotoCard);
+        photoHeaderFrame.addView(mainPhotoCard);
+
+        // Floating top-right close button (✕) so closing is always accessible with 1 tap
+        TextView btnTopClose = new TextView(this);
+        btnTopClose.setText("✕");
+        btnTopClose.setTextColor(Color.WHITE);
+        btnTopClose.setTextSize(14f);
+        btnTopClose.setTypeface(Typeface.DEFAULT_BOLD);
+        btnTopClose.setGravity(Gravity.CENTER);
+        GradientDrawable topCloseGd = new GradientDrawable();
+        topCloseGd.setShape(GradientDrawable.OVAL);
+        topCloseGd.setColor(Color.parseColor("#99111827"));
+        topCloseGd.setStroke(dp(1), Color.parseColor("#66FFFFFF"));
+        btnTopClose.setBackground(topCloseGd);
+        btnTopClose.setElevation(dp(6));
+        FrameLayout.LayoutParams tcLp = new FrameLayout.LayoutParams(dp(34), dp(34), Gravity.TOP | Gravity.END);
+        tcLp.setMargins(dp(10), dp(10), dp(10), dp(10));
+        btnTopClose.setLayoutParams(tcLp);
+        btnTopClose.setOnClickListener(v -> {
+            if (dialogRef[0] != null) dialogRef[0].dismiss();
+        });
+        photoHeaderFrame.addView(btnTopClose);
+
+        root.addView(photoHeaderFrame);
 
         TextView tvName = new TextView(this);
-        tvName.setText(card.getStageName() + "  •  " + (card.isSoloist() ? "Solista" : card.getGroupName()));
+        tvName.setText(card.getStageName() + "  •  " + (card.isSoloist() ? "Soloist" : card.getGroupName()));
         tvName.setTextColor(themeBinder.textColor);
-        tvName.setTextSize(22f);
+        tvName.setTextSize(21f);
         tvName.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         root.addView(tvName);
 
@@ -2335,7 +2389,7 @@ public class MainActivity extends AppCompatActivity {
             TextView tvNative = new TextView(this);
             tvNative.setText(card.getNativeName());
             tvNative.setTextColor(themeBinder.primaryColor);
-            tvNative.setTextSize(15f);
+            tvNative.setTextSize(14.5f);
             tvNative.setTypeface(Typeface.DEFAULT_BOLD);
             tvNative.setPadding(0, 0, 0, dp(4));
             root.addView(tvNative);
@@ -2343,13 +2397,13 @@ public class MainActivity extends AppCompatActivity {
 
         TextView tvDetails = new TextView(this);
         StringBuilder dsb = new StringBuilder();
-        dsb.append("Nombre completo: ").append(card.getFullName()).append("\n");
-        dsb.append("Origen: ").append(card.getCountryWithFlag()).append("\n");
-        dsb.append("Edad y Signo: ").append(card.getCalculatedAge()).append(" años (").append(card.getBirthDate()).append(" • ").append(card.getZodiacSign()).append(")\n");
-        dsb.append("Rol: ").append(card.getRole()).append("\n");
+        dsb.append(getString(R.string.card_back_real_name)).append(" ").append(card.getFullName()).append("\n");
+        dsb.append(getString(R.string.card_back_country)).append(" ").append(card.getCountryWithFlag()).append("\n");
+        dsb.append(getString(R.string.card_back_age_zodiac)).append(" ").append(card.getCalculatedAge()).append(" (").append(card.getBirthDate()).append(" • ").append(card.getZodiacSign()).append(")\n");
+        dsb.append(getString(R.string.card_back_role)).append(" ").append(card.getRole()).append("\n");
         List<IdolCard> mates = repo.getFellowGroupMembers(card);
         if (!mates.isEmpty()) {
-            dsb.append("Compañeros en ").append(card.getGroupName()).append(": ");
+            dsb.append(getString(R.string.card_back_group_mates)).append(" ");
             for (int i = 0; i < mates.size(); i++) {
                 if (i > 0) dsb.append(", ");
                 dsb.append(mates.get(i).getStageName());
@@ -2359,60 +2413,58 @@ public class MainActivity extends AppCompatActivity {
         dsb.append("\n").append(card.getBio());
         tvDetails.setText(dsb.toString());
         tvDetails.setTextColor(Color.parseColor("#4B5563"));
-        tvDetails.setTextSize(13f);
-        tvDetails.setPadding(0, dp(6), 0, dp(12));
+        tvDetails.setTextSize(12.5f);
+        tvDetails.setPadding(0, dp(4), 0, dp(10));
         root.addView(tvDetails);
 
         TextView btnRandomToggle = new TextView(this);
-        btnRandomToggle.setText(card.isUseRandomPhotocard() ? "🎲 Photocards aleatorias en partidas: ACTIVADO" : "📌 Photocards en partidas: FOTO FIJA");
+        btnRandomToggle.setText(card.isUseRandomPhotocard() ? getString(R.string.random_pc_on) : getString(R.string.random_pc_off));
         btnRandomToggle.setTextColor(Color.parseColor("#111827"));
-        btnRandomToggle.setTextSize(12f);
+        btnRandomToggle.setTextSize(11.5f);
         btnRandomToggle.setTypeface(Typeface.DEFAULT_BOLD);
         btnRandomToggle.setGravity(Gravity.CENTER);
         btnRandomToggle.setBackground(ThemeManager.createPillDrawable(this, card.isUseRandomPhotocard() ? Color.parseColor("#FEF3C7") : Color.parseColor("#F3F4F6"), 16));
-        btnRandomToggle.setPadding(dp(12), dp(9), dp(12), dp(9));
+        btnRandomToggle.setPadding(dp(12), dp(8), dp(12), dp(8));
         LinearLayout.LayoutParams rtLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rtLp.setMargins(0, 0, 0, dp(14));
+        rtLp.setMargins(0, 0, 0, dp(12));
         btnRandomToggle.setLayoutParams(rtLp);
         btnRandomToggle.setOnClickListener(v -> {
             card.setUseRandomPhotocard(!card.isUseRandomPhotocard());
             repo.saveOrUpdateIdol(card);
-            btnRandomToggle.setText(card.isUseRandomPhotocard() ? "🎲 Photocards aleatorias en partidas: ACTIVADO" : "📌 Photocards en partidas: FOTO FIJA");
+            btnRandomToggle.setText(card.isUseRandomPhotocard() ? getString(R.string.random_pc_on) : getString(R.string.random_pc_off));
             btnRandomToggle.setBackground(ThemeManager.createPillDrawable(this, card.isUseRandomPhotocard() ? Color.parseColor("#FEF3C7") : Color.parseColor("#F3F4F6"), 16));
-            Toast.makeText(this, card.isUseRandomPhotocard() ? "🎲 Photocards aleatorias activadas" : "📌 Foto fija guardada para partidas", Toast.LENGTH_SHORT).show();
         });
         root.addView(btnRandomToggle);
 
         // Photocard Binder Section
         TextView tvPcTitle = new TextView(this);
-        tvPcTitle.setText("📸 Photocards de " + card.getStageName() + " (" + card.getUnlockedPhotocards().size() + "/" + card.getPhotocards().size() + ")");
+        tvPcTitle.setText(getString(R.string.binder_title_format, card.getStageName(), card.getUnlockedPhotocards().size(), card.getPhotocards().size()));
         tvPcTitle.setTextColor(Color.parseColor("#111827"));
-        tvPcTitle.setTextSize(15f);
+        tvPcTitle.setTextSize(14.5f);
         tvPcTitle.setTypeface(Typeface.DEFAULT_BOLD);
         tvPcTitle.setPadding(0, 0, 0, dp(2));
         root.addView(tvPcTitle);
 
         TextView tvPcSubHint = new TextView(this);
-        tvPcSubHint.setText("🔍 Tocá cualquier photocard para ver en Full HD con Zoom (Pinch-to-Zoom)");
+        tvPcSubHint.setText(getString(R.string.binder_zoom_hint));
         tvPcSubHint.setTextColor(themeBinder.getMutedTextColor());
-        tvPcSubHint.setTextSize(11.5f);
-        tvPcSubHint.setPadding(0, 0, 0, dp(8));
+        tvPcSubHint.setTextSize(11f);
+        tvPcSubHint.setPadding(0, 0, 0, dp(6));
         root.addView(tvPcSubHint);
 
         HorizontalScrollView pcScroll = new HorizontalScrollView(this);
         pcScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout pcRow = new LinearLayout(this);
         pcRow.setOrientation(LinearLayout.HORIZONTAL);
-        pcRow.setPadding(0, 0, 0, dp(12));
+        pcRow.setPadding(0, 0, 0, dp(10));
 
         Runnable rebuildPhotocardsRow = new Runnable() {
             @Override
             public void run() {
                 pcRow.removeAllViews();
                 List<String> allPcs = new ArrayList<>(card.getPhotocards());
-                tvPcTitle.setText("📸 Photocards de " + card.getStageName() + " (" + card.getUnlockedPhotocards().size() + "/" + allPcs.size() + ")");
+                tvPcTitle.setText(getString(R.string.binder_title_format, card.getStageName(), card.getUnlockedPhotocards().size(), allPcs.size()));
 
-                // Render first 8 immediately for instant dialog opening, and post remaining on next frame
                 int firstBatch = Math.min(8, allPcs.size());
                 for (int i = 0; i < firstBatch; i++) {
                     pcRow.addView(buildPhotocardBinderCell(card, allPcs.get(i), i, ivMain, this));
@@ -2434,7 +2486,6 @@ public class MainActivity extends AppCompatActivity {
         pcScroll.addView(pcRow);
         root.addView(pcScroll);
 
-        // Background-resolve any virtual fandom_pc:// slots into real Fandom concept photo URLs
         KpopWikiImporter.resolveAllPhotocardSlotsAsync(card, repo, rebuildPhotocardsRow);
 
         // Add Photocard Buttons (Upload, Paste Clipboard Image/URL, or Paste Link)
@@ -2442,18 +2493,17 @@ public class MainActivity extends AppCompatActivity {
         addPcRow.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams apcLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        apcLp.setMargins(0, 0, 0, dp(12));
+        apcLp.setMargins(0, 0, 0, dp(10));
         addPcRow.setLayoutParams(apcLp);
 
         TextView btnAddPcFile = new TextView(this);
-        btnAddPcFile.setText("📁 Subir Foto");
-        btnAddPcFile.setTextColor(Color.parseColor("#111827"));
+        btnAddPcFile.setText(getString(R.string.btn_upload_photo));
         btnAddPcFile.setTypeface(Typeface.DEFAULT_BOLD);
         btnAddPcFile.setTextSize(11.5f);
         btnAddPcFile.setGravity(Gravity.CENTER);
         btnAddPcFile.setBackground(ThemeManager.createPillDrawable(this, themeBinder.primaryColor, 18));
         btnAddPcFile.setTextColor(themeBinder.getButtonTextColor(themeBinder.primaryColor));
-        btnAddPcFile.setPadding(dp(8), dp(10), dp(8), dp(10));
+        btnAddPcFile.setPadding(dp(8), dp(9), dp(8), dp(9));
         LinearLayout.LayoutParams b1Lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         b1Lp.setMargins(0, 0, dp(5), 0);
         btnAddPcFile.setLayoutParams(b1Lp);
@@ -2466,18 +2516,18 @@ public class MainActivity extends AppCompatActivity {
             };
             Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
             pick.setType("image/*");
-            startActivityForResult(Intent.createChooser(pick, "Elegir Photocard"), REQ_PICK_EXTRA_PHOTOCARD);
+            startActivityForResult(Intent.createChooser(pick, getString(R.string.btn_upload_photo)), REQ_PICK_EXTRA_PHOTOCARD);
         });
         addPcRow.addView(btnAddPcFile);
 
         TextView btnPasteClipboardPc = new TextView(this);
-        btnPasteClipboardPc.setText("📋 Pegar Copiada");
+        btnPasteClipboardPc.setText(getString(R.string.btn_paste_clipboard));
         btnPasteClipboardPc.setTextColor(Color.parseColor("#111827"));
         btnPasteClipboardPc.setTypeface(Typeface.DEFAULT_BOLD);
         btnPasteClipboardPc.setTextSize(11.5f);
         btnPasteClipboardPc.setGravity(Gravity.CENTER);
         btnPasteClipboardPc.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 18));
-        btnPasteClipboardPc.setPadding(dp(8), dp(10), dp(8), dp(10));
+        btnPasteClipboardPc.setPadding(dp(8), dp(9), dp(8), dp(9));
         LinearLayout.LayoutParams b2Lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.15f);
         b2Lp.setMargins(0, 0, dp(5), 0);
         btnPasteClipboardPc.setLayoutParams(b2Lp);
@@ -2490,29 +2540,26 @@ public class MainActivity extends AppCompatActivity {
                 CardImageLoader.loadCardImage(this, card, ivMain);
                 rebuildPhotocardsRow.run();
                 refreshCurrentTab();
-                Toast.makeText(this, "✨ Imagen pegada del portapapeles", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Copiá primero una imagen o link al portapapeles", Toast.LENGTH_SHORT).show();
             }
         });
         addPcRow.addView(btnPasteClipboardPc);
 
         TextView btnAddPcUrl = new TextView(this);
-        btnAddPcUrl.setText("🔗 Link URL");
+        btnAddPcUrl.setText(getString(R.string.btn_link_url));
         btnAddPcUrl.setTextColor(Color.parseColor("#111827"));
         btnAddPcUrl.setTypeface(Typeface.DEFAULT_BOLD);
         btnAddPcUrl.setTextSize(11.5f);
         btnAddPcUrl.setGravity(Gravity.CENTER);
         btnAddPcUrl.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 18));
-        btnAddPcUrl.setPadding(dp(8), dp(10), dp(8), dp(10));
+        btnAddPcUrl.setPadding(dp(8), dp(9), dp(8), dp(9));
         btnAddPcUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.9f));
         btnAddPcUrl.setOnClickListener(v -> {
             EditText urlIn = new EditText(this);
-            urlIn.setHint("Pegá URL de imagen...");
+            urlIn.setHint(getString(R.string.hint_photo_url));
             new AlertDialog.Builder(this)
-                    .setTitle("Agregar Photocard por Link")
+                    .setTitle(getString(R.string.btn_link_url))
                     .setView(urlIn)
-                    .setPositiveButton("Agregar", (d, w) -> {
+                    .setPositiveButton(getString(R.string.btn_save), (d, w) -> {
                         String u = urlIn.getText().toString().trim();
                         if (!u.isEmpty()) {
                             card.addPhotocard(u);
@@ -2523,7 +2570,7 @@ public class MainActivity extends AppCompatActivity {
                             refreshCurrentTab();
                         }
                     })
-                    .setNegativeButton("Cancelar", null)
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show();
         });
         addPcRow.addView(btnAddPcUrl);
@@ -2534,12 +2581,12 @@ public class MainActivity extends AppCompatActivity {
         bottomRow.setOrientation(LinearLayout.HORIZONTAL);
 
         TextView btnEdit = new TextView(this);
-        btnEdit.setText("✏️ Editar Datos");
+        btnEdit.setText(getString(R.string.btn_edit_data));
         btnEdit.setTextColor(Color.parseColor("#111827"));
         btnEdit.setTypeface(Typeface.DEFAULT_BOLD);
         btnEdit.setGravity(Gravity.CENTER);
         btnEdit.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 18));
-        btnEdit.setPadding(dp(12), dp(10), dp(12), dp(10));
+        btnEdit.setPadding(dp(12), dp(9), dp(12), dp(9));
         LinearLayout.LayoutParams edLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         edLp.setMargins(0, 0, dp(6), 0);
         btnEdit.setLayoutParams(edLp);
@@ -2550,12 +2597,12 @@ public class MainActivity extends AppCompatActivity {
         bottomRow.addView(btnEdit);
 
         TextView btnShareOne = new TextView(this);
-        btnShareOne.setText("📤 Compartir");
+        btnShareOne.setText(getString(R.string.btn_share_short));
         btnShareOne.setTextColor(Color.parseColor("#111827"));
         btnShareOne.setTypeface(Typeface.DEFAULT_BOLD);
         btnShareOne.setGravity(Gravity.CENTER);
         btnShareOne.setBackground(ThemeManager.createPillDrawable(this, themeBinder.secondaryColor, 18));
-        btnShareOne.setPadding(dp(12), dp(10), dp(12), dp(10));
+        btnShareOne.setPadding(dp(12), dp(9), dp(12), dp(9));
         btnShareOne.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         btnShareOne.setOnClickListener(v -> {
             List<IdolCard> single = Collections.singletonList(card);
@@ -2564,24 +2611,27 @@ public class MainActivity extends AppCompatActivity {
         bottomRow.addView(btnShareOne);
         root.addView(bottomRow);
 
+        scroll.addView(root);
+        dialogCard.addView(scroll);
+
+        // Sticky Close Button pinned outside the ScrollView at the bottom of dialogCard so it is NEVER hidden or cut off!
         TextView btnCloseModal = new TextView(this);
-        btnCloseModal.setText("Cerrar");
-        btnCloseModal.setTextColor(Color.parseColor("#374151"));
+        btnCloseModal.setText(getString(R.string.btn_close));
+        btnCloseModal.setTextColor(Color.parseColor("#1F2937"));
         btnCloseModal.setTypeface(Typeface.DEFAULT_BOLD);
         btnCloseModal.setTextSize(13f);
         btnCloseModal.setGravity(Gravity.CENTER);
-        btnCloseModal.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 20));
-        btnCloseModal.setPadding(dp(14), dp(11), dp(14), dp(11));
+        btnCloseModal.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#E5E7EB"), 20));
+        btnCloseModal.setPadding(dp(14), dp(10), dp(14), dp(10));
         LinearLayout.LayoutParams clLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        clLp.topMargin = dp(14);
+        clLp.topMargin = dp(10);
         btnCloseModal.setLayoutParams(clLp);
         btnCloseModal.setOnClickListener(v -> {
             if (dialogRef[0] != null) dialogRef[0].dismiss();
         });
-        root.addView(btnCloseModal);
+        dialogCard.addView(btnCloseModal);
 
-        scroll.addView(root);
-        builder.setView(scroll);
+        builder.setView(dialogCard);
         dialogRef[0] = builder.create();
         if (dialogRef[0].getWindow() != null) {
             dialogRef[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
@@ -2598,7 +2648,7 @@ public class MainActivity extends AppCompatActivity {
         pcItem.setLayoutParams(pLp);
 
         boolean isUnlocked = card.isPhotocardUnlocked(pcUri);
-        boolean isPrimaryCover = pcUri != null && pcUri.equals(card.getPhotoUri());
+        boolean isPrimaryCover = IdolCard.isSamePhoto(pcUri, card.getPhotoUri());
 
         CardView thumbCard = new CardView(this);
         thumbCard.setRadius(dp(14));
@@ -2614,7 +2664,7 @@ public class MainActivity extends AppCompatActivity {
             ivThumb.setLayoutParams(new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             ivThumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            IdolCard temp = new IdolCard(card.getId() + "_thumb_" + idx, card.getStageName(),
+            IdolCard temp = new IdolCard(card.getId(), card.getStageName(),
                     card.getFullName(), card.getGroupName(), card.isSoloist(), card.getCountry(),
                     card.getBirthDate(), card.getRole(), pcUri, card.getAccentColor(), card.getBio(), card.getCollections());
             CardImageLoader.loadCardImage(this, temp, ivThumb);
@@ -2646,7 +2696,7 @@ public class MainActivity extends AppCompatActivity {
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
             tvLock.setLayoutParams(lkLp);
             frame.addView(tvLock);
-            frame.setOnClickListener(v -> Toast.makeText(this, "✨ ¡Desbloqueá esta photocard en el Photocard Gacha!", Toast.LENGTH_SHORT).show());
+            frame.setOnClickListener(v -> Toast.makeText(this, getString(R.string.binder_locked_gacha_toast), Toast.LENGTH_SHORT).show());
         }
 
         thumbCard.addView(frame);
@@ -2655,7 +2705,7 @@ public class MainActivity extends AppCompatActivity {
         // Separate dedicated button below each unlocked photocard to set it as Primary Cover Photo
         if (isUnlocked) {
             TextView btnSetCover = new TextView(this);
-            btnSetCover.setText(isPrimaryCover ? "⭐ Portada" : "☆ Portada");
+            btnSetCover.setText(isPrimaryCover ? getString(R.string.binder_cover_active) : getString(R.string.binder_cover_set));
             btnSetCover.setTextColor(Color.parseColor(isPrimaryCover ? "#B45309" : "#4B5563"));
             btnSetCover.setTextSize(10f);
             btnSetCover.setTypeface(Typeface.DEFAULT_BOLD);
@@ -2673,12 +2723,12 @@ public class MainActivity extends AppCompatActivity {
                 CardImageLoader.loadCardImage(this, card, ivMain);
                 if (rebuildCallback != null) rebuildCallback.run();
                 refreshCurrentTab();
-                Toast.makeText(this, "⭐ Definida como portada principal de " + card.getStageName(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.binder_cover_updated_toast, card.getStageName()), Toast.LENGTH_SHORT).show();
             });
             pcItem.addView(btnSetCover);
         } else {
             TextView tvLockedSub = new TextView(this);
-            tvLockedSub.setText("Bloqueada");
+            tvLockedSub.setText(getString(R.string.binder_locked));
             tvLockedSub.setTextColor(Color.parseColor("#9CA3AF"));
             tvLockedSub.setTextSize(9.5f);
             tvLockedSub.setPadding(0, dp(5), 0, 0);
@@ -2701,14 +2751,14 @@ public class MainActivity extends AppCompatActivity {
         root.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
 
         TextView tvTitle = new TextView(this);
-        tvTitle.setText("📸 " + card.getStageName() + "  •  Photocard #" + pcNumber);
+        tvTitle.setText(getString(R.string.zoom_preview_title_format, card.getStageName(), pcNumber));
         tvTitle.setTextColor(theme.textColor);
         tvTitle.setTextSize(17f);
         tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         root.addView(tvTitle);
 
         TextView tvHint = new TextView(this);
-        tvHint.setText("🔍 Pellizcá con 2 dedos o hacé doble toque para hacer Zoom");
+        tvHint.setText(getString(R.string.zoom_preview_hint));
         tvHint.setTextColor(theme.getMutedTextColor());
         tvHint.setTextSize(11.5f);
         tvHint.setPadding(0, dp(2), 0, dp(12));
@@ -2730,10 +2780,10 @@ public class MainActivity extends AppCompatActivity {
         zoomCard.addView(zoomView);
         root.addView(zoomCard);
 
-        boolean isCurrentCover = pcUri != null && pcUri.equals(card.getPhotoUri());
+        boolean isCurrentCover = IdolCard.isSamePhoto(pcUri, card.getPhotoUri());
 
         TextView btnSetAsMain = new TextView(this);
-        btnSetAsMain.setText(isCurrentCover ? "⭐ Portada Principal Actual" : "⭐ Definir como Portada Principal");
+        btnSetAsMain.setText(isCurrentCover ? getString(R.string.zoom_btn_current_cover) : getString(R.string.zoom_btn_set_cover));
         btnSetAsMain.setTextColor(isCurrentCover ? Color.parseColor("#B45309") : theme.getButtonTextColor(theme.primaryColor));
         btnSetAsMain.setTypeface(Typeface.DEFAULT_BOLD);
         btnSetAsMain.setTextSize(13f);
@@ -2756,16 +2806,16 @@ public class MainActivity extends AppCompatActivity {
                     rebuildBinderCallback.run();
                 }
                 refreshCurrentTab();
-                btnSetAsMain.setText("⭐ Portada Principal Actual");
+                btnSetAsMain.setText(getString(R.string.zoom_btn_current_cover));
                 btnSetAsMain.setTextColor(Color.parseColor("#B45309"));
                 btnSetAsMain.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#FEF3C7"), 20));
-                Toast.makeText(this, "⭐ Definida como portada principal de " + card.getStageName(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.binder_cover_updated_toast, card.getStageName()), Toast.LENGTH_SHORT).show();
             }
         });
         root.addView(btnSetAsMain);
 
         TextView btnClose = new TextView(this);
-        btnClose.setText("Cerrar Vista Previa");
+        btnClose.setText(getString(R.string.zoom_btn_close));
         btnClose.setTextColor(Color.parseColor("#374151"));
         btnClose.setTypeface(Typeface.DEFAULT_BOLD);
         btnClose.setTextSize(13f);
@@ -3314,113 +3364,119 @@ public class MainActivity extends AppCompatActivity {
         String[] tiers = {"🌟 SSR HOLOGRAPHIC PHOTOCARD", "✨ SSR LIMITED LUCKY DRAW", "💎 SR SPECIAL POB PHOTOCARD"};
         String tier = tiers[rnd.nextInt(tiers.length)];
 
-        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.CENTER_HORIZONTAL);
-        int pad = dp(20);
-        box.setPadding(pad, pad, pad, pad);
-        box.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
-
-        TextView tvTier = new TextView(this);
-        tvTier.setText(tier);
-        tvTier.setTextColor(theme.getButtonTextColor(theme.primaryColor));
-        tvTier.setTextSize(11f);
-        tvTier.setTypeface(Typeface.DEFAULT_BOLD);
-        tvTier.setPadding(dp(14), dp(6), dp(14), dp(6));
-        tvTier.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 14));
-        box.addView(tvTier);
-
-        CardView pcCard = new CardView(this);
-        pcCard.setRadius(dp(22));
-        pcCard.setCardElevation(dp(6));
-        LinearLayout.LayoutParams ivLp = new LinearLayout.LayoutParams(dp(210), dp(280));
-        ivLp.setMargins(0, dp(14), 0, dp(14));
-        pcCard.setLayoutParams(ivLp);
-
-        ImageView iv = new ImageView(this);
-        iv.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        IdolCard showcaseCard = new IdolCard(pulled.getId() + "_unlocked", pulled.getStageName(),
+        IdolCard showcaseCard = new IdolCard(pulled.getId(), pulled.getStageName(),
                 pulled.getFullName(), pulled.getGroupName(), pulled.isSoloist(), pulled.getCountry(),
                 pulled.getBirthDate(), pulled.getRole(), newlyUnlockedUri, pulled.getAccentColor(), pulled.getBio(), pulled.getCollections());
-        CardImageLoader.loadCardImage(this, showcaseCard, iv);
-        pcCard.addView(iv);
-        box.addView(pcCard);
 
-        TextView tvName = new TextView(this);
-        tvName.setText(pulled.getStageName() + " (" + pulled.getGroupName() + ")");
-        tvName.setTextColor(theme.textColor);
-        tvName.setTextSize(20f);
-        tvName.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
-        box.addView(tvName);
+        Toast.makeText(this, getString(R.string.gacha_opening_pack), Toast.LENGTH_SHORT).show();
 
-        if (pulled.getNativeName() != null && !pulled.getNativeName().isEmpty()) {
-            TextView tvNative = new TextView(this);
-            tvNative.setText(pulled.getNativeName());
-            tvNative.setTextColor(theme.primaryColor);
-            tvNative.setTextSize(14f);
-            tvNative.setTypeface(Typeface.DEFAULT_BOLD);
-            box.addView(tvNative);
-        }
+        CardImageLoader.preloadSingleCardAsync(this, showcaseCard, () -> {
+            if (isFinishing()) return;
+            ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setGravity(Gravity.CENTER_HORIZONTAL);
+            int pad = dp(20);
+            box.setPadding(pad, pad, pad, pad);
+            box.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
 
-        TextView tvSub = new TextView(this);
-        tvSub.setText("✨ ¡Nueva photocard desbloqueada! (" + pulled.getUnlockedPhotocards().size() + "/" + pulled.getPhotocards().size() + " en tu binder)");
-        tvSub.setTextColor(theme.getMutedTextColor());
-        tvSub.setTextSize(12f);
-        tvSub.setGravity(Gravity.CENTER);
-        tvSub.setPadding(0, dp(4), 0, dp(14));
-        box.addView(tvSub);
+            TextView tvTier = new TextView(this);
+            tvTier.setText(tier);
+            tvTier.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+            tvTier.setTextSize(11f);
+            tvTier.setTypeface(Typeface.DEFAULT_BOLD);
+            tvTier.setPadding(dp(14), dp(6), dp(14), dp(6));
+            tvTier.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 14));
+            box.addView(tvTier);
 
-        LinearLayout btnsRow = new LinearLayout(this);
-        btnsRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams brLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        btnsRow.setLayoutParams(brLp);
+            CardView pcCard = new CardView(this);
+            pcCard.setRadius(dp(22));
+            pcCard.setCardElevation(dp(6));
+            LinearLayout.LayoutParams ivLp = new LinearLayout.LayoutParams(dp(210), dp(280));
+            ivLp.setMargins(0, dp(14), 0, dp(14));
+            pcCard.setLayoutParams(ivLp);
 
-        AlertDialog[] gRef = new AlertDialog[1];
+            ImageView iv = new ImageView(this);
+            iv.setLayoutParams(new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            CardImageLoader.loadCardImage(this, showcaseCard, iv);
+            pcCard.addView(iv);
+            box.addView(pcCard);
 
-        TextView btnAlbum = new TextView(this);
-        btnAlbum.setText("📸 Ver Binder");
-        btnAlbum.setTextColor(theme.getButtonTextColor(theme.primaryColor));
-        btnAlbum.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
-        btnAlbum.setTextSize(12.5f);
-        btnAlbum.setTypeface(Typeface.DEFAULT_BOLD);
-        btnAlbum.setGravity(Gravity.CENTER);
-        btnAlbum.setPadding(dp(12), dp(10), dp(12), dp(10));
-        LinearLayout.LayoutParams baLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f);
-        baLp.setMargins(0, 0, dp(6), 0);
-        btnAlbum.setLayoutParams(baLp);
-        btnAlbum.setOnClickListener(v -> {
-            if (gRef[0] != null) gRef[0].dismiss();
-            showIdolDetailAndPhotocardBinderDialog(pulled);
+            TextView tvName = new TextView(this);
+            tvName.setText(pulled.getStageName() + " (" + pulled.getGroupName() + ")");
+            tvName.setTextColor(theme.textColor);
+            tvName.setTextSize(20f);
+            tvName.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+            box.addView(tvName);
+
+            if (pulled.getNativeName() != null && !pulled.getNativeName().isEmpty()) {
+                TextView tvNative = new TextView(this);
+                tvNative.setText(pulled.getNativeName());
+                tvNative.setTextColor(theme.primaryColor);
+                tvNative.setTextSize(14f);
+                tvNative.setTypeface(Typeface.DEFAULT_BOLD);
+                box.addView(tvNative);
+            }
+
+            TextView tvSub = new TextView(this);
+            tvSub.setText(getString(R.string.gacha_unlocked_sub, pulled.getUnlockedPhotocards().size(), pulled.getPhotocards().size()));
+            tvSub.setTextColor(theme.getMutedTextColor());
+            tvSub.setTextSize(12f);
+            tvSub.setGravity(Gravity.CENTER);
+            tvSub.setPadding(0, dp(4), 0, dp(14));
+            box.addView(tvSub);
+
+            LinearLayout btnsRow = new LinearLayout(this);
+            btnsRow.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams brLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            btnsRow.setLayoutParams(brLp);
+
+            AlertDialog[] gRef = new AlertDialog[1];
+
+            TextView btnAlbum = new TextView(this);
+            btnAlbum.setText(getString(R.string.gacha_btn_view_binder));
+            btnAlbum.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+            btnAlbum.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+            btnAlbum.setTextSize(12.5f);
+            btnAlbum.setTypeface(Typeface.DEFAULT_BOLD);
+            btnAlbum.setGravity(Gravity.CENTER);
+            btnAlbum.setPadding(dp(12), dp(10), dp(12), dp(10));
+            LinearLayout.LayoutParams baLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f);
+            baLp.setMargins(0, 0, dp(6), 0);
+            btnAlbum.setLayoutParams(baLp);
+            btnAlbum.setOnClickListener(v -> {
+                if (gRef[0] != null) gRef[0].dismiss();
+                showIdolDetailAndPhotocardBinderDialog(pulled);
+            });
+            btnsRow.addView(btnAlbum);
+
+            TextView btnClose = new TextView(this);
+            btnClose.setText(getString(R.string.btn_close));
+            btnClose.setTextColor(Color.parseColor("#374151"));
+            btnClose.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#E5E7EB"), 20));
+            btnClose.setTextSize(12.5f);
+            btnClose.setTypeface(Typeface.DEFAULT_BOLD);
+            btnClose.setGravity(Gravity.CENTER);
+            btnClose.setPadding(dp(12), dp(10), dp(12), dp(10));
+            LinearLayout.LayoutParams bcLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            btnClose.setLayoutParams(bcLp);
+            btnClose.setOnClickListener(v -> {
+                if (gRef[0] != null) gRef[0].dismiss();
+            });
+            btnsRow.addView(btnClose);
+
+            box.addView(btnsRow);
+
+            builder.setView(box);
+            gRef[0] = builder.create();
+            if (gRef[0].getWindow() != null) {
+                gRef[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            }
+            gRef[0].show();
         });
-        btnsRow.addView(btnAlbum);
-
-        TextView btnClose = new TextView(this);
-        btnClose.setText("Cerrar");
-        btnClose.setTextColor(Color.parseColor("#374151"));
-        btnClose.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#E5E7EB"), 20));
-        btnClose.setTextSize(12.5f);
-        btnClose.setTypeface(Typeface.DEFAULT_BOLD);
-        btnClose.setGravity(Gravity.CENTER);
-        btnClose.setPadding(dp(12), dp(10), dp(12), dp(10));
-        LinearLayout.LayoutParams bcLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        btnClose.setLayoutParams(bcLp);
-        btnClose.setOnClickListener(v -> {
-            if (gRef[0] != null) gRef[0].dismiss();
-        });
-        btnsRow.addView(btnClose);
-
-        box.addView(btnsRow);
-
-        builder.setView(box);
-        gRef[0] = builder.create();
-        if (gRef[0].getWindow() != null) {
-            gRef[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        }
-        gRef[0].show();
     }
 
     private void handleIncomingIntent(Intent intent) {

@@ -75,7 +75,7 @@ public class StarterPackSeeder {
         list.add(minjuCard);
         IdolCard mokaCard = card("idol_illit_moka", "Moka", "Sakai Moka", "ILLIT", false, "Japan", "2004-10-08", "Lead Dancer, Vocalist, Visual", illitColor, "Master of facial expressions and stage charm from Fukuoka, Japan.", illitCol);
         mokaCard.setNativeName("사카이 모카 • 堺 萌花");
-        mokaCard.addPhotocard("https://static.wikia.nocookie.net/kpop/images/7/76/ILLIT_Moka_Almond_Chocolate_concept_photo_1.png/revision/latest?cb=20250210164514");
+        mokaCard.addPhotocard("https://static.wikia.nocookie.net/kpop/images/5/54/ILLIT_Moka_Billboard_Korea_November_2025.webp/revision/latest?cb=20251207031057");
         mokaCard.addPhotocard("https://static.wikia.nocookie.net/kpop/images/f/f1/ILLIT_Moka_Almond_Chocolate_concept_photo_2.png/revision/latest?cb=20250210164515");
         mokaCard.addPhotocard("https://static.wikia.nocookie.net/kpop/images/a/a8/ILLIT_Moka_I%27ll_Like_You_concept_photo_1.webp/revision/latest?cb=20240930160615");
         mokaCard.addPhotocard("https://static.wikia.nocookie.net/kpop/images/c/c5/ILLIT_Moka_I%27ll_Like_You_concept_photo_10.webp/revision/latest?cb=20241001151335");

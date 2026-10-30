@@ -216,11 +216,79 @@ public class IdolCard implements Serializable {
         this.photocards = photocards != null ? photocards : new ArrayList<>();
     }
 
+    public static String normalizePhotoIdentity(String uri) {
+        if (uri == null) return "";
+        String s = uri.trim();
+        int revIdx = s.indexOf("/revision/");
+        if (revIdx > 0) {
+            s = s.substring(0, revIdx);
+        } else {
+            int qIdx = s.indexOf('?');
+            if (qIdx > 0) s = s.substring(0, qIdx);
+        }
+        return s.toLowerCase(java.util.Locale.ROOT);
+    }
+
+    public static boolean isSamePhoto(String a, String b) {
+        if (a == null || b == null) return false;
+        String na = normalizePhotoIdentity(a);
+        String nb = normalizePhotoIdentity(b);
+        return !na.isEmpty() && na.equals(nb);
+    }
+
+    public boolean containsPhotocardIdentity(String uri) {
+        if (uri == null || uri.trim().isEmpty() || photocards == null) return false;
+        String target = normalizePhotoIdentity(uri);
+        for (String existing : photocards) {
+            if (target.equals(normalizePhotoIdentity(existing))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean deduplicatePhotocards() {
+        if (photocards == null || photocards.size() <= 1) return false;
+        List<String> unique = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        boolean changed = false;
+        for (String pc : photocards) {
+            if (pc == null || pc.trim().isEmpty()) {
+                changed = true;
+                continue;
+            }
+            String norm = normalizePhotoIdentity(pc);
+            if (!seen.contains(norm)) {
+                seen.add(norm);
+                unique.add(pc.trim());
+            } else {
+                changed = true;
+            }
+        }
+        if (changed) {
+            photocards = unique;
+        }
+        if (unlockedPhotocards != null && unlockedPhotocards.size() > 1) {
+            List<String> uniqueUnl = new ArrayList<>();
+            java.util.Set<String> seenUnl = new java.util.HashSet<>();
+            for (String u : unlockedPhotocards) {
+                if (u == null || u.trim().isEmpty()) continue;
+                String norm = normalizePhotoIdentity(u);
+                if (!seenUnl.contains(norm)) {
+                    seenUnl.add(norm);
+                    uniqueUnl.add(u.trim());
+                }
+            }
+            unlockedPhotocards = uniqueUnl;
+        }
+        return changed;
+    }
+
     public void addPhotocard(String uri) {
         if (uri == null || uri.trim().isEmpty()) return;
         String trimmed = uri.trim();
         if (photocards == null) photocards = new ArrayList<>();
-        if (!photocards.contains(trimmed)) {
+        if (!containsPhotocardIdentity(trimmed)) {
             photocards.add(trimmed);
         }
         if (this.photoUri == null || this.photoUri.trim().isEmpty()) {

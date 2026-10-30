@@ -58,6 +58,7 @@ public class BiasRepository {
         }
         if (idols.isEmpty()) {
             idols.addAll(StarterPackSeeder.getInitialIdols());
+            applyBundledPhotocardsDatabase(idols);
             saveIdols();
         } else {
             // Ensure any newly added starter groups exist AND backfill new Kpop Wiki photo URLs
@@ -78,19 +79,18 @@ public class BiasRepository {
                         ex.setPhotoUri(seed.getPhotoUri());
                         updatedAny = true;
                     } else if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty()
+                            || ex.getPhotoUri().startsWith("fandom_pc://")
                             || ex.getPhotoUri().contains("wikimedia.org")
                             || ex.getPhotoUri().contains("I_Got_Your_Back_concept_photo_4"))
                             && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
                         ex.setPhotoUri(seed.getPhotoUri());
                         updatedAny = true;
                     }
-                    if (ex.getId().startsWith("idol_illit_")) {
-                        // Replace any virtual fandom_pc:// slots if seed has real HTTP URLs
-                        ex.getPhotocards().removeIf(u -> u != null && u.startsWith("fandom_pc://"));
-                        ex.getUnlockedPhotocards().removeIf(u -> u != null && u.startsWith("fandom_pc://"));
+                    if (ex.deduplicatePhotocards()) {
+                        updatedAny = true;
                     }
                     for (String pc : seed.getPhotocards()) {
-                        if (ex.getPhotocards().size() < 30 && !ex.getPhotocards().contains(pc)) {
+                        if (ex.getPhotocards().size() < 30 && !ex.containsPhotocardIdentity(pc)) {
                             ex.addPhotocard(pc);
                             updatedAny = true;
                         }
@@ -100,14 +100,10 @@ public class BiasRepository {
                         ex.setNativeName(seed.getNativeName());
                         updatedAny = true;
                     }
-                    if ("idol_illit_moka".equals(ex.getId())) {
-                        ex.unlockAllPhotocards();
-                        updatedAny = true;
-                    } else if (ex.getUnlockedPhotocards().size() < 3) {
-                        ex.unlockInitialPhotocards();
-                        updatedAny = true;
-                    }
                 }
+            }
+            if (applyBundledPhotocardsDatabase(idols)) {
+                updatedAny = true;
             }
             if (updatedAny) saveIdols();
         }
@@ -129,6 +125,59 @@ public class BiasRepository {
             seedStarterMatches();
             saveCustomMatches();
         }
+    }
+
+    private boolean applyBundledPhotocardsDatabase(List<IdolCard> targetList) {
+        boolean changed = false;
+        try (java.io.InputStream is = appContext.getAssets().open("idol_photocards_db.json");
+             BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                sb.append(line);
+            }
+            JSONObject db = new JSONObject(sb.toString());
+            for (IdolCard c : targetList) {
+                if (c.deduplicatePhotocards()) {
+                    changed = true;
+                }
+                JSONArray arr = db.optJSONArray(c.getId());
+                if (arr != null && arr.length() > 0) {
+                    int prevUnlCount = c.getUnlockedPhotocards().size();
+                    boolean removedVirtual = c.getPhotocards().removeIf(u -> u != null && u.startsWith("fandom_pc://"));
+                    boolean removedVirtualUnl = c.getUnlockedPhotocards().removeIf(u -> u != null && u.startsWith("fandom_pc://"));
+                    if (removedVirtual || removedVirtualUnl) changed = true;
+
+                    for (int i = 0; i < arr.length() && c.getPhotocards().size() < 30; i++) {
+                        String url = arr.optString(i, "").trim();
+                        if (!url.isEmpty() && !c.containsPhotocardIdentity(url)) {
+                            c.addPhotocard(url);
+                            changed = true;
+                        }
+                    }
+                    if (c.getPhotoUri() == null || c.getPhotoUri().isEmpty() || c.getPhotoUri().startsWith("fandom_pc://")) {
+                        if (!c.getPhotocards().isEmpty()) {
+                            c.setPhotoUri(c.getPhotocards().get(0));
+                            changed = true;
+                        }
+                    }
+                    // Restore unlocked count if any virtual unlocked slots were replaced
+                    int targetUnl = Math.max(3, prevUnlCount);
+                    List<String> allPcs = c.getPhotocards();
+                    for (int i = 0; i < allPcs.size() && c.getUnlockedPhotocards().size() < targetUnl; i++) {
+                        c.unlockPhotocard(allPcs.get(i));
+                    }
+                }
+                if ("idol_illit_moka".equals(c.getId())) {
+                    c.unlockAllPhotocards();
+                } else if (c.getUnlockedPhotocards().size() < 3) {
+                    c.unlockInitialPhotocards();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return changed;
     }
 
     private void seedStarterMatches() {
