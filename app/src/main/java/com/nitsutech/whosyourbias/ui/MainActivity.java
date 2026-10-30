@@ -3319,16 +3319,17 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
         long lastTime = wybPrefs.getLong("last_gacha_open_time", 0);
         long now = System.currentTimeMillis();
-        long cooldown = 6 * 60 * 60 * 1000L; // 6 hours
+        long cooldown = 15 * 60 * 1000L; // 15 minutes
         long remaining = (lastTime + cooldown) - now;
 
         if (remaining > 0) {
-            long hours = remaining / (60 * 60 * 1000L);
-            long minutes = (remaining % (60 * 60 * 1000L)) / (60 * 1000L);
+            long minutes = remaining / (60 * 1000L);
+            long seconds = (remaining % (60 * 1000L)) / 1000L;
+            String timeStr = minutes > 0 ? (minutes + "m " + seconds + "s") : (seconds + "s");
             new AlertDialog.Builder(this)
-                    .setTitle("⏳ Photocard Gacha en Enfriamiento")
-                    .setMessage("¡Tu próximo sobre estará listo en " + hours + "h " + minutes + "m!\n\nPodés abrir un sobre gratuito cada 6 horas para coleccionar nuevas photocards exclusivas.")
-                    .setPositiveButton("Entendido", null)
+                    .setTitle(getString(R.string.gacha_cooldown_title))
+                    .setMessage(getString(R.string.gacha_cooldown_msg, timeStr))
+                    .setPositiveButton(getString(R.string.btn_understood), null)
                     .show();
             return;
         }
