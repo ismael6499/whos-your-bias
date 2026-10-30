@@ -6,6 +6,8 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.drawable.ColorDrawable;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -29,6 +31,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -40,10 +43,12 @@ import com.nitsutech.whosyourbias.data.BiasRepository;
 import com.nitsutech.whosyourbias.data.CustomMatch;
 import com.nitsutech.whosyourbias.data.IdolCard;
 import com.nitsutech.whosyourbias.util.CardImageLoader;
+import com.nitsutech.whosyourbias.util.KpopWikiImporter;
 import com.nitsutech.whosyourbias.util.ShareImportManager;
 import com.nitsutech.whosyourbias.util.ThemeManager;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -397,7 +402,17 @@ public class MainActivity extends AppCompatActivity {
         gachaStrip.addView(tvNewBadge);
 
         TextView tvGachaRight = new TextView(this);
-        tvGachaRight.setText("Abrir sobre ›");
+        SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
+        long lastGacha = wybPrefs.getLong("last_gacha_open_time", 0);
+        long gachaCooldown = 6 * 60 * 60 * 1000L;
+        long gachaRem = (lastGacha + gachaCooldown) - System.currentTimeMillis();
+        if (gachaRem > 0) {
+            long gh = gachaRem / (60 * 60 * 1000L);
+            long gm = (gachaRem % (60 * 60 * 1000L)) / (60 * 1000L);
+            tvGachaRight.setText(String.format(Locale.ROOT, "⏰ Sobre en %02dh %02dm", gh, gm));
+        } else {
+            tvGachaRight.setText("Abrir sobre ›");
+        }
         tvGachaRight.setTextColor(theme.primaryColor);
         tvGachaRight.setTypeface(Typeface.DEFAULT_BOLD);
         tvGachaRight.setTextSize(12.5f);
@@ -408,7 +423,7 @@ public class MainActivity extends AppCompatActivity {
         gachaStrip.setOnClickListener(v -> showPhotocardGachaDialog());
         root.addView(gachaStrip);
 
-        // 5. Section: Tus Partidas y Desafíos (Clean Horizontal Cards like Moshicam "Marcos nuevos")
+        // 5. Section: Tus Partidas y Desafíos (Rotating daily with daySeed)
         addSectionHeaderRow(root, "Partidas y Desafíos", "Crear +", this::showVibraryStyleCustomMatchBuilder);
 
         HorizontalScrollView matchesScroll = new HorizontalScrollView(this);
@@ -417,13 +432,18 @@ public class MainActivity extends AppCompatActivity {
         matchesRow.setOrientation(LinearLayout.HORIZONTAL);
         matchesRow.setPadding(0, 0, 0, dp(20));
 
-        for (CustomMatch cm : repo.getCustomMatches()) {
+        Calendar dayCal = Calendar.getInstance();
+        long daySeed = dayCal.get(Calendar.YEAR) * 1000L + dayCal.get(Calendar.DAY_OF_YEAR);
+
+        List<CustomMatch> dailyMatches = new ArrayList<>(repo.getCustomMatches());
+        Collections.shuffle(dailyMatches, new Random(daySeed));
+        for (CustomMatch cm : dailyMatches) {
             matchesRow.addView(buildMoshiDeckCard(cm));
         }
         matchesScroll.addView(matchesRow);
         root.addView(matchesScroll);
 
-        // 6. Section: Batallas por Compañía & Posición (Clean Horizontal Cards)
+        // 6. Section: Batallas por Compañía & Posición (Rotating daily with daySeed)
         addSectionHeaderRow(root, "Batallas Especiales", "Ver grupos", () -> switchTab(2));
 
         HorizontalScrollView specialScroll = new HorizontalScrollView(this);
@@ -432,12 +452,24 @@ public class MainActivity extends AppCompatActivity {
         specialRow.setOrientation(LinearLayout.HORIZONTAL);
         specialRow.setPadding(0, 0, 0, dp(10));
 
-        addSpecialCarouselCard(specialRow, "HYBE Labels", "ILLIT • NewJeans • BTS • ENHYPEN", "HYBE", "idol_illit_wonhee");
-        addSpecialCarouselCard(specialRow, "YG Entertainment", "BLACKPINK • BABYMONSTER • BIGBANG", "YG Entertainment", "idol_bp_jennie");
-        addSpecialCarouselCard(specialRow, "JYP Entertainment", "TWICE • Stray Kids • NEXZ • NMIXX", "JYP Entertainment", "idol_skz_felix");
-        addSpecialCarouselCard(specialRow, "SM Entertainment", "aespa • RIIZE • NCT • Red Velvet", "SM Entertainment", "idol_aespa_karina");
-        addSpecialCarouselCard(specialRow, "THEBLACKLABEL", "MEOVV • Somi • izna • Rosé", "THEBLACKLABEL", "idol_meovv_ella");
-        addSpecialCarouselCard(specialRow, "5th Gen Queens & Kings", "ILLIT • NEXZ • KATSEYE • KiiiKiii", "5th Gen", "idol_rescene_woni");
+        class SpecialBattleDef {
+            final String title, desc, filter, heroIdol;
+            SpecialBattleDef(String t, String d, String f, String h) {
+                title = t; desc = d; filter = f; heroIdol = h;
+            }
+        }
+        List<SpecialBattleDef> specials = new ArrayList<>();
+        specials.add(new SpecialBattleDef("HYBE Labels", "ILLIT • NewJeans • BTS • ENHYPEN", "HYBE", "idol_illit_wonhee"));
+        specials.add(new SpecialBattleDef("YG Entertainment", "BLACKPINK • BABYMONSTER • BIGBANG", "YG Entertainment", "idol_bp_jennie"));
+        specials.add(new SpecialBattleDef("JYP Entertainment", "TWICE • Stray Kids • NEXZ • NMIXX", "JYP Entertainment", "idol_skz_felix"));
+        specials.add(new SpecialBattleDef("SM Entertainment", "aespa • RIIZE • NCT • Red Velvet", "SM Entertainment", "idol_aespa_karina"));
+        specials.add(new SpecialBattleDef("THEBLACKLABEL", "MEOVV • Somi • izna • Rosé", "THEBLACKLABEL", "idol_meovv_ella"));
+        specials.add(new SpecialBattleDef("5th Gen Queens & Kings", "ILLIT • NEXZ • KATSEYE • KiiiKiii", "5th Gen", "idol_rescene_woni"));
+        Collections.shuffle(specials, new Random(daySeed + 77L));
+
+        for (SpecialBattleDef s : specials) {
+            addSpecialCarouselCard(specialRow, s.title, s.desc, s.filter, s.heroIdol);
+        }
 
         specialScroll.addView(specialRow);
         root.addView(specialScroll);
@@ -1500,26 +1532,258 @@ public class MainActivity extends AppCompatActivity {
     // DIALOGS: QUICK MATCH, VIBRARY MULTI-SELECT BUILDER, IDOL BINDER, SHARE/IMPORT
     // =========================================================================
 
+    private View buildPlusActionCard(String emoji, String title, String subtitle, String iconBgHex, Runnable action) {
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 18));
+        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 0, 0, dp(10));
+        card.setLayoutParams(lp);
+
+        TextView tvIcon = new TextView(this);
+        tvIcon.setText(emoji);
+        tvIcon.setTextSize(18f);
+        tvIcon.setGravity(Gravity.CENTER);
+        GradientDrawable iBg = new GradientDrawable();
+        iBg.setShape(GradientDrawable.OVAL);
+        iBg.setColor(Color.parseColor(iconBgHex));
+        tvIcon.setBackground(iBg);
+        LinearLayout.LayoutParams icLp = new LinearLayout.LayoutParams(dp(42), dp(42));
+        icLp.setMargins(0, 0, dp(14), 0);
+        tvIcon.setLayoutParams(icLp);
+        card.addView(tvIcon);
+
+        LinearLayout textCol = new LinearLayout(this);
+        textCol.setOrientation(LinearLayout.VERTICAL);
+        textCol.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView tvT = new TextView(this);
+        tvT.setText(title);
+        tvT.setTextColor(theme.textColor);
+        tvT.setTextSize(14f);
+        tvT.setTypeface(Typeface.DEFAULT_BOLD);
+        textCol.addView(tvT);
+
+        TextView tvSub = new TextView(this);
+        tvSub.setText(subtitle);
+        tvSub.setTextColor(theme.getMutedTextColor());
+        tvSub.setTextSize(11.5f);
+        textCol.addView(tvSub);
+
+        card.addView(textCol);
+        card.setOnClickListener(v -> action.run());
+        return card;
+    }
+
+    private void showWikiSearchAndImportDialog() {
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
+        int pad = dp(20);
+        root.setPadding(pad, pad, pad, pad);
+
+        AlertDialog[] ref = new AlertDialog[1];
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("🌐 Buscador K-Pop Wiki Oficial");
+        tvTitle.setTextColor(theme.textColor);
+        tvTitle.setTextSize(17f);
+        tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        tvTitle.setPadding(0, 0, 0, dp(4));
+        root.addView(tvTitle);
+
+        TextView tvSub = new TextView(this);
+        tvSub.setText("Ingresá el nombre de un idol o grupo (ej: Wonhee, Karina, NEXZ, MEOVV, NewJeans):");
+        tvSub.setTextColor(theme.getMutedTextColor());
+        tvSub.setTextSize(12f);
+        tvSub.setPadding(0, 0, 0, dp(12));
+        root.addView(tvSub);
+
+        EditText etSearch = addFormInput(root, "Buscar en K-Pop Wiki...", "");
+
+        LinearLayout resultsBox = new LinearLayout(this);
+        resultsBox.setOrientation(LinearLayout.VERTICAL);
+        ScrollView resultsScroll = new ScrollView(this);
+        resultsScroll.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(220)));
+        resultsScroll.addView(resultsBox);
+        root.addView(resultsScroll);
+
+        ProgressBar progress = new ProgressBar(this);
+        progress.setVisibility(View.GONE);
+        LinearLayout.LayoutParams pgLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        pgLp.gravity = Gravity.CENTER_HORIZONTAL;
+        progress.setLayoutParams(pgLp);
+        root.addView(progress);
+
+        Runnable doSearch = () -> {
+            String q = etSearch.getText().toString().trim();
+            if (q.isEmpty()) return;
+            progress.setVisibility(View.VISIBLE);
+            resultsBox.removeAllViews();
+            KpopWikiImporter.searchWiki(q, new KpopWikiImporter.SearchCallback() {
+                @Override
+                public void onSuccess(List<KpopWikiImporter.WikiResult> results) {
+                    progress.setVisibility(View.GONE);
+                    if (results.isEmpty()) {
+                        TextView tvEmpty = new TextView(MainActivity.this);
+                        tvEmpty.setText("No se encontraron resultados para ese término.");
+                        tvEmpty.setTextColor(Color.parseColor("#9CA3AF"));
+                        tvEmpty.setPadding(0, dp(14), 0, 0);
+                        resultsBox.addView(tvEmpty);
+                        return;
+                    }
+                    for (KpopWikiImporter.WikiResult r : results) {
+                        TextView item = new TextView(MainActivity.this);
+                        item.setText("✦ " + r.title);
+                        item.setTextColor(theme.textColor);
+                        item.setTextSize(13.5f);
+                        item.setTypeface(Typeface.DEFAULT_BOLD);
+                        item.setBackground(ThemeManager.createPillDrawable(MainActivity.this, Color.parseColor("#F9FAFB"), 14));
+                        item.setPadding(dp(14), dp(10), dp(14), dp(10));
+                        LinearLayout.LayoutParams iLp = new LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                        iLp.setMargins(0, 0, 0, dp(8));
+                        item.setLayoutParams(iLp);
+                        item.setOnClickListener(v -> {
+                            progress.setVisibility(View.VISIBLE);
+                            KpopWikiImporter.fetchIdolCard(r.title, new KpopWikiImporter.IdolImportCallback() {
+                                @Override
+                                public void onSuccess(IdolCard card) {
+                                    progress.setVisibility(View.GONE);
+                                    if (ref[0] != null) ref[0].dismiss();
+                                    showCreateOrEditIdolDialog(card, MainActivity.this::refreshCurrentTab);
+                                }
+
+                                @Override
+                                public void onError(String message) {
+                                    progress.setVisibility(View.GONE);
+                                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        });
+                        resultsBox.addView(item);
+                    }
+                }
+
+                @Override
+                public void onError(String message) {
+                    progress.setVisibility(View.GONE);
+                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+                }
+            });
+        };
+
+        etSearch.setOnEditorActionListener((v, actionId, event) -> {
+            doSearch.run();
+            return true;
+        });
+
+        TextView btnSearch = new TextView(this);
+        btnSearch.setText("🔍 Buscar en Wiki");
+        btnSearch.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+        btnSearch.setTextSize(13f);
+        btnSearch.setTypeface(Typeface.DEFAULT_BOLD);
+        btnSearch.setGravity(Gravity.CENTER);
+        btnSearch.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+        btnSearch.setPadding(dp(14), dp(10), dp(14), dp(10));
+        LinearLayout.LayoutParams bLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        bLp.setMargins(0, dp(10), 0, 0);
+        btnSearch.setLayoutParams(bLp);
+        btnSearch.setOnClickListener(v -> doSearch.run());
+        root.addView(btnSearch);
+
+        builder.setView(root);
+        ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        ref[0].show();
+    }
+
     private void showCenterPlusMenuDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle("✨ ¿Qué querés crear, personalizar o importar?")
-                .setItems(new String[]{
-                        "🃏 Crear Nueva Carta de Idol / Cantante",
-                        "🎯 Armar Partida Personalizada (Elegir Cartas)",
-                        "🎨 Personalizar Tema y Colores de la App",
-                        "📤 Compartir Idols por WhatsApp",
-                        "📥 Importar Archivo (.wyb) o Código de WhatsApp"
-                }, (d, which) -> {
-                    if (which == 0) showCreateOrEditIdolDialog(null, this::refreshCurrentTab);
-                    else if (which == 1) showVibraryStyleCustomMatchBuilder();
-                    else if (which == 2) ThemeManager.showThemeStudioDialog(this, () -> {
-                        applyThemeToShell();
-                        refreshCurrentTab();
-                    });
-                    else if (which == 3) showVibraryStyleShareIdolsDialog();
-                    else if (which == 4) showImportHubDialog();
-                })
-                .show();
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
+        int pad = dp(20);
+        root.setPadding(pad, dp(14), pad, dp(20));
+
+        AlertDialog[] ref = new AlertDialog[1];
+
+        // Drag handle indicator
+        View handle = new View(this);
+        handle.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#D1D5DB"), 3));
+        LinearLayout.LayoutParams hLp = new LinearLayout.LayoutParams(dp(40), dp(4));
+        hLp.gravity = Gravity.CENTER_HORIZONTAL;
+        hLp.setMargins(0, 0, 0, dp(14));
+        handle.setLayoutParams(hLp);
+        root.addView(handle);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("✨ Centro de Creación y Comunidad");
+        tvTitle.setTextColor(theme.textColor);
+        tvTitle.setTextSize(18f);
+        tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        tvTitle.setPadding(0, 0, 0, dp(4));
+        root.addView(tvTitle);
+
+        TextView tvSub = new TextView(this);
+        tvSub.setText("Elegí una opción para crear, personalizar o importar");
+        tvSub.setTextColor(theme.getMutedTextColor());
+        tvSub.setTextSize(12f);
+        tvSub.setPadding(0, 0, 0, dp(16));
+        root.addView(tvSub);
+
+        root.addView(buildPlusActionCard("🃏", "Crear Nueva Carta de Idol", "Agregá un idol manualmente con fotos y bio", "#FFF0F5", () -> {
+            if (ref[0] != null) ref[0].dismiss();
+            showCreateOrEditIdolDialog(null, this::refreshCurrentTab);
+        }));
+
+        root.addView(buildPlusActionCard("🌐", "Buscar & Importar en K-Pop Wiki", "Autocompletar perfiles y fotos desde Fandom Wiki", "#EFF6FF", () -> {
+            if (ref[0] != null) ref[0].dismiss();
+            showWikiSearchAndImportDialog();
+        }));
+
+        root.addView(buildPlusActionCard("🎯", "Armar Partida Personalizada", "Elegí cartas y grupos específicos para competir", "#FFFBEB", () -> {
+            if (ref[0] != null) ref[0].dismiss();
+            showVibraryStyleCustomMatchBuilder();
+        }));
+
+        root.addView(buildPlusActionCard("🎨", "Personalizar Tema y Colores", "Cambiá la paleta pastel y estética de la app", "#F3E8FF", () -> {
+            if (ref[0] != null) ref[0].dismiss();
+            ThemeManager.showThemeStudioDialog(this, () -> {
+                applyThemeToShell();
+                refreshCurrentTab();
+            });
+        }));
+
+        root.addView(buildPlusActionCard("📤", "Compartir Idols por WhatsApp", "Exportá tus cartas en paquetes compartibles", "#ECFDF5", () -> {
+            if (ref[0] != null) ref[0].dismiss();
+            showVibraryStyleShareIdolsDialog();
+        }));
+
+        root.addView(buildPlusActionCard("📥", "Importar Archivo (.wyb) o Código", "Cargá cartas recibidas de amigos o WhatsApp", "#F1F5F9", () -> {
+            if (ref[0] != null) ref[0].dismiss();
+            showImportHubDialog();
+        }));
+
+        scroll.addView(root);
+        builder.setView(scroll);
+        ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        ref[0].show();
     }
 
     private void showQuickMatchSetupSheet() {
@@ -1628,8 +1892,9 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.WHITE);
-        int pad = dp(16);
+        ThemeManager.AppTheme themeVib = ThemeManager.getActiveTheme(this);
+        root.setBackground(ThemeManager.createCardDrawable(this, themeVib.surfaceColor, themeVib.cardBorderColor, 24));
+        int pad = dp(18);
         root.setPadding(pad, pad, pad, 0);
 
         AlertDialog[] ref = new AlertDialog[1];
@@ -1744,21 +2009,27 @@ public class MainActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        // Bottom Vibrary Dual Split Bar: [ ↻ Inicialización ] | [ Guardar y Compartir / Jugar ]
+        // Bottom Vibrary Rounded Action Bar: [ ↻ Inicialización ] | [ 🚀 Guardar y Jugar ]
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
         LinearLayout bottomBar = new LinearLayout(this);
         bottomBar.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams bbLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
-        bbLp.topMargin = dp(10);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        bbLp.topMargin = dp(12);
+        bbLp.bottomMargin = dp(12);
         bottomBar.setLayoutParams(bbLp);
 
         TextView btnReset = new TextView(this);
         btnReset.setText("↻ " + getString(R.string.btn_reset_selection));
-        btnReset.setTextColor(Color.WHITE);
-        btnReset.setBackgroundColor(Color.parseColor("#6B7280"));
+        btnReset.setTextColor(Color.parseColor("#374151"));
+        btnReset.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#E5E7EB"), 22));
         btnReset.setGravity(Gravity.CENTER);
         btnReset.setTypeface(Typeface.DEFAULT_BOLD);
-        btnReset.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        btnReset.setTextSize(12.5f);
+        btnReset.setPadding(dp(12), dp(11), dp(12), dp(11));
+        LinearLayout.LayoutParams rmLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        rmLp.setMargins(0, 0, dp(8), 0);
+        btnReset.setLayoutParams(rmLp);
         btnReset.setOnClickListener(v -> {
             chosenIds.clear();
             renderGrid.run();
@@ -1766,12 +2037,15 @@ public class MainActivity extends AppCompatActivity {
         bottomBar.addView(btnReset);
 
         TextView btnSavePlay = new TextView(this);
-        btnSavePlay.setText(getString(R.string.btn_save_and_play));
-        btnSavePlay.setTextColor(Color.WHITE);
-        btnSavePlay.setBackgroundColor(Color.parseColor("#FFC700"));
+        btnSavePlay.setText("🚀 " + getString(R.string.btn_save_and_play));
+        btnSavePlay.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+        btnSavePlay.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 22));
         btnSavePlay.setGravity(Gravity.CENTER);
         btnSavePlay.setTypeface(Typeface.DEFAULT_BOLD);
-        btnSavePlay.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.5f));
+        btnSavePlay.setTextSize(13f);
+        btnSavePlay.setPadding(dp(14), dp(11), dp(14), dp(11));
+        LinearLayout.LayoutParams spLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.5f);
+        btnSavePlay.setLayoutParams(spLp);
         btnSavePlay.setOnClickListener(v -> {
             if (chosenIds.size() < 2) {
                 Toast.makeText(this, getString(R.string.toast_pick_min_2_idols), Toast.LENGTH_SHORT).show();
@@ -1803,6 +2077,9 @@ public class MainActivity extends AppCompatActivity {
 
         builder.setView(root);
         ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
         ref[0].show();
     }
 
@@ -1810,8 +2087,9 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.WHITE);
-        int pad = dp(16);
+        ThemeManager.AppTheme themeVib = ThemeManager.getActiveTheme(this);
+        root.setBackground(ThemeManager.createCardDrawable(this, themeVib.surfaceColor, themeVib.cardBorderColor, 24));
+        int pad = dp(18);
         root.setPadding(pad, pad, pad, 0);
 
         AlertDialog[] ref = new AlertDialog[1];
@@ -1928,13 +2206,18 @@ public class MainActivity extends AppCompatActivity {
         bbLp.topMargin = dp(10);
         bottomBar.setLayoutParams(bbLp);
 
+        ThemeManager.AppTheme themeShare = ThemeManager.getActiveTheme(this);
         TextView btnSend = new TextView(this);
-        btnSend.setText(getString(R.string.action_share_whatsapp));
-        btnSend.setTextColor(Color.parseColor("#111827"));
-        btnSend.setBackgroundColor(Color.parseColor("#FFC700"));
+        btnSend.setText("📤 " + getString(R.string.action_share_whatsapp));
+        btnSend.setTextColor(themeShare.getButtonTextColor(themeShare.primaryColor));
+        btnSend.setBackground(ThemeManager.createPillDrawable(this, themeShare.primaryColor, 22));
         btnSend.setGravity(Gravity.CENTER);
         btnSend.setTypeface(Typeface.DEFAULT_BOLD);
-        btnSend.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        btnSend.setTextSize(13.5f);
+        btnSend.setPadding(dp(14), dp(11), dp(14), dp(11));
+        LinearLayout.LayoutParams sndLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        sndLp.bottomMargin = dp(12);
+        btnSend.setLayoutParams(sndLp);
         btnSend.setOnClickListener(v -> {
             if (chosenIds.isEmpty()) {
                 Toast.makeText(this, getString(R.string.toast_pick_min_1_idol), Toast.LENGTH_SHORT).show();
@@ -1953,6 +2236,9 @@ public class MainActivity extends AppCompatActivity {
 
         builder.setView(root);
         ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
         ref[0].show();
     }
 
@@ -1961,9 +2247,10 @@ public class MainActivity extends AppCompatActivity {
         ScrollView scroll = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
+        ThemeManager.AppTheme themeBinder = ThemeManager.getActiveTheme(this);
+        int pad = dp(20);
         root.setPadding(pad, pad, pad, pad);
-        root.setBackgroundColor(Color.WHITE);
+        root.setBackground(ThemeManager.createCardDrawable(this, themeBinder.surfaceColor, themeBinder.cardBorderColor, 26));
 
         AlertDialog[] dialogRef = new AlertDialog[1];
 
@@ -1985,10 +2272,20 @@ public class MainActivity extends AppCompatActivity {
 
         TextView tvName = new TextView(this);
         tvName.setText(card.getStageName() + "  •  " + (card.isSoloist() ? "Solista" : card.getGroupName()));
-        tvName.setTextColor(Color.parseColor("#111827"));
+        tvName.setTextColor(themeBinder.textColor);
         tvName.setTextSize(22f);
         tvName.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         root.addView(tvName);
+
+        if (card.getNativeName() != null && !card.getNativeName().isEmpty()) {
+            TextView tvNative = new TextView(this);
+            tvNative.setText(card.getNativeName());
+            tvNative.setTextColor(themeBinder.primaryColor);
+            tvNative.setTextSize(15f);
+            tvNative.setTypeface(Typeface.DEFAULT_BOLD);
+            tvNative.setPadding(0, 0, 0, dp(4));
+            root.addView(tvNative);
+        }
 
         TextView tvDetails = new TextView(this);
         StringBuilder dsb = new StringBuilder();
@@ -2009,8 +2306,28 @@ public class MainActivity extends AppCompatActivity {
         tvDetails.setText(dsb.toString());
         tvDetails.setTextColor(Color.parseColor("#4B5563"));
         tvDetails.setTextSize(13f);
-        tvDetails.setPadding(0, dp(6), 0, dp(14));
+        tvDetails.setPadding(0, dp(6), 0, dp(12));
         root.addView(tvDetails);
+
+        TextView btnRandomToggle = new TextView(this);
+        btnRandomToggle.setText(card.isUseRandomPhotocard() ? "🎲 Photocards aleatorias en partidas: ACTIVADO" : "📌 Photocards en partidas: FOTO FIJA");
+        btnRandomToggle.setTextColor(Color.parseColor("#111827"));
+        btnRandomToggle.setTextSize(12f);
+        btnRandomToggle.setTypeface(Typeface.DEFAULT_BOLD);
+        btnRandomToggle.setGravity(Gravity.CENTER);
+        btnRandomToggle.setBackground(ThemeManager.createPillDrawable(this, card.isUseRandomPhotocard() ? Color.parseColor("#FEF3C7") : Color.parseColor("#F3F4F6"), 16));
+        btnRandomToggle.setPadding(dp(12), dp(9), dp(12), dp(9));
+        LinearLayout.LayoutParams rtLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rtLp.setMargins(0, 0, 0, dp(14));
+        btnRandomToggle.setLayoutParams(rtLp);
+        btnRandomToggle.setOnClickListener(v -> {
+            card.setUseRandomPhotocard(!card.isUseRandomPhotocard());
+            repo.saveOrUpdateIdol(card);
+            btnRandomToggle.setText(card.isUseRandomPhotocard() ? "🎲 Photocards aleatorias en partidas: ACTIVADO" : "📌 Photocards en partidas: FOTO FIJA");
+            btnRandomToggle.setBackground(ThemeManager.createPillDrawable(this, card.isUseRandomPhotocard() ? Color.parseColor("#FEF3C7") : Color.parseColor("#F3F4F6"), 16));
+            Toast.makeText(this, card.isUseRandomPhotocard() ? "🎲 Photocards aleatorias activadas" : "📌 Foto fija guardada para partidas", Toast.LENGTH_SHORT).show();
+        });
+        root.addView(btnRandomToggle);
 
         // Photocard Binder Section
         TextView tvPcTitle = new TextView(this);
@@ -2060,6 +2377,25 @@ public class MainActivity extends AppCompatActivity {
                         CardImageLoader.loadCardImage(MainActivity.this, card, ivMain);
                         Toast.makeText(MainActivity.this, "✨ Photocard principal actualizada", Toast.LENGTH_SHORT).show();
                     });
+                    boolean isUnlocked = card.isPhotocardUnlocked(pcUri);
+                    if (!isUnlocked) {
+                        FrameLayout lockOverlay = new FrameLayout(MainActivity.this);
+                        lockOverlay.setLayoutParams(new FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                        lockOverlay.setBackgroundColor(Color.parseColor("#88000000"));
+                        TextView tvLock = new TextView(MainActivity.this);
+                        tvLock.setText("🔒\nBloqueada");
+                        tvLock.setTextColor(Color.WHITE);
+                        tvLock.setTextSize(10.5f);
+                        tvLock.setTypeface(Typeface.DEFAULT_BOLD);
+                        tvLock.setGravity(Gravity.CENTER);
+                        FrameLayout.LayoutParams lkLp = new FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+                        tvLock.setLayoutParams(lkLp);
+                        lockOverlay.addView(tvLock);
+                        thumbCard.addView(lockOverlay);
+                        lockOverlay.setOnClickListener(v -> Toast.makeText(MainActivity.this, "✨ ¡Desbloqueá más photocards en el Photocard Gacha diario!", Toast.LENGTH_SHORT).show());
+                    }
                     thumbCard.addView(ivThumb);
                     pcItem.addView(thumbCard);
 
@@ -2102,7 +2438,8 @@ public class MainActivity extends AppCompatActivity {
         btnAddPcFile.setTypeface(Typeface.DEFAULT_BOLD);
         btnAddPcFile.setTextSize(11.5f);
         btnAddPcFile.setGravity(Gravity.CENTER);
-        btnAddPcFile.setBackgroundResource(R.drawable.bg_btn_primary);
+        btnAddPcFile.setBackground(ThemeManager.createPillDrawable(this, themeBinder.primaryColor, 18));
+        btnAddPcFile.setTextColor(themeBinder.getButtonTextColor(themeBinder.primaryColor));
         btnAddPcFile.setPadding(dp(8), dp(10), dp(8), dp(10));
         LinearLayout.LayoutParams b1Lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         b1Lp.setMargins(0, 0, dp(5), 0);
@@ -2126,7 +2463,7 @@ public class MainActivity extends AppCompatActivity {
         btnPasteClipboardPc.setTypeface(Typeface.DEFAULT_BOLD);
         btnPasteClipboardPc.setTextSize(11.5f);
         btnPasteClipboardPc.setGravity(Gravity.CENTER);
-        btnPasteClipboardPc.setBackgroundResource(R.drawable.bg_btn_secondary);
+        btnPasteClipboardPc.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 18));
         btnPasteClipboardPc.setPadding(dp(8), dp(10), dp(8), dp(10));
         LinearLayout.LayoutParams b2Lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.15f);
         b2Lp.setMargins(0, 0, dp(5), 0);
@@ -2153,7 +2490,7 @@ public class MainActivity extends AppCompatActivity {
         btnAddPcUrl.setTypeface(Typeface.DEFAULT_BOLD);
         btnAddPcUrl.setTextSize(11.5f);
         btnAddPcUrl.setGravity(Gravity.CENTER);
-        btnAddPcUrl.setBackgroundResource(R.drawable.bg_btn_secondary);
+        btnAddPcUrl.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 18));
         btnAddPcUrl.setPadding(dp(8), dp(10), dp(8), dp(10));
         btnAddPcUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.9f));
         btnAddPcUrl.setOnClickListener(v -> {
@@ -2188,7 +2525,7 @@ public class MainActivity extends AppCompatActivity {
         btnEdit.setTextColor(Color.parseColor("#111827"));
         btnEdit.setTypeface(Typeface.DEFAULT_BOLD);
         btnEdit.setGravity(Gravity.CENTER);
-        btnEdit.setBackgroundResource(R.drawable.bg_btn_secondary);
+        btnEdit.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 18));
         btnEdit.setPadding(dp(12), dp(10), dp(12), dp(10));
         LinearLayout.LayoutParams edLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         edLp.setMargins(0, 0, dp(6), 0);
@@ -2204,7 +2541,7 @@ public class MainActivity extends AppCompatActivity {
         btnShareOne.setTextColor(Color.parseColor("#111827"));
         btnShareOne.setTypeface(Typeface.DEFAULT_BOLD);
         btnShareOne.setGravity(Gravity.CENTER);
-        btnShareOne.setBackgroundResource(R.drawable.bg_btn_gold);
+        btnShareOne.setBackground(ThemeManager.createPillDrawable(this, themeBinder.secondaryColor, 18));
         btnShareOne.setPadding(dp(12), dp(10), dp(12), dp(10));
         btnShareOne.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         btnShareOne.setOnClickListener(v -> {
@@ -2214,64 +2551,146 @@ public class MainActivity extends AppCompatActivity {
         bottomRow.addView(btnShareOne);
         root.addView(bottomRow);
 
+        TextView btnCloseModal = new TextView(this);
+        btnCloseModal.setText("Cerrar");
+        btnCloseModal.setTextColor(Color.parseColor("#374151"));
+        btnCloseModal.setTypeface(Typeface.DEFAULT_BOLD);
+        btnCloseModal.setTextSize(13f);
+        btnCloseModal.setGravity(Gravity.CENTER);
+        btnCloseModal.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 20));
+        btnCloseModal.setPadding(dp(14), dp(11), dp(14), dp(11));
+        LinearLayout.LayoutParams clLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        clLp.topMargin = dp(14);
+        btnCloseModal.setLayoutParams(clLp);
+        btnCloseModal.setOnClickListener(v -> {
+            if (dialogRef[0] != null) dialogRef[0].dismiss();
+        });
+        root.addView(btnCloseModal);
+
         scroll.addView(root);
         builder.setView(scroll);
-        builder.setNegativeButton("Cerrar", null);
         dialogRef[0] = builder.create();
+        if (dialogRef[0].getWindow() != null) {
+            dialogRef[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
         dialogRef[0].show();
     }
 
     public void showCreateOrEditIdolDialog(IdolCard existing, Runnable onSavedCallback) {
         final boolean isEditing = (existing != null);
         final IdolCard card = isEditing ? existing : new IdolCard();
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(getString(R.string.dialog_create_idol));
-
         ScrollView scroll = new ScrollView(this);
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
+        int pad = dp(20);
         form.setPadding(pad, pad, pad, pad);
-        form.setBackgroundColor(Color.WHITE);
+        form.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
+
+        AlertDialog[] ref = new AlertDialog[1];
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText(isEditing ? "✏️ Editar Carta de Idol" : "🃏 Nueva Carta de Idol");
+        tvTitle.setTextColor(theme.textColor);
+        tvTitle.setTextSize(18f);
+        tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        tvTitle.setPadding(0, 0, 0, dp(4));
+        form.addView(tvTitle);
+
+        TextView tvSub = new TextView(this);
+        tvSub.setText(isEditing ? "Modificá datos, fotos o colecciones" : "Completá los datos o usá el buscador oficial para autocompletar");
+        tvSub.setTextColor(theme.getMutedTextColor());
+        tvSub.setTextSize(12f);
+        tvSub.setPadding(0, 0, 0, dp(12));
+        form.addView(tvSub);
+
+        // Quick Autocomplete from K-Pop Wiki Pill Button
+        if (!isEditing) {
+            TextView btnWikiAuto = new TextView(this);
+            btnWikiAuto.setText("✨ Autocompletar desde K-Pop Wiki");
+            btnWikiAuto.setTextColor(Color.parseColor("#2563EB"));
+            btnWikiAuto.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#EFF6FF"), 16));
+            btnWikiAuto.setTextSize(12.5f);
+            btnWikiAuto.setTypeface(Typeface.DEFAULT_BOLD);
+            btnWikiAuto.setGravity(Gravity.CENTER);
+            btnWikiAuto.setPadding(dp(12), dp(9), dp(12), dp(9));
+            LinearLayout.LayoutParams waLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            waLp.setMargins(0, 0, 0, dp(14));
+            btnWikiAuto.setLayoutParams(waLp);
+            btnWikiAuto.setOnClickListener(v -> {
+                if (ref[0] != null) ref[0].dismiss();
+                showWikiSearchAndImportDialog();
+            });
+            form.addView(btnWikiAuto);
+        }
+
+        CardView prevCard = new CardView(this);
+        prevCard.setRadius(dp(16));
+        prevCard.setCardElevation(dp(2));
+        LinearLayout.LayoutParams prevLp = new LinearLayout.LayoutParams(dp(120), dp(150));
+        prevLp.gravity = Gravity.CENTER_HORIZONTAL;
+        prevLp.setMargins(0, 0, 0, dp(14));
+        prevCard.setLayoutParams(prevLp);
 
         ImageView ivPreview = new ImageView(this);
-        LinearLayout.LayoutParams prevLp = new LinearLayout.LayoutParams(dp(110), dp(130));
-        prevLp.gravity = Gravity.CENTER_HORIZONTAL;
-        prevLp.setMargins(0, 0, 0, dp(10));
-        ivPreview.setLayoutParams(prevLp);
+        ivPreview.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         ivPreview.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        if (isEditing) CardImageLoader.loadCardImage(this, card, ivPreview);
-        form.addView(ivPreview);
+        if (card.getPhotoUri() != null && !card.getPhotoUri().isEmpty()) {
+            CardImageLoader.loadCardImage(this, card, ivPreview);
+        }
+        prevCard.addView(ivPreview);
+        form.addView(prevCard);
 
+        addSmallLabel(form, "Nombre Artístico (Stage Name)");
         EditText etStage = addFormInput(form, getString(R.string.hint_stage_name), card.getStageName());
+
+        addSmallLabel(form, "Nombre Completo (Romanizado)");
         EditText etFull = addFormInput(form, getString(R.string.hint_full_name), card.getFullName());
+
+        addSmallLabel(form, "Nombre Nativo (Hangul / Kanji / Nativo)");
+        EditText etNative = addFormInput(form, "ej: 이원희 • 사카이 모카 / 堺 萌花", card.getNativeName());
+
+        addSmallLabel(form, "Grupo");
         EditText etGroup = addFormInput(form, getString(R.string.hint_group_name), card.isSoloist() ? "" : card.getGroupName());
 
         CheckBox cbSoloist = new CheckBox(this);
         cbSoloist.setText(getString(R.string.check_is_soloist));
         cbSoloist.setTextColor(Color.parseColor("#111827"));
         cbSoloist.setChecked(card.isSoloist());
+        LinearLayout.LayoutParams cbLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cbLp.setMargins(0, 0, 0, dp(8));
+        cbSoloist.setLayoutParams(cbLp);
         form.addView(cbSoloist);
 
+        addSmallLabel(form, "País / Origen");
         EditText etCountry = addFormInput(form, getString(R.string.hint_country), card.getCountry());
+
+        addSmallLabel(form, "Fecha de Nacimiento (YYYY-MM-DD)");
         EditText etBirth = addFormInput(form, getString(R.string.hint_birth_date), card.getBirthDate());
+
+        addSmallLabel(form, "Rol / Posición");
         EditText etRole = addFormInput(form, getString(R.string.hint_role), card.getRole());
+
+        addSmallLabel(form, "URL de Foto / Photocard");
         EditText etPhoto = addFormInput(form, getString(R.string.hint_photo_url), card.getPhotoUri());
 
         LinearLayout photoBtnsRow = new LinearLayout(this);
         photoBtnsRow.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams pfLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        pfLp.setMargins(0, 0, 0, dp(10));
+        pfLp.setMargins(0, 0, 0, dp(12));
         photoBtnsRow.setLayoutParams(pfLp);
 
         TextView btnPickFile = new TextView(this);
         btnPickFile.setText("📁 Galería");
-        btnPickFile.setTextColor(Color.parseColor("#111827"));
+        btnPickFile.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         btnPickFile.setTypeface(Typeface.DEFAULT_BOLD);
+        btnPickFile.setTextSize(12f);
         btnPickFile.setGravity(Gravity.CENTER);
-        btnPickFile.setBackgroundResource(R.drawable.bg_btn_primary);
+        btnPickFile.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 16));
         btnPickFile.setPadding(dp(10), dp(10), dp(10), dp(10));
         LinearLayout.LayoutParams b1p = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         b1p.rightMargin = dp(6);
@@ -2286,11 +2705,12 @@ public class MainActivity extends AppCompatActivity {
         photoBtnsRow.addView(btnPickFile);
 
         TextView btnPastePhoto = new TextView(this);
-        btnPastePhoto.setText("📋 Pegar del Portapapeles");
-        btnPastePhoto.setTextColor(Color.parseColor("#111827"));
+        btnPastePhoto.setText("📋 Pegar Copiada");
+        btnPastePhoto.setTextColor(Color.parseColor("#374151"));
         btnPastePhoto.setTypeface(Typeface.DEFAULT_BOLD);
+        btnPastePhoto.setTextSize(12f);
         btnPastePhoto.setGravity(Gravity.CENTER);
-        btnPastePhoto.setBackgroundResource(R.drawable.bg_btn_secondary);
+        btnPastePhoto.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 16));
         btnPastePhoto.setPadding(dp(10), dp(10), dp(10), dp(10));
         btnPastePhoto.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.3f));
         btnPastePhoto.setOnClickListener(v -> {
@@ -2304,20 +2724,38 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         photoBtnsRow.addView(btnPastePhoto);
-
         form.addView(photoBtnsRow);
 
+        addSmallLabel(form, "Colecciones (separadas por coma)");
         EditText etCols = addFormInput(form, getString(R.string.hint_collections), card.getCollections());
+
+        addSmallLabel(form, "Biografía / Datos Curiosos");
         EditText etBio = addFormInput(form, getString(R.string.hint_bio), card.getBio());
 
-        scroll.addView(form);
-        builder.setView(scroll);
+        // Bottom Action Buttons (Rounded Pills)
+        LinearLayout actionsRow = new LinearLayout(this);
+        actionsRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams actLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        actLp.topMargin = dp(14);
+        actionsRow.setLayoutParams(actLp);
 
-        builder.setPositiveButton(getString(R.string.btn_save), (d, w) -> {
+        TextView btnSave = new TextView(this);
+        btnSave.setText("💾 " + getString(R.string.btn_save));
+        btnSave.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+        btnSave.setTypeface(Typeface.DEFAULT_BOLD);
+        btnSave.setTextSize(13f);
+        btnSave.setGravity(Gravity.CENTER);
+        btnSave.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+        btnSave.setPadding(dp(14), dp(11), dp(14), dp(11));
+        LinearLayout.LayoutParams svLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.3f);
+        svLp.rightMargin = dp(6);
+        btnSave.setLayoutParams(svLp);
+        btnSave.setOnClickListener(v -> {
             String stage = etStage.getText().toString().trim();
             if (stage.isEmpty()) return;
             card.setStageName(stage);
             card.setFullName(etFull.getText().toString().trim());
+            card.setNativeName(etNative.getText().toString().trim());
             boolean solo = cbSoloist.isChecked() || etGroup.getText().toString().trim().isEmpty();
             card.setSoloist(solo);
             card.setGroupName(solo ? "Soloist" : etGroup.getText().toString().trim());
@@ -2332,16 +2770,54 @@ public class MainActivity extends AppCompatActivity {
 
             repo.saveOrUpdateIdol(card);
             if (onSavedCallback != null) onSavedCallback.run();
+            if (ref[0] != null) ref[0].dismiss();
         });
+        actionsRow.addView(btnSave);
 
         if (isEditing) {
-            builder.setNeutralButton(getString(R.string.btn_delete), (d, w) -> {
+            TextView btnDelete = new TextView(this);
+            btnDelete.setText("🗑️ Eliminar");
+            btnDelete.setTextColor(Color.parseColor("#DC2626"));
+            btnDelete.setTypeface(Typeface.DEFAULT_BOLD);
+            btnDelete.setTextSize(12f);
+            btnDelete.setGravity(Gravity.CENTER);
+            btnDelete.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#FEE2E2"), 20));
+            btnDelete.setPadding(dp(10), dp(11), dp(10), dp(11));
+            LinearLayout.LayoutParams dlLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            dlLp.rightMargin = dp(6);
+            btnDelete.setLayoutParams(dlLp);
+            btnDelete.setOnClickListener(v -> {
                 repo.deleteIdol(card.getId());
                 if (onSavedCallback != null) onSavedCallback.run();
+                if (ref[0] != null) ref[0].dismiss();
             });
+            actionsRow.addView(btnDelete);
         }
-        builder.setNegativeButton(getString(R.string.btn_cancel), null);
-        builder.show();
+
+        TextView btnCancel = new TextView(this);
+        btnCancel.setText(getString(R.string.btn_cancel));
+        btnCancel.setTextColor(Color.parseColor("#374151"));
+        btnCancel.setTypeface(Typeface.DEFAULT_BOLD);
+        btnCancel.setTextSize(12f);
+        btnCancel.setGravity(Gravity.CENTER);
+        btnCancel.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#E5E7EB"), 20));
+        btnCancel.setPadding(dp(12), dp(11), dp(12), dp(11));
+        LinearLayout.LayoutParams cnLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        btnCancel.setLayoutParams(cnLp);
+        btnCancel.setOnClickListener(v -> {
+            if (ref[0] != null) ref[0].dismiss();
+        });
+        actionsRow.addView(btnCancel);
+
+        form.addView(actionsRow);
+
+        scroll.addView(form);
+        builder.setView(scroll);
+        ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        ref[0].show();
     }
 
     private void showShareChoiceDialog(String title, CustomMatch match, List<IdolCard> cards) {
@@ -2352,17 +2828,18 @@ public class MainActivity extends AppCompatActivity {
         root.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(18);
         root.setPadding(pad, pad, pad, pad);
-        root.setBackgroundColor(Color.WHITE);
+        ThemeManager.AppTheme themeShareChoice = ThemeManager.getActiveTheme(this);
+        root.setBackground(ThemeManager.createCardDrawable(this, themeShareChoice.surfaceColor, themeShareChoice.cardBorderColor, 24));
 
         AlertDialog[] ref = new AlertDialog[1];
 
         TextView btnFile = new TextView(this);
-        btnFile.setText(getString(R.string.share_option_file));
-        btnFile.setTextColor(Color.parseColor("#111827"));
+        btnFile.setText("📁 " + getString(R.string.share_option_file));
+        btnFile.setTextColor(themeShareChoice.getButtonTextColor(themeShareChoice.primaryColor));
         btnFile.setTypeface(Typeface.DEFAULT_BOLD);
         btnFile.setTextSize(13f);
-        btnFile.setPadding(dp(14), dp(14), dp(14), dp(14));
-        btnFile.setBackgroundResource(R.drawable.bg_btn_primary);
+        btnFile.setPadding(dp(14), dp(13), dp(14), dp(13));
+        btnFile.setBackground(ThemeManager.createPillDrawable(this, themeShareChoice.primaryColor, 20));
         LinearLayout.LayoutParams fLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         fLp.setMargins(0, 0, 0, dp(10));
@@ -2379,7 +2856,9 @@ public class MainActivity extends AppCompatActivity {
         btnCode.setTypeface(Typeface.DEFAULT_BOLD);
         btnCode.setTextSize(13f);
         btnCode.setPadding(dp(14), dp(14), dp(14), dp(14));
-        btnCode.setBackgroundResource(R.drawable.bg_btn_secondary);
+        ThemeManager.AppTheme themeShareChoice2 = ThemeManager.getActiveTheme(this);
+        btnCode.setBackground(ThemeManager.createPillDrawable(this, themeShareChoice2.secondaryColor, 20));
+        btnCode.setTextColor(themeShareChoice2.getButtonTextColor(themeShareChoice2.secondaryColor));
         btnCode.setOnClickListener(v -> {
             if (ref[0] != null) ref[0].dismiss();
             ShareImportManager.shareAsWhatsAppCode(this, title, match, cards);
@@ -2389,6 +2868,9 @@ public class MainActivity extends AppCompatActivity {
         builder.setView(root);
         builder.setNegativeButton(getString(R.string.btn_cancel), null);
         ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
         ref[0].show();
     }
 
@@ -2400,17 +2882,18 @@ public class MainActivity extends AppCompatActivity {
         root.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(18);
         root.setPadding(pad, pad, pad, pad);
-        root.setBackgroundColor(Color.WHITE);
+        ThemeManager.AppTheme themeHub = ThemeManager.getActiveTheme(this);
+        root.setBackground(ThemeManager.createCardDrawable(this, themeHub.surfaceColor, themeHub.cardBorderColor, 24));
 
         AlertDialog[] ref = new AlertDialog[1];
 
         TextView btnPickWyb = new TextView(this);
         btnPickWyb.setText("📂 Elegir archivo .wyb de tus Archivos");
-        btnPickWyb.setTextColor(Color.parseColor("#111827"));
+        btnPickWyb.setTextColor(themeHub.getButtonTextColor(themeHub.primaryColor));
         btnPickWyb.setTypeface(Typeface.DEFAULT_BOLD);
         btnPickWyb.setGravity(Gravity.CENTER);
         btnPickWyb.setPadding(dp(14), dp(13), dp(14), dp(13));
-        btnPickWyb.setBackgroundResource(R.drawable.bg_btn_primary);
+        btnPickWyb.setBackground(ThemeManager.createPillDrawable(this, themeHub.primaryColor, 20));
         LinearLayout.LayoutParams pLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         pLp.setMargins(0, 0, 0, dp(12));
@@ -2445,6 +2928,9 @@ public class MainActivity extends AppCompatActivity {
         });
         builder.setNegativeButton(getString(R.string.btn_cancel), null);
         ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
         ref[0].show();
     }
 
@@ -2571,68 +3057,161 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showPhotocardGachaDialog() {
+        SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
+        long lastTime = wybPrefs.getLong("last_gacha_open_time", 0);
+        long now = System.currentTimeMillis();
+        long cooldown = 6 * 60 * 60 * 1000L; // 6 hours
+        long remaining = (lastTime + cooldown) - now;
+
+        if (remaining > 0) {
+            long hours = remaining / (60 * 60 * 1000L);
+            long minutes = (remaining % (60 * 60 * 1000L)) / (60 * 1000L);
+            new AlertDialog.Builder(this)
+                    .setTitle("⏳ Photocard Gacha en Enfriamiento")
+                    .setMessage("¡Tu próximo sobre estará listo en " + hours + "h " + minutes + "m!\n\nPodés abrir un sobre gratuito cada 6 horas para coleccionar nuevas photocards exclusivas.")
+                    .setPositiveButton("Entendido", null)
+                    .show();
+            return;
+        }
+
         List<IdolCard> all = repo.getAllIdols();
         if (all.isEmpty()) return;
+
+        // Prioritize idols that have locked photocards!
+        List<IdolCard> candidates = new ArrayList<>();
+        for (IdolCard c : all) {
+            if (!c.getLockedPhotocards().isEmpty()) {
+                candidates.add(c);
+            }
+        }
+        if (candidates.isEmpty()) candidates = all;
+
         Random rnd = new Random();
-        IdolCard pulled = all.get(rnd.nextInt(all.size()));
+        IdolCard pulled = candidates.get(rnd.nextInt(candidates.size()));
+        List<String> locked = pulled.getLockedPhotocards();
+        String newlyUnlockedUri;
+        if (!locked.isEmpty()) {
+            newlyUnlockedUri = locked.get(rnd.nextInt(locked.size()));
+            pulled.unlockPhotocard(newlyUnlockedUri);
+            pulled.setPhotoUri(newlyUnlockedUri);
+        } else {
+            newlyUnlockedUri = pulled.getPhotoUri();
+        }
+
+        repo.saveOrUpdateIdol(pulled);
+        wybPrefs.edit().putLong("last_gacha_open_time", now).apply();
+        refreshCurrentTab();
+
         String[] tiers = {"🌟 SSR HOLOGRAPHIC PHOTOCARD", "✨ SSR LIMITED LUCKY DRAW", "💎 SR SPECIAL POB PHOTOCARD"};
         String tier = tiers[rnd.nextInt(tiers.length)];
 
-        pulled.setFavorite(true);
-        repo.saveOrUpdateIdol(pulled);
-
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
         int pad = dp(20);
         box.setPadding(pad, pad, pad, pad);
-        box.setBackgroundColor(Color.WHITE);
+        box.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
 
         TextView tvTier = new TextView(this);
         tvTier.setText(tier);
-        tvTier.setTextColor(Color.parseColor("#111827"));
-        tvTier.setTextSize(11.5f);
+        tvTier.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+        tvTier.setTextSize(11f);
         tvTier.setTypeface(Typeface.DEFAULT_BOLD);
-        tvTier.setPadding(dp(12), dp(5), dp(12), dp(5));
-        tvTier.setBackgroundResource(R.drawable.bg_btn_primary);
+        tvTier.setPadding(dp(14), dp(6), dp(14), dp(6));
+        tvTier.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 14));
         box.addView(tvTier);
 
         CardView pcCard = new CardView(this);
-        pcCard.setRadius(dp(20));
-        pcCard.setCardElevation(dp(4));
-        LinearLayout.LayoutParams ivLp = new LinearLayout.LayoutParams(dp(200), dp(250));
-        ivLp.setMargins(0, dp(12), 0, dp(12));
+        pcCard.setRadius(dp(22));
+        pcCard.setCardElevation(dp(6));
+        LinearLayout.LayoutParams ivLp = new LinearLayout.LayoutParams(dp(210), dp(280));
+        ivLp.setMargins(0, dp(14), 0, dp(14));
         pcCard.setLayoutParams(ivLp);
 
         ImageView iv = new ImageView(this);
         iv.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        CardImageLoader.loadCardImage(this, pulled, iv);
+        IdolCard showcaseCard = new IdolCard(pulled.getId() + "_unlocked", pulled.getStageName(),
+                pulled.getFullName(), pulled.getGroupName(), pulled.isSoloist(), pulled.getCountry(),
+                pulled.getBirthDate(), pulled.getRole(), newlyUnlockedUri, pulled.getAccentColor(), pulled.getBio(), pulled.getCollections());
+        CardImageLoader.loadCardImage(this, showcaseCard, iv);
         pcCard.addView(iv);
         box.addView(pcCard);
 
         TextView tvName = new TextView(this);
         tvName.setText(pulled.getStageName() + " (" + pulled.getGroupName() + ")");
-        tvName.setTextColor(Color.parseColor("#111827"));
-        tvName.setTextSize(21f);
-        tvName.setTypeface(Typeface.DEFAULT_BOLD);
+        tvName.setTextColor(theme.textColor);
+        tvName.setTextSize(20f);
+        tvName.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         box.addView(tvName);
 
+        if (pulled.getNativeName() != null && !pulled.getNativeName().isEmpty()) {
+            TextView tvNative = new TextView(this);
+            tvNative.setText(pulled.getNativeName());
+            tvNative.setTextColor(theme.primaryColor);
+            tvNative.setTextSize(14f);
+            tvNative.setTypeface(Typeface.DEFAULT_BOLD);
+            box.addView(tvNative);
+        }
+
         TextView tvSub = new TextView(this);
-        tvSub.setText(pulled.getFullName() + " • " + pulled.getCountryWithFlag());
-        tvSub.setTextColor(Color.parseColor("#6B7280"));
-        tvSub.setTextSize(12.5f);
+        tvSub.setText("✨ ¡Nueva photocard desbloqueada! (" + pulled.getUnlockedPhotocards().size() + "/" + pulled.getPhotocards().size() + " en tu binder)");
+        tvSub.setTextColor(theme.getMutedTextColor());
+        tvSub.setTextSize(12f);
         tvSub.setGravity(Gravity.CENTER);
-        tvSub.setPadding(0, dp(4), 0, dp(6));
+        tvSub.setPadding(0, dp(4), 0, dp(14));
         box.addView(tvSub);
 
+        LinearLayout btnsRow = new LinearLayout(this);
+        btnsRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams brLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        btnsRow.setLayoutParams(brLp);
+
+        AlertDialog[] gRef = new AlertDialog[1];
+
+        TextView btnAlbum = new TextView(this);
+        btnAlbum.setText("📸 Ver Binder");
+        btnAlbum.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+        btnAlbum.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+        btnAlbum.setTextSize(12.5f);
+        btnAlbum.setTypeface(Typeface.DEFAULT_BOLD);
+        btnAlbum.setGravity(Gravity.CENTER);
+        btnAlbum.setPadding(dp(12), dp(10), dp(12), dp(10));
+        LinearLayout.LayoutParams baLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f);
+        baLp.setMargins(0, 0, dp(6), 0);
+        btnAlbum.setLayoutParams(baLp);
+        btnAlbum.setOnClickListener(v -> {
+            if (gRef[0] != null) gRef[0].dismiss();
+            showIdolDetailAndPhotocardBinderDialog(pulled);
+        });
+        btnsRow.addView(btnAlbum);
+
+        TextView btnClose = new TextView(this);
+        btnClose.setText("Cerrar");
+        btnClose.setTextColor(Color.parseColor("#374151"));
+        btnClose.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#E5E7EB"), 20));
+        btnClose.setTextSize(12.5f);
+        btnClose.setTypeface(Typeface.DEFAULT_BOLD);
+        btnClose.setGravity(Gravity.CENTER);
+        btnClose.setPadding(dp(12), dp(10), dp(12), dp(10));
+        LinearLayout.LayoutParams bcLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        btnClose.setLayoutParams(bcLp);
+        btnClose.setOnClickListener(v -> {
+            if (gRef[0] != null) gRef[0].dismiss();
+        });
+        btnsRow.addView(btnClose);
+
+        box.addView(btnsRow);
+
         builder.setView(box);
-        builder.setPositiveButton("🔄 Abrir Otra", (d, w) -> showPhotocardGachaDialog());
-        builder.setNeutralButton("📸 Ver Álbum", (d, w) -> showIdolDetailAndPhotocardBinderDialog(pulled));
-        builder.setNegativeButton("Cerrar", (d, w) -> refreshCurrentTab());
-        builder.show();
+        gRef[0] = builder.create();
+        if (gRef[0].getWindow() != null) {
+            gRef[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        gRef[0].show();
     }
 
     private void handleIncomingIntent(Intent intent) {

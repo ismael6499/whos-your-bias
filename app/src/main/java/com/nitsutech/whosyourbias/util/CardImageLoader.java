@@ -99,6 +99,7 @@ public class CardImageLoader {
         // Only show cute kawaii loading art when downloading from network for the first time
         Bitmap cuteLoader = createCuteKawaiiLoadingArt(card, targetW, targetH);
         imageView.setImageBitmap(cuteLoader);
+        imageView.setTag(fittedKey);
 
         executor.execute(() -> {
             Bitmap loaded = fetchOrResolveBitmap(appCtx, card);
@@ -107,14 +108,16 @@ public class CardImageLoader {
                 final Bitmap fitted = createUncroppedFittedPhoto(loaded, targetW, targetH);
                 fittedMemoryCache.put(fittedKey, fitted);
                 mainHandler.post(() -> {
-                    if (fittedKey.equals(imageView.getTag())) {
+                    Object currentTag = imageView.getTag();
+                    if (currentTag == null || fittedKey.equals(currentTag)) {
                         imageView.setImageBitmap(fitted);
                     }
                 });
             } else {
                 final Bitmap fallback = createStylizedPortrait(card, targetW, targetH);
                 mainHandler.post(() -> {
-                    if (fittedKey.equals(imageView.getTag())) {
+                    Object currentTag = imageView.getTag();
+                    if (currentTag == null || fittedKey.equals(currentTag)) {
                         imageView.setImageBitmap(fallback);
                     }
                 });
@@ -151,10 +154,15 @@ public class CardImageLoader {
     }
 
     /**
-     * Renders 100% of the original photo (`fitCenter`) over a soft, dreamy blurred backdrop of the same photo
-     * so NO head, forehead, eyes, or body is EVER cut off in any aspect ratio!
+     * Renders high-definition physical photocard finish: full bleed edge-to-edge,
+     * crisp center crop, zero blur, zero pillarboxes or ugly bars,
+     * framed like a real physical K-Pop album photocard!
      */
     public static Bitmap createUncroppedFittedPhoto(Bitmap src, int targetW, int targetH) {
+        return createPhysicalPhotocardBitmap(src, targetW, targetH);
+    }
+
+    public static Bitmap createPhysicalPhotocardBitmap(Bitmap src, int targetW, int targetH) {
         if (src == null) return null;
         int sW = src.getWidth();
         int sH = src.getHeight();
@@ -163,28 +171,189 @@ public class CardImageLoader {
         Bitmap out = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(out);
 
-        // 1. Fast soft blurred background fill from tiny downscaled bitmap (takes < 0.3ms)
-        Bitmap tiny = Bitmap.createScaledBitmap(src, 18, 18, true);
-        Bitmap blurredBg = Bitmap.createScaledBitmap(tiny, targetW, targetH, true);
-        Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-        canvas.drawBitmap(blurredBg, 0, 0, bgPaint);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
 
-        // Soft pastel veil over the blurred background so the full photo pops cleanly
-        Paint veil = new Paint();
-        veil.setColor(Color.argb(65, 255, 248, 252));
-        canvas.drawRect(0, 0, targetW, targetH, veil);
-
-        // 2. Fit 100% of the source image inside targetW x targetH without cropping a single pixel!
-        float scale = Math.min((float) targetW / (float) sW, (float) targetH / (float) sH);
+        // Smart scale to fill full card edge-to-edge (Full HD Physical Photocard)
+        float scale = Math.max((float) targetW / (float) sW, (float) targetH / (float) sH);
         float drawW = sW * scale;
         float drawH = sH * scale;
+
+        // Horizontally center
         float left = (targetW - drawW) / 2f;
-        float top = (targetH - drawH) / 2f;
+
+        // Vertically frame with slight upper bias (22%) so idol hair/head isn't cut off
+        float top;
+        if (drawH > targetH) {
+            top = (targetH - drawH) * 0.22f;
+        } else {
+            top = (targetH - drawH) / 2f;
+        }
 
         RectF dst = new RectF(left, top, left + drawW, top + drawH);
-        canvas.drawBitmap(src, null, dst, bgPaint);
+        canvas.drawBitmap(src, null, dst, paint);
 
         return out;
+    }
+
+    public static Bitmap fastStackBlur(Bitmap sentBitmap, int radius) {
+        if (sentBitmap == null || radius < 1) return sentBitmap;
+        try {
+            Bitmap bitmap = sentBitmap.copy(Bitmap.Config.ARGB_8888, true);
+            int w = bitmap.getWidth();
+            int h = bitmap.getHeight();
+            int[] pix = new int[w * h];
+            bitmap.getPixels(pix, 0, w, 0, 0, w, h);
+            int wm = w - 1;
+            int hm = h - 1;
+            int wh = w * h;
+            int div = radius + radius + 1;
+            int[] r = new int[wh];
+            int[] g = new int[wh];
+            int[] b = new int[wh];
+            int rsum, gsum, bsum, x, y, i, p, yp, yi, yw;
+            int[] vmin = new int[Math.max(w, h)];
+            int divsum = (div + 1) >> 1;
+            divsum *= divsum;
+            int[] dv = new int[256 * divsum];
+            for (i = 0; i < 256 * divsum; i++) {
+                dv[i] = (i / divsum);
+            }
+            yw = yi = 0;
+            int[][] stack = new int[div][3];
+            int stackpointer;
+            int stackstart;
+            int[] sir;
+            int rbs;
+            int r1 = radius + 1;
+            int routsum, goutsum, boutsum;
+            int rinsum, ginsum, binsum;
+            for (y = 0; y < h; y++) {
+                rinsum = ginsum = binsum = routsum = goutsum = boutsum = rsum = gsum = bsum = 0;
+                for (i = -radius; i <= radius; i++) {
+                    p = pix[yi + Math.min(wm, Math.max(i, 0))];
+                    sir = stack[i + radius];
+                    sir[0] = (p & 0xff0000) >> 16;
+                    sir[1] = (p & 0x00ff00) >> 8;
+                    sir[2] = (p & 0x0000ff);
+                    rbs = r1 - Math.abs(i);
+                    rsum += sir[0] * rbs;
+                    gsum += sir[1] * rbs;
+                    bsum += sir[2] * rbs;
+                    if (i > 0) {
+                        rinsum += sir[0];
+                        ginsum += sir[1];
+                        binsum += sir[2];
+                    } else {
+                        routsum += sir[0];
+                        goutsum += sir[1];
+                        boutsum += sir[2];
+                    }
+                }
+                stackpointer = radius;
+                for (x = 0; x < w; x++) {
+                    r[yi] = dv[rsum];
+                    g[yi] = dv[gsum];
+                    b[yi] = dv[bsum];
+                    rsum -= routsum;
+                    gsum -= goutsum;
+                    bsum -= boutsum;
+                    stackstart = stackpointer - radius + div;
+                    sir = stack[stackstart % div];
+                    routsum -= sir[0];
+                    goutsum -= sir[1];
+                    boutsum -= sir[2];
+                    if (y == 0) {
+                        vmin[x] = Math.min(x + radius + 1, wm);
+                    }
+                    p = pix[yw + vmin[x]];
+                    sir[0] = (p & 0xff0000) >> 16;
+                    sir[1] = (p & 0x00ff00) >> 8;
+                    sir[2] = (p & 0x0000ff);
+                    rinsum += sir[0];
+                    ginsum += sir[1];
+                    binsum += sir[2];
+                    rsum += rinsum;
+                    gsum += ginsum;
+                    bsum += binsum;
+                    stackpointer = (stackpointer + 1) % div;
+                    sir = stack[(stackpointer) % div];
+                    routsum += sir[0];
+                    goutsum += sir[1];
+                    boutsum += sir[2];
+                    rinsum -= sir[0];
+                    ginsum -= sir[1];
+                    binsum -= sir[2];
+                    yi++;
+                }
+                yw += w;
+            }
+            for (x = 0; x < w; x++) {
+                rinsum = ginsum = binsum = routsum = goutsum = boutsum = rsum = gsum = bsum = 0;
+                yp = -radius * w;
+                for (i = -radius; i <= radius; i++) {
+                    yi = Math.max(0, yp) + x;
+                    sir = stack[i + radius];
+                    sir[0] = r[yi];
+                    sir[1] = g[yi];
+                    sir[2] = b[yi];
+                    rbs = r1 - Math.abs(i);
+                    rsum += r[yi] * rbs;
+                    gsum += g[yi] * rbs;
+                    bsum += b[yi] * rbs;
+                    if (i > 0) {
+                        rinsum += sir[0];
+                        ginsum += sir[1];
+                        binsum += sir[2];
+                    } else {
+                        routsum += sir[0];
+                        goutsum += sir[1];
+                        boutsum += sir[2];
+                    }
+                    if (i < hm) {
+                        yp += w;
+                    }
+                }
+                yi = x;
+                stackpointer = radius;
+                for (y = 0; y < h; y++) {
+                    pix[yi] = (0xff000000 & pix[yi]) | (dv[rsum] << 16) | (dv[gsum] << 8) | dv[bsum];
+                    rsum -= routsum;
+                    gsum -= goutsum;
+                    bsum -= boutsum;
+                    stackstart = stackpointer - radius + div;
+                    sir = stack[stackstart % div];
+                    routsum -= sir[0];
+                    goutsum -= sir[1];
+                    boutsum -= sir[2];
+                    if (x == 0) {
+                        vmin[y] = Math.min(y + r1, hm) * w;
+                    }
+                    p = x + vmin[y];
+                    sir[0] = r[p];
+                    sir[1] = g[p];
+                    sir[2] = b[p];
+                    rinsum += sir[0];
+                    ginsum += sir[1];
+                    binsum += sir[2];
+                    rsum += rinsum;
+                    gsum += ginsum;
+                    bsum += binsum;
+                    stackpointer = (stackpointer + 1) % div;
+                    sir = stack[stackpointer % div];
+                    routsum += sir[0];
+                    goutsum += sir[1];
+                    boutsum += sir[2];
+                    rinsum -= sir[0];
+                    ginsum -= sir[1];
+                    binsum -= sir[2];
+                    yi += w;
+                }
+            }
+            bitmap.setPixels(pix, 0, w, 0, 0, w, h);
+            return bitmap;
+        } catch (Exception e) {
+            return sentBitmap;
+        }
     }
 
     public static Bitmap getCardBitmapSync(Context context, IdolCard card, int width, int height) {
@@ -333,18 +502,41 @@ public class CardImageLoader {
     }
 
     private static Bitmap downloadBitmap(String urlStr) {
+        HttpURLConnection conn = null;
         try {
-            HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-            conn.setInstanceFollowRedirects(true);
-            conn.setRequestProperty("User-Agent", "WhosYourBiasApp/2.0 (Android)");
-            if (conn.getResponseCode() == 200) {
-                try (InputStream is = conn.getInputStream()) {
-                    return BitmapFactory.decodeStream(is);
+            int redirects = 0;
+            String currentUrl = urlStr;
+            while (redirects < 4) {
+                URL url = new URL(currentUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(8000);
+                conn.setInstanceFollowRedirects(true);
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+                conn.setRequestProperty("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8");
+                conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,es;q=0.8");
+                int code = conn.getResponseCode();
+                if (code == HttpURLConnection.HTTP_MOVED_PERM || code == HttpURLConnection.HTTP_MOVED_TEMP || code == 307 || code == 308) {
+                    String loc = conn.getHeaderField("Location");
+                    if (loc != null && !loc.isEmpty()) {
+                        currentUrl = loc;
+                        redirects++;
+                        conn.disconnect();
+                        continue;
+                    }
                 }
+                if (code == 200) {
+                    try (InputStream is = conn.getInputStream()) {
+                        return BitmapFactory.decodeStream(is);
+                    }
+                }
+                break;
             }
         } catch (Exception ignored) {
+        } finally {
+            if (conn != null) {
+                try { conn.disconnect(); } catch (Exception ignored) {}
+            }
         }
         return null;
     }
