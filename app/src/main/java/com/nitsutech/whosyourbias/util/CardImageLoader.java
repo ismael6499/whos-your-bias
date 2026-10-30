@@ -34,15 +34,37 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class CardImageLoader {
     // Large cache (600 entries) so loaded idol photos NEVER get evicted and never flicker back to placeholder
-    private static final LruCache<String, Bitmap> rawMemoryCache = new LruCache<>(350);
-    private static final LruCache<String, Bitmap> fittedMemoryCache = new LruCache<>(600);
-    private static final ExecutorService executor = Executors.newFixedThreadPool(6);
+    private static final LruCache<String, Bitmap> rawMemoryCache = new LruCache<>(380);
+    private static final LruCache<String, Bitmap> fittedMemoryCache = new LruCache<>(650);
+    private static final LruCache<String, Bitmap> kawaiiLoaderCache = new LruCache<>(24);
+
+    // Fast dedicated disk executor so disk cache hits never wait behind network downloads or block UI thread
+    private static final ExecutorService diskExecutor = Executors.newFixedThreadPool(4);
+
+    // LIFO (Last-In-First-Out) 10-thread network pool so currently visible cards on screen load FIRST one by one!
+    private static final ExecutorService networkExecutor = new ThreadPoolExecutor(
+            10, 10, 60L, TimeUnit.SECONDS,
+            new LinkedBlockingDeque<Runnable>() {
+                @Override
+                public boolean offer(Runnable runnable) {
+                    return super.offerFirst(runnable);
+                }
+            }
+    );
+
+    private static final ConcurrentHashMap<String, List<Runnable>> inFlightCallbacks = new ConcurrentHashMap<>();
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public static void loadCardImage(Context context, IdolCard card, ImageView imageView) {
@@ -61,6 +83,38 @@ public class CardImageLoader {
         loadCardImage(context, temp, imageView);
     }
 
+    public static void loadHighResForZoomPreview(Context context, IdolCard baseCard, String uriStr, ImageView zoomImageView) {
+        if (zoomImageView == null) return;
+        final String effectiveUri = (uriStr != null && !uriStr.isEmpty()) ? uriStr : (baseCard != null ? baseCard.getPhotoUri() : "");
+        final IdolCard temp = new IdolCard(
+                baseCard != null ? baseCard.getId() : "zoom_preview",
+                baseCard != null ? baseCard.getStageName() : "Idol",
+                baseCard != null ? baseCard.getFullName() : "",
+                baseCard != null ? baseCard.getGroupName() : "",
+                baseCard != null && baseCard.isSoloist(),
+                baseCard != null ? baseCard.getCountry() : "South Korea",
+                baseCard != null ? baseCard.getBirthDate() : "2004-01-01",
+                baseCard != null ? baseCard.getRole() : "Idol",
+                effectiveUri,
+                baseCard != null ? baseCard.getAccentColor() : "#FF85A2",
+                "", "");
+        final String rawKey = temp.getId() + "_" + effectiveUri;
+        Bitmap cachedRaw = rawMemoryCache.get(rawKey);
+        if (cachedRaw != null && !cachedRaw.isRecycled()) {
+            zoomImageView.setImageBitmap(cachedRaw);
+            return;
+        }
+        zoomImageView.setImageBitmap(createCuteKawaiiLoadingArt(temp, 480, 620));
+        final Context appCtx = context.getApplicationContext();
+        networkExecutor.execute(() -> {
+            Bitmap loaded = fetchOrResolveBitmap(appCtx, temp);
+            if (loaded != null) {
+                rawMemoryCache.put(rawKey, loaded);
+                mainHandler.post(() -> zoomImageView.setImageBitmap(loaded));
+            }
+        });
+    }
+
     public static void loadCardImageWithSize(Context context, IdolCard card, ImageView imageView, int targetW, int targetH) {
         if (card == null || imageView == null) return;
         imageView.setScaleType(ImageView.ScaleType.FIT_XY);
@@ -70,6 +124,7 @@ public class CardImageLoader {
 
         Bitmap cachedFitted = fittedMemoryCache.get(fittedKey);
         if (cachedFitted != null && !cachedFitted.isRecycled()) {
+            imageView.setTag(fittedKey);
             imageView.setImageBitmap(cachedFitted);
             return;
         }
@@ -78,50 +133,88 @@ public class CardImageLoader {
         if (cachedRaw != null && !cachedRaw.isRecycled()) {
             Bitmap fitted = createUncroppedFittedPhoto(cachedRaw, targetW, targetH);
             fittedMemoryCache.put(fittedKey, fitted);
+            imageView.setTag(fittedKey);
             imageView.setImageBitmap(fitted);
             return;
         }
 
-        // Fast synchronous check if already on disk cache so we don't even show a loading screen for cached files
-        final Context appCtx = context.getApplicationContext();
-        File diskCached = getExistingDiskCacheFile(appCtx, card);
-        if (diskCached != null) {
-            Bitmap diskBmp = decodeSampledFile(diskCached, 540, 540);
-            if (diskBmp != null) {
-                rawMemoryCache.put(rawKey, diskBmp);
-                Bitmap fitted = createUncroppedFittedPhoto(diskBmp, targetW, targetH);
-                fittedMemoryCache.put(fittedKey, fitted);
-                imageView.setImageBitmap(fitted);
-                return;
-            }
-        }
-
-        // Only show cute kawaii loading art when downloading from network for the first time
+        // Instant 0ms cached cute kitten placeholder on UI thread
         Bitmap cuteLoader = createCuteKawaiiLoadingArt(card, targetW, targetH);
-        imageView.setImageBitmap(cuteLoader);
         imageView.setTag(fittedKey);
+        imageView.setImageBitmap(cuteLoader);
 
-        executor.execute(() -> {
-            Bitmap loaded = fetchOrResolveBitmap(appCtx, card);
-            if (loaded != null) {
-                rawMemoryCache.put(rawKey, loaded);
-                final Bitmap fitted = createUncroppedFittedPhoto(loaded, targetW, targetH);
-                fittedMemoryCache.put(fittedKey, fitted);
-                mainHandler.post(() -> {
-                    Object currentTag = imageView.getTag();
-                    if (currentTag == null || fittedKey.equals(currentTag)) {
-                        imageView.setImageBitmap(fitted);
-                    }
-                });
-            } else {
-                final Bitmap fallback = createStylizedPortrait(card, targetW, targetH);
-                mainHandler.post(() -> {
-                    Object currentTag = imageView.getTag();
-                    if (currentTag == null || fittedKey.equals(currentTag)) {
-                        imageView.setImageBitmap(fallback);
-                    }
-                });
+        final Context appCtx = context.getApplicationContext();
+
+        // Check fast local disk cache on diskExecutor first
+        diskExecutor.execute(() -> {
+            File diskCached = getExistingDiskCacheFile(appCtx, card);
+            if (diskCached != null) {
+                Bitmap diskBmp = decodeSampledFile(diskCached, 540, 540);
+                if (diskBmp != null) {
+                    rawMemoryCache.put(rawKey, diskBmp);
+                    final Bitmap fitted = createUncroppedFittedPhoto(diskBmp, targetW, targetH);
+                    fittedMemoryCache.put(fittedKey, fitted);
+                    mainHandler.post(() -> {
+                        if (fittedKey.equals(imageView.getTag())) {
+                            imageView.setImageBitmap(fitted);
+                        }
+                    });
+                    return;
+                }
             }
+
+            // Deduplicate network downloads per rawKey and update every waiting ImageView 1 by 1 immediately!
+            Runnable uiUpdater = () -> {
+                Bitmap raw = rawMemoryCache.get(rawKey);
+                final Bitmap resultBmp;
+                if (raw != null && !raw.isRecycled()) {
+                    Bitmap f = fittedMemoryCache.get(fittedKey);
+                    if (f == null || f.isRecycled()) {
+                        f = createUncroppedFittedPhoto(raw, targetW, targetH);
+                        fittedMemoryCache.put(fittedKey, f);
+                    }
+                    resultBmp = f;
+                } else {
+                    resultBmp = createStylizedPortrait(card, targetW, targetH);
+                }
+                mainHandler.post(() -> {
+                    if (fittedKey.equals(imageView.getTag())) {
+                        imageView.setAlpha(0.45f);
+                        imageView.setImageBitmap(resultBmp);
+                        imageView.animate().alpha(1f).setDuration(130).start();
+                    }
+                });
+            };
+
+            synchronized (inFlightCallbacks) {
+                List<Runnable> waiters = inFlightCallbacks.get(rawKey);
+                if (waiters != null) {
+                    waiters.add(uiUpdater);
+                    return;
+                }
+                waiters = new ArrayList<>();
+                waiters.add(uiUpdater);
+                inFlightCallbacks.put(rawKey, waiters);
+            }
+
+            networkExecutor.execute(() -> {
+                try {
+                    Bitmap loaded = fetchOrResolveBitmap(appCtx, card);
+                    if (loaded != null) {
+                        rawMemoryCache.put(rawKey, loaded);
+                    }
+                } finally {
+                    List<Runnable> callbacks;
+                    synchronized (inFlightCallbacks) {
+                        callbacks = inFlightCallbacks.remove(rawKey);
+                    }
+                    if (callbacks != null) {
+                        for (Runnable cb : callbacks) {
+                            cb.run();
+                        }
+                    }
+                }
+            });
         });
     }
 
@@ -404,6 +497,10 @@ public class CardImageLoader {
             File cacheDir = new File(context.getCacheDir(), "idol_img_cache");
             if (!cacheDir.exists()) cacheDir.mkdirs();
 
+            if (uri != null && uri.trim().startsWith("fandom_pc://")) {
+                uri = KpopWikiImporter.resolvePhotocardSlotUrl(card, uri.trim());
+            }
+
             if (uri != null && !uri.trim().isEmpty()) {
                 uri = uri.trim();
                 if (uri.startsWith("data:image")) {
@@ -455,53 +552,40 @@ public class CardImageLoader {
     }
 
     private static Bitmap tryFetchWikipediaPortrait(IdolCard card) {
-        String cleanStage = card.getStageName().replaceAll("\\s*\\([^)]*\\)", "").trim();
-        String[] candidates = card.isSoloist()
-                ? new String[]{cleanStage, card.getFullName()}
-                : new String[]{cleanStage + " (" + card.getGroupName() + ")", card.getGroupName() + " " + cleanStage, cleanStage};
+        try {
+            List<String> gallery = KpopWikiImporter.fetchUpTo30PhotocardsSync(card);
+            for (int i = 0; i < Math.min(3, gallery.size()); i++) {
+                Bitmap b = downloadBitmap(gallery.get(i));
+                if (b != null) return b;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
 
-        for (String query : candidates) {
-            if (query == null || query.trim().isEmpty()) continue;
+    private static Bitmap downloadBitmap(String urlStr) {
+        if (urlStr == null || urlStr.trim().isEmpty()) return null;
+        // 1. Direct download with Fandom Referer header
+        Bitmap direct = downloadBitmapDirect(urlStr);
+        if (direct != null) return direct;
+
+        // 2. Automatic Cloudflare-bypass proxy fallback via wsrv.nl (fast 50KB JPEG)
+        if (!urlStr.contains("wsrv.nl")) {
             try {
-                String encoded = URLEncoder.encode(query.trim(), "UTF-8");
-                String apiUrl = "https://kpop.fandom.com/api.php?action=query&generator=search&gsrsearch="
-                        + encoded + "&gsrlimit=2&prop=pageimages&piprop=thumbnail|original&pithumbsize=600&format=json";
-                HttpURLConnection conn = (HttpURLConnection) new URL(apiUrl).openConnection();
-                conn.setConnectTimeout(4500);
-                conn.setReadTimeout(4500);
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14)");
-                if (conn.getResponseCode() == 200) {
-                    StringBuilder sb = new StringBuilder();
-                    try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-                        String line;
-                        while ((line = br.readLine()) != null) sb.append(line);
-                    }
-                    JSONObject json = new JSONObject(sb.toString());
-                    JSONObject qObj = json.optJSONObject("query");
-                    if (qObj != null) {
-                        JSONObject pages = qObj.optJSONObject("pages");
-                        if (pages != null && pages.names() != null) {
-                            for (int i = 0; i < pages.names().length(); i++) {
-                                JSONObject page = pages.optJSONObject(pages.names().optString(i));
-                                if (page != null) {
-                                    JSONObject thumb = page.optJSONObject("thumbnail");
-                                    String src = thumb != null ? thumb.optString("source", "") : "";
-                                    if (!src.isEmpty() && !src.contains("Placeholder")) {
-                                        Bitmap b = downloadBitmap(src);
-                                        if (b != null) return b;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                String cleanTarget = urlStr.replaceFirst("^https?://", "");
+                int qIdx = cleanTarget.indexOf('?');
+                if (qIdx > 0) cleanTarget = cleanTarget.substring(0, qIdx);
+                int revIdx = cleanTarget.indexOf("/revision/");
+                if (revIdx > 0) cleanTarget = cleanTarget.substring(0, revIdx);
+                String proxyUrl = "https://wsrv.nl/?url=" + URLEncoder.encode(cleanTarget, "UTF-8") + "&w=540&output=jpg";
+                return downloadBitmapDirect(proxyUrl);
             } catch (Exception ignored) {
             }
         }
         return null;
     }
 
-    private static Bitmap downloadBitmap(String urlStr) {
+    private static Bitmap downloadBitmapDirect(String urlStr) {
         HttpURLConnection conn = null;
         try {
             int redirects = 0;
@@ -509,11 +593,13 @@ public class CardImageLoader {
             while (redirects < 4) {
                 URL url = new URL(currentUrl);
                 conn = (HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(8000);
-                conn.setReadTimeout(8000);
+                conn.setConnectTimeout(4500);
+                conn.setReadTimeout(5500);
                 conn.setInstanceFollowRedirects(true);
                 conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-                conn.setRequestProperty("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8");
+                conn.setRequestProperty("Referer", "https://kpop.fandom.com/");
+                conn.setRequestProperty("Origin", "https://kpop.fandom.com");
+                conn.setRequestProperty("Accept", "image/jpeg,image/png,image/webp,image/*,*/*;q=0.8");
                 conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,es;q=0.8");
                 int code = conn.getResponseCode();
                 if (code == HttpURLConnection.HTTP_MOVED_PERM || code == HttpURLConnection.HTTP_MOVED_TEMP || code == 307 || code == 308) {
@@ -587,11 +673,33 @@ public class CardImageLoader {
     }
 
     /**
-     * Cute Kawaii Pastel Bunny & Sparkles Loading Illustration (shown only while downloading a photo for the first time).
+     * Cute Kawaii Pastel Kitten (Gatito ILLIT-style) Loading Illustration, cached by size for 0ms UI performance!
      */
     public static Bitmap createCuteKawaiiLoadingArt(IdolCard card, int width, int height) {
         int w = Math.max(240, width);
         int h = Math.max(240, height);
+        String key = "kitten_loader_" + w + "x" + h;
+        Bitmap cached = kawaiiLoaderCache.get(key);
+        if (cached != null && !cached.isRecycled()) {
+            return cached;
+        }
+        Bitmap bmp = drawCuteKittenCardArt(w, h, "✨ Cargando... ✨", "🐾 ILLIT Vibe");
+        kawaiiLoaderCache.put(key, bmp);
+        return bmp;
+    }
+
+    /**
+     * Soft Pastel Collectible Kitten Portrait when offline (never says "Cargando...").
+     */
+    public static Bitmap createStylizedPortrait(IdolCard card, int width, int height) {
+        int w = Math.max(240, width);
+        int h = Math.max(240, height);
+        String title = (card != null && card.getStageName() != null) ? card.getStageName() : "Idol";
+        String sub = (card != null && card.getGroupName() != null) ? card.getGroupName() : "";
+        return drawCuteKittenCardArt(w, h, title, sub);
+    }
+
+    private static Bitmap drawCuteKittenCardArt(int w, int h, String primaryLabel, String secondaryLabel) {
         Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bmp);
 
@@ -602,81 +710,120 @@ public class CardImageLoader {
                 null, Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, w, h, bgPaint);
 
-        // Cute Polka Dots pattern
+        // Subtle Cute Polka Dots pattern
         Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        dotPaint.setColor(Color.argb(90, 255, 255, 255));
-        int step = Math.max(28, Math.min(w, h) / 7);
+        dotPaint.setColor(Color.argb(85, 255, 255, 255));
+        int step = Math.max(32, Math.min(w, h) / 6);
         for (int y = step / 2; y < h; y += step) {
             for (int x = step / 2; x < w; x += step) {
-                canvas.drawCircle(x, y, step * 0.18f, dotPaint);
+                canvas.drawCircle(x, y, step * 0.16f, dotPaint);
             }
         }
 
         float cx = w / 2f;
         float cy = h * 0.44f;
-        float r = Math.min(w, h) * 0.20f;
+        float r = Math.min(w, h) * 0.21f;
 
-        // Cute Kawaii Bunny Ears & Head
         Paint whiteFill = new Paint(Paint.ANTI_ALIAS_FLAG);
         whiteFill.setColor(Color.WHITE);
         Paint pinkFill = new Paint(Paint.ANTI_ALIAS_FLAG);
         pinkFill.setColor(Color.parseColor("#FFB3C6"));
         Paint brownStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
         brownStroke.setStyle(Paint.Style.STROKE);
+        brownStroke.setStrokeJoin(Paint.Join.ROUND);
+        brownStroke.setStrokeCap(Paint.Cap.ROUND);
         brownStroke.setStrokeWidth(Math.max(3f, r * 0.08f));
-        brownStroke.setColor(Color.parseColor("#7C4D3A"));
+        brownStroke.setColor(Color.parseColor("#6D4C41"));
 
-        // Left & Right Bunny Ears
-        RectF leftEar = new RectF(cx - r * 0.72f, cy - r * 1.65f, cx - r * 0.16f, cy - r * 0.35f);
-        RectF rightEar = new RectF(cx + r * 0.16f, cy - r * 1.65f, cx + r * 0.72f, cy - r * 0.35f);
-        canvas.drawRoundRect(leftEar, r * 0.3f, r * 0.3f, whiteFill);
-        canvas.drawRoundRect(leftEar, r * 0.3f, r * 0.3f, brownStroke);
-        canvas.drawRoundRect(rightEar, r * 0.3f, r * 0.3f, whiteFill);
-        canvas.drawRoundRect(rightEar, r * 0.3f, r * 0.3f, brownStroke);
+        // Pointed Triangular Cat Ears (Left & Right)
+        Path leftEar = new Path();
+        leftEar.moveTo(cx - r * 0.85f, cy - r * 0.30f);
+        leftEar.lineTo(cx - r * 0.72f, cy - r * 1.25f);
+        leftEar.lineTo(cx - r * 0.18f, cy - r * 0.68f);
+        leftEar.close();
+        canvas.drawPath(leftEar, whiteFill);
+        canvas.drawPath(leftEar, brownStroke);
 
-        // Inner pink ears
-        RectF leftInner = new RectF(cx - r * 0.58f, cy - r * 1.42f, cx - r * 0.30f, cy - r * 0.55f);
-        RectF rightInner = new RectF(cx + r * 0.30f, cy - r * 1.42f, cx + r * 0.58f, cy - r * 0.55f);
-        canvas.drawRoundRect(leftInner, r * 0.2f, r * 0.2f, pinkFill);
-        canvas.drawRoundRect(rightInner, r * 0.2f, r * 0.2f, pinkFill);
+        Path rightEar = new Path();
+        rightEar.moveTo(cx + r * 0.85f, cy - r * 0.30f);
+        rightEar.lineTo(cx + r * 0.72f, cy - r * 1.25f);
+        rightEar.lineTo(cx + r * 0.18f, cy - r * 0.68f);
+        rightEar.close();
+        canvas.drawPath(rightEar, whiteFill);
+        canvas.drawPath(rightEar, brownStroke);
 
-        // Bunny Face Oval
-        RectF headRect = new RectF(cx - r, cy - r * 0.78f, cx + r, cy + r * 0.78f);
+        // Pink Inner Cat Ears
+        Path leftInner = new Path();
+        leftInner.moveTo(cx - r * 0.72f, cy - r * 0.44f);
+        leftInner.lineTo(cx - r * 0.65f, cy - r * 1.04f);
+        leftInner.lineTo(cx - r * 0.30f, cy - r * 0.66f);
+        leftInner.close();
+        canvas.drawPath(leftInner, pinkFill);
+
+        Path rightInner = new Path();
+        rightInner.moveTo(cx + r * 0.72f, cy - r * 0.44f);
+        rightInner.lineTo(cx + r * 0.65f, cy - r * 1.04f);
+        rightInner.lineTo(cx + r * 0.30f, cy - r * 0.66f);
+        rightInner.close();
+        canvas.drawPath(rightInner, pinkFill);
+
+        // Cute Kitten Round-Oval Head
+        RectF headRect = new RectF(cx - r, cy - r * 0.80f, cx + r, cy + r * 0.80f);
         canvas.drawOval(headRect, whiteFill);
         canvas.drawOval(headRect, brownStroke);
 
-        // Cute Rosy Cheeks
-        canvas.drawCircle(cx - r * 0.55f, cy + r * 0.08f, r * 0.18f, pinkFill);
-        canvas.drawCircle(cx + r * 0.55f, cy + r * 0.08f, r * 0.18f, pinkFill);
+        // Rosy Cheeks
+        canvas.drawCircle(cx - r * 0.56f, cy + r * 0.10f, r * 0.17f, pinkFill);
+        canvas.drawCircle(cx + r * 0.56f, cy + r * 0.10f, r * 0.17f, pinkFill);
 
-        // Eyes & Nose
+        // Sparkling Cat Eyes
         Paint eyePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        eyePaint.setColor(Color.parseColor("#5C3728"));
-        canvas.drawCircle(cx - r * 0.36f, cy - r * 0.08f, r * 0.10f, eyePaint);
-        canvas.drawCircle(cx + r * 0.36f, cy - r * 0.08f, r * 0.10f, eyePaint);
+        eyePaint.setColor(Color.parseColor("#4E342E"));
+        canvas.drawCircle(cx - r * 0.38f, cy - r * 0.06f, r * 0.11f, eyePaint);
+        canvas.drawCircle(cx + r * 0.38f, cy - r * 0.06f, r * 0.11f, eyePaint);
+        canvas.drawCircle(cx - r * 0.41f, cy - r * 0.10f, r * 0.038f, whiteFill);
+        canvas.drawCircle(cx + r * 0.35f, cy - r * 0.10f, r * 0.038f, whiteFill);
 
-        // Text below bunny
+        // Tiny Pink Triangle Cat Nose
+        Path nose = new Path();
+        nose.moveTo(cx - r * 0.09f, cy + r * 0.05f);
+        nose.lineTo(cx + r * 0.09f, cy + r * 0.05f);
+        nose.lineTo(cx, cy + r * 0.15f);
+        nose.close();
+        Paint nosePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        nosePaint.setColor(Color.parseColor("#FF758F"));
+        canvas.drawPath(nose, nosePaint);
+
+        // Cute Cat Mouth (ω shape)
+        Paint mouthStroke = new Paint(brownStroke);
+        mouthStroke.setStrokeWidth(Math.max(2.2f, r * 0.055f));
+        RectF leftMouth = new RectF(cx - r * 0.22f, cy + r * 0.08f, cx, cy + r * 0.26f);
+        RectF rightMouth = new RectF(cx, cy + r * 0.08f, cx + r * 0.22f, cy + r * 0.26f);
+        canvas.drawArc(leftMouth, 15, 150, false, mouthStroke);
+        canvas.drawArc(rightMouth, 15, 150, false, mouthStroke);
+
+        // Cute Cat Whiskers (2 on each cheek)
+        canvas.drawLine(cx - r * 0.78f, cy - r * 0.02f, cx - r * 1.12f, cy - r * 0.08f, mouthStroke);
+        canvas.drawLine(cx - r * 0.78f, cy + r * 0.14f, cx - r * 1.12f, cy + r * 0.18f, mouthStroke);
+        canvas.drawLine(cx + r * 0.78f, cy - r * 0.02f, cx + r * 1.12f, cy - r * 0.08f, mouthStroke);
+        canvas.drawLine(cx + r * 0.78f, cy + r * 0.14f, cx + r * 1.12f, cy + r * 0.18f, mouthStroke);
+
+        // Text below kitten
         Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
         textPaint.setColor(Color.parseColor("#EC4899"));
-        textPaint.setTextSize(Math.min(w, h) * 0.065f);
-        canvas.drawText("✨ Cargando... ✨", cx, cy + r * 1.38f, textPaint);
-
-        if (card != null && card.getStageName() != null) {
-            textPaint.setColor(Color.parseColor("#4B5563"));
-            textPaint.setTextSize(Math.min(w, h) * 0.055f);
-            canvas.drawText(card.getStageName(), cx, cy + r * 1.78f, textPaint);
+        textPaint.setTextSize(Math.min(w, h) * 0.064f);
+        if (primaryLabel != null && !primaryLabel.isEmpty()) {
+            canvas.drawText(primaryLabel, cx, cy + r * 1.38f, textPaint);
+        }
+        if (secondaryLabel != null && !secondaryLabel.isEmpty()) {
+            textPaint.setColor(Color.parseColor("#6B7280"));
+            textPaint.setTextSize(Math.min(w, h) * 0.052f);
+            canvas.drawText(secondaryLabel, cx, cy + r * 1.76f, textPaint);
         }
 
         return bmp;
-    }
-
-    /**
-     * Soft Pastel Collectible Portrait when offline.
-     */
-    public static Bitmap createStylizedPortrait(IdolCard card, int width, int height) {
-        return createCuteKawaiiLoadingArt(card, width, height);
     }
 
     public static int parseColorSafe(String hex, int fallback) {

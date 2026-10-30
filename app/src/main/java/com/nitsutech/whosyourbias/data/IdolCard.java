@@ -240,16 +240,20 @@ public class IdolCard implements Serializable {
         if ("idol_illit_moka".equals(id)) {
             return getPhotocards(); // Moka has 100% of her photocards unlocked!
         }
-        if (unlockedPhotocards == null || unlockedPhotocards.isEmpty()) {
+        if (unlockedPhotocards == null) {
             unlockedPhotocards = new ArrayList<>();
-            // Default 3 unlocked photocards for all other idols
-            List<String> all = getPhotocards();
-            for (int i = 0; i < Math.min(3, all.size()); i++) {
-                unlockedPhotocards.add(all.get(i));
+        }
+        // Guarantee at least 3 default unlocked photocards whenever available
+        List<String> all = getPhotocards();
+        int minDefault = Math.min(3, all.size());
+        for (int i = 0; i < minDefault && unlockedPhotocards.size() < 3; i++) {
+            String candidate = all.get(i);
+            if (!unlockedPhotocards.contains(candidate)) {
+                unlockedPhotocards.add(candidate);
             }
-            if (unlockedPhotocards.isEmpty() && photoUri != null && !photoUri.isEmpty()) {
-                unlockedPhotocards.add(photoUri);
-            }
+        }
+        if (unlockedPhotocards.isEmpty() && photoUri != null && !photoUri.isEmpty()) {
+            unlockedPhotocards.add(photoUri);
         }
         return unlockedPhotocards;
     }
@@ -345,11 +349,41 @@ public class IdolCard implements Serializable {
 
     public void unlockInitialPhotocards() {
         if (unlockedPhotocards == null) unlockedPhotocards = new ArrayList<>();
-        unlockedPhotocards.clear();
         List<String> all = getPhotocards();
         int count = Math.min(3, all.size());
         for (int i = 0; i < count; i++) {
-            unlockedPhotocards.add(all.get(i));
+            String u = all.get(i);
+            if (!unlockedPhotocards.contains(u)) {
+                unlockedPhotocards.add(u);
+            }
+        }
+    }
+
+    public synchronized void replacePhotocardSlot(String oldUri, String newUri) {
+        if (oldUri == null || newUri == null || newUri.trim().isEmpty()) return;
+        String cleanNew = newUri.trim();
+        if (photocards != null) {
+            int idx = photocards.indexOf(oldUri);
+            if (idx >= 0) {
+                if (!photocards.contains(cleanNew)) {
+                    photocards.set(idx, cleanNew);
+                } else {
+                    photocards.remove(idx);
+                }
+            }
+        }
+        if (unlockedPhotocards != null) {
+            int uIdx = unlockedPhotocards.indexOf(oldUri);
+            if (uIdx >= 0) {
+                if (!unlockedPhotocards.contains(cleanNew)) {
+                    unlockedPhotocards.set(uIdx, cleanNew);
+                } else {
+                    unlockedPhotocards.remove(uIdx);
+                }
+            }
+        }
+        if (oldUri.equals(photoUri)) {
+            photoUri = cleanNew;
         }
     }
 }
