@@ -145,6 +145,8 @@
     <string name="gacha_cooldown_title">⏳ Photocard Gacha on Cooldown</string>
     <string name="gacha_cooldown_msg">Your next pack will be ready in %1$s!\n\nYou can open a free pack every 15 minutes to collect exclusive new photocards.</string>
     <string name="btn_understood">Understood</string>
+    <string name="match_prep_title">⚔️ Preparing Battle…</string>
+    <string name="match_prep_loading">Loading idol photocards… (%1$d/%2$d)</string>
 
     <!-- GitHub Auto-Updater -->
     <string name="update_badge_github">🚀 NEW GITHUB RELEASE</string>
