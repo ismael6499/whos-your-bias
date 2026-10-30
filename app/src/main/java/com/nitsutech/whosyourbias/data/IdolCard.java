@@ -311,16 +311,16 @@ public class IdolCard implements Serializable {
         if (unlockedPhotocards == null) {
             unlockedPhotocards = new ArrayList<>();
         }
-        // Guarantee at least 3 default unlocked photocards whenever available
         List<String> all = getPhotocards();
+        // Guarantee at least the first 3 default photocards are always unlocked!
         int minDefault = Math.min(3, all.size());
-        for (int i = 0; i < minDefault && unlockedPhotocards.size() < 3; i++) {
+        for (int i = 0; i < minDefault; i++) {
             String candidate = all.get(i);
-            if (!unlockedPhotocards.contains(candidate)) {
+            if (!containsPhotocardIdentity(unlockedPhotocards, candidate)) {
                 unlockedPhotocards.add(candidate);
             }
         }
-        if (unlockedPhotocards.isEmpty() && photoUri != null && !photoUri.isEmpty()) {
+        if (photoUri != null && !photoUri.isEmpty() && !containsPhotocardIdentity(unlockedPhotocards, photoUri)) {
             unlockedPhotocards.add(photoUri);
         }
         return unlockedPhotocards;
@@ -333,14 +333,25 @@ public class IdolCard implements Serializable {
     public boolean isPhotocardUnlocked(String uri) {
         if ("idol_illit_moka".equals(id)) return true;
         if (uri == null || uri.trim().isEmpty()) return false;
-        return getUnlockedPhotocards().contains(uri.trim());
+        return containsPhotocardIdentity(getUnlockedPhotocards(), uri);
+    }
+
+    private static boolean containsPhotocardIdentity(List<String> list, String targetUri) {
+        if (list == null || targetUri == null) return false;
+        String normTarget = normalizePhotoIdentity(targetUri);
+        for (String item : list) {
+            if (item != null && normTarget.equals(normalizePhotoIdentity(item))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean unlockPhotocard(String uri) {
         if (uri == null || uri.trim().isEmpty()) return false;
         String trimmed = uri.trim();
         List<String> unlocked = getUnlockedPhotocards();
-        if (!unlocked.contains(trimmed)) {
+        if (!containsPhotocardIdentity(unlocked, trimmed)) {
             unlocked.add(trimmed);
             return true;
         }
@@ -350,9 +361,8 @@ public class IdolCard implements Serializable {
     public List<String> getLockedPhotocards() {
         if ("idol_illit_moka".equals(id)) return new ArrayList<>();
         List<String> locked = new ArrayList<>();
-        List<String> unlocked = getUnlockedPhotocards();
         for (String pc : getPhotocards()) {
-            if (!unlocked.contains(pc)) {
+            if (!isPhotocardUnlocked(pc)) {
                 locked.add(pc);
             }
         }
