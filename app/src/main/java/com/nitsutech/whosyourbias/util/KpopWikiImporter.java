@@ -241,7 +241,159 @@ public class KpopWikiImporter {
         }
         card.setBio("Official member of " + card.getGroupName() + " imported from K-Pop Wiki.");
 
+        // 9. Preload up to 30 concept photos from K-Pop Wiki
+        List<String> extraPcs = fetchUpTo30PhotocardsSync(card);
+        for (String pcUrl : extraPcs) {
+            if (card.getPhotocards().size() < 30) {
+                card.addPhotocard(pcUrl);
+            }
+        }
+        while (card.getPhotocards().size() < 30) {
+            int slotIdx = card.getPhotocards().size() + 1;
+            card.addPhotocard("fandom_pc://" + card.getId() + "/" + slotIdx);
+        }
+        card.unlockInitialPhotocards();
+
         return card;
+    }
+
+    private static final java.util.concurrent.ConcurrentHashMap<String, List<String>> idolGalleryCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static List<String> fetchUpTo30PhotocardsSync(IdolCard card) {
+        if (card == null) return new ArrayList<>();
+        String cacheKey = card.getId() != null ? card.getId() : (card.getGroupName() + "_" + card.getStageName());
+        List<String> cached = idolGalleryCache.get(cacheKey);
+        if (cached != null && !cached.isEmpty()) return cached;
+
+        List<String> urls = new ArrayList<>();
+        String cleanStage = card.getStageName() != null ? card.getStageName().replaceAll("\\s*\\([^)]*\\)", "").trim().replace(" ", "_") : "";
+        String cleanGroup = card.getGroupName() != null ? card.getGroupName().trim().replace(" ", "_") : "";
+
+        List<String> prefixes = new ArrayList<>();
+        if (!card.isSoloist() && !cleanGroup.isEmpty() && !cleanStage.isEmpty()) {
+            prefixes.add(capitalizeFirst(cleanGroup + "_" + cleanStage));
+        }
+        // Also extract prefix from existing photoUri filename if present
+        String pUri = card.getPhotoUri();
+        if (pUri != null && pUri.contains("/images/")) {
+            try {
+                int idx = pUri.indexOf("/images/");
+                String after = pUri.substring(idx + 8); // e.g. 5/56/ILLIT_Yunah_Break_Even.png/...
+                String[] parts = after.split("/");
+                if (parts.length >= 3) {
+                    String fileName = java.net.URLDecoder.decode(parts[2], "UTF-8");
+                    String[] words = fileName.split("_");
+                    if (words.length >= 2) {
+                        String p2 = capitalizeFirst(words[0] + "_" + words[1]);
+                        if (!prefixes.contains(p2)) prefixes.add(p2);
+                    }
+                    if (words.length >= 3) {
+                        String p3 = capitalizeFirst(words[0] + "_" + words[1] + "_" + words[2]);
+                        if (!prefixes.contains(p3)) prefixes.add(p3);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        if (!cleanStage.isEmpty()) {
+            String pStage = capitalizeFirst(cleanStage + "_");
+            if (!prefixes.contains(pStage)) prefixes.add(pStage);
+        }
+
+        for (String prefix : prefixes) {
+            if (urls.size() >= 30) break;
+            try {
+                String enc = URLEncoder.encode(prefix, "UTF-8");
+                String apiUrl = "https://kpop.fandom.com/api.php?action=query&list=allimages&aiprefix="
+                        + enc + "&ailimit=40&aiprop=url&format=json";
+                String raw = httpGet(apiUrl);
+                JSONObject root = new JSONObject(raw);
+                JSONObject qObj = root.optJSONObject("query");
+                if (qObj != null) {
+                    JSONArray allImages = qObj.optJSONArray("allimages");
+                    if (allImages != null) {
+                        for (int i = 0; i < allImages.length() && urls.size() < 30; i++) {
+                            JSONObject im = allImages.optJSONObject(i);
+                            if (im == null) continue;
+                            String name = im.optString("name", "").toLowerCase(Locale.ROOT);
+                            if (name.contains("signature") || name.contains("logo") || name.contains("autograph")
+                                    || name.contains("lightstick") || name.contains("banner")) {
+                                continue;
+                            }
+                            String imgUrl = im.optString("url", "");
+                            if (!imgUrl.isEmpty() && !urls.contains(imgUrl)) {
+                                urls.add(imgUrl);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (!urls.isEmpty()) {
+            idolGalleryCache.put(cacheKey, urls);
+        }
+        return urls;
+    }
+
+    public static String resolvePhotocardSlotUrl(IdolCard card, String slotUri) {
+        if (card == null || slotUri == null) return "";
+        if (!slotUri.startsWith("fandom_pc://")) return slotUri;
+        int slotIdx = 1;
+        try {
+            int lastSlash = slotUri.lastIndexOf('/');
+            if (lastSlash >= 0) {
+                slotIdx = Integer.parseInt(slotUri.substring(lastSlash + 1));
+            }
+        } catch (Exception ignored) {}
+        List<String> gallery = fetchUpTo30PhotocardsSync(card);
+        if (!gallery.isEmpty()) {
+            int pick = Math.max(0, Math.min(gallery.size() - 1, slotIdx - 1));
+            String resolved = gallery.get(pick);
+            card.replacePhotocardSlot(slotUri, resolved);
+            return resolved;
+        }
+        return card.getPhotoUri() != null ? card.getPhotoUri() : "";
+    }
+
+    public static void resolveAllPhotocardSlotsAsync(IdolCard card, com.nitsutech.whosyourbias.data.BiasRepository repo, Runnable onUpdatedUi) {
+        if (card == null) return;
+        boolean hasVirtualSlots = false;
+        for (String pc : card.getPhotocards()) {
+            if (pc != null && pc.startsWith("fandom_pc://")) {
+                hasVirtualSlots = true;
+                break;
+            }
+        }
+        if (!hasVirtualSlots && card.getPhotocards().size() >= 30) return;
+
+        executor.execute(() -> {
+            List<String> gallery = fetchUpTo30PhotocardsSync(card);
+            if (gallery.isEmpty()) return;
+            boolean changed = false;
+            List<String> current = new ArrayList<>(card.getPhotocards());
+            int gIdx = 0;
+            for (String pc : current) {
+                if (pc != null && pc.startsWith("fandom_pc://")) {
+                    while (gIdx < gallery.size() && card.getPhotocards().contains(gallery.get(gIdx))) {
+                        gIdx++;
+                    }
+                    if (gIdx < gallery.size()) {
+                        card.replacePhotocardSlot(pc, gallery.get(gIdx));
+                        gIdx++;
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) {
+                if (repo != null) repo.saveOrUpdateIdol(card);
+                if (onUpdatedUi != null) mainHandler.post(onUpdatedUi);
+            }
+        });
+    }
+
+    private static String capitalizeFirst(String s) {
+        if (s == null || s.isEmpty()) return "";
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     private static String resolveWikiImageUrl(String filename) {

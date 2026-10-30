@@ -84,8 +84,13 @@ public class BiasRepository {
                         ex.setPhotoUri(seed.getPhotoUri());
                         updatedAny = true;
                     }
+                    if (ex.getId().startsWith("idol_illit_")) {
+                        // Replace any virtual fandom_pc:// slots if seed has real HTTP URLs
+                        ex.getPhotocards().removeIf(u -> u != null && u.startsWith("fandom_pc://"));
+                        ex.getUnlockedPhotocards().removeIf(u -> u != null && u.startsWith("fandom_pc://"));
+                    }
                     for (String pc : seed.getPhotocards()) {
-                        if (!ex.getPhotocards().contains(pc)) {
+                        if (ex.getPhotocards().size() < 30 && !ex.getPhotocards().contains(pc)) {
                             ex.addPhotocard(pc);
                             updatedAny = true;
                         }
@@ -98,7 +103,7 @@ public class BiasRepository {
                     if ("idol_illit_moka".equals(ex.getId())) {
                         ex.unlockAllPhotocards();
                         updatedAny = true;
-                    } else if (ex.getUnlockedPhotocards().isEmpty()) {
+                    } else if (ex.getUnlockedPhotocards().size() < 3) {
                         ex.unlockInitialPhotocards();
                         updatedAny = true;
                     }

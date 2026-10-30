@@ -855,11 +855,36 @@ public class MainActivity extends AppCompatActivity {
         return filtered;
     }
 
-    private void populateTwoColumnPhotoGrid(LinearLayout container) {
-        container.removeAllViews();
-        List<IdolCard> list = getFilteredIdolsList();
+    private int idolsGridRenderToken = 0;
+    private int groupsTabRenderToken = 0;
 
-        for (int i = 0; i < list.size(); i += 2) {
+    private void populateTwoColumnPhotoGrid(LinearLayout container) {
+        final int token = ++idolsGridRenderToken;
+        container.removeAllViews();
+        final List<IdolCard> list = getFilteredIdolsList();
+
+        // Render first 12 cards (6 rows) immediately so tab switch is instantaneous (<10ms)
+        final int initialLimit = Math.min(list.size(), 12);
+        appendTwoColumnRowsChunk(container, list, 0, initialLimit);
+
+        if (initialLimit < list.size()) {
+            scheduleNextIdolsGridChunk(container, list, initialLimit, token);
+        }
+    }
+
+    private void scheduleNextIdolsGridChunk(LinearLayout container, List<IdolCard> list, int startIndex, int token) {
+        container.postDelayed(() -> {
+            if (token != idolsGridRenderToken || isFinishing()) return;
+            int end = Math.min(list.size(), startIndex + 12);
+            appendTwoColumnRowsChunk(container, list, startIndex, end);
+            if (end < list.size()) {
+                scheduleNextIdolsGridChunk(container, list, end, token);
+            }
+        }, 18);
+    }
+
+    private void appendTwoColumnRowsChunk(LinearLayout container, List<IdolCard> list, int startIdx, int endIdx) {
+        for (int i = startIdx; i < endIdx; i += 2) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             LinearLayout.LayoutParams rLp = new LinearLayout.LayoutParams(
@@ -1032,11 +1057,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void populateVibraryGroupSections(LinearLayout container) {
+        final int token = ++groupsTabRenderToken;
         container.removeAllViews();
         String q = groupSearchQuery != null ? groupSearchQuery.toLowerCase(Locale.ROOT).trim() : "";
 
         List<String> groups = repo.getAllGroups();
         groups.add("Soloists");
+
+        final List<String> matchedGroups = new ArrayList<>();
+        final List<List<IdolCard>> matchedMembersList = new ArrayList<>();
 
         for (String groupName : groups) {
             List<IdolCard> members = repo.getIdolsByFilter(groupName);
@@ -1056,8 +1085,33 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            container.addView(buildVibraryGroupSection(groupName, members));
+            matchedGroups.add(groupName);
+            matchedMembersList.add(members);
         }
+
+        // Render first 4 groups immediately so switching to Artistas tab is instant (<10ms)
+        int initialCount = Math.min(4, matchedGroups.size());
+        for (int i = 0; i < initialCount; i++) {
+            container.addView(buildVibraryGroupSection(matchedGroups.get(i), matchedMembersList.get(i)));
+        }
+
+        if (initialCount < matchedGroups.size()) {
+            scheduleNextGroupsChunk(container, matchedGroups, matchedMembersList, initialCount, token);
+        }
+    }
+
+    private void scheduleNextGroupsChunk(LinearLayout container, List<String> groupNames,
+                                         List<List<IdolCard>> membersList, int startIndex, int token) {
+        container.postDelayed(() -> {
+            if (token != groupsTabRenderToken || isFinishing()) return;
+            int end = Math.min(groupNames.size(), startIndex + 4);
+            for (int i = startIndex; i < end; i++) {
+                container.addView(buildVibraryGroupSection(groupNames.get(i), membersList.get(i)));
+            }
+            if (end < groupNames.size()) {
+                scheduleNextGroupsChunk(container, groupNames, membersList, end, token);
+            }
+        }, 18);
     }
 
     /**
@@ -2331,14 +2385,22 @@ public class MainActivity extends AppCompatActivity {
 
         // Photocard Binder Section
         TextView tvPcTitle = new TextView(this);
-        tvPcTitle.setText("📸 Photocards de " + card.getStageName() + " (" + card.getPhotocards().size() + ")");
+        tvPcTitle.setText("📸 Photocards de " + card.getStageName() + " (" + card.getUnlockedPhotocards().size() + "/" + card.getPhotocards().size() + ")");
         tvPcTitle.setTextColor(Color.parseColor("#111827"));
         tvPcTitle.setTextSize(15f);
         tvPcTitle.setTypeface(Typeface.DEFAULT_BOLD);
-        tvPcTitle.setPadding(0, 0, 0, dp(8));
+        tvPcTitle.setPadding(0, 0, 0, dp(2));
         root.addView(tvPcTitle);
 
+        TextView tvPcSubHint = new TextView(this);
+        tvPcSubHint.setText("🔍 Tocá cualquier photocard para ver en Full HD con Zoom (Pinch-to-Zoom)");
+        tvPcSubHint.setTextColor(themeBinder.getMutedTextColor());
+        tvPcSubHint.setTextSize(11.5f);
+        tvPcSubHint.setPadding(0, 0, 0, dp(8));
+        root.addView(tvPcSubHint);
+
         HorizontalScrollView pcScroll = new HorizontalScrollView(this);
+        pcScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout pcRow = new LinearLayout(this);
         pcRow.setOrientation(LinearLayout.HORIZONTAL);
         pcRow.setPadding(0, 0, 0, dp(12));
@@ -2347,82 +2409,33 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 pcRow.removeAllViews();
-                tvPcTitle.setText("📸 Photocards de " + card.getStageName() + " (" + card.getPhotocards().size() + ")");
-                for (int i = 0; i < card.getPhotocards().size(); i++) {
-                    final String pcUri = card.getPhotocards().get(i);
-                    final int idx = i;
-                    LinearLayout pcItem = new LinearLayout(MainActivity.this);
-                    pcItem.setOrientation(LinearLayout.VERTICAL);
-                    pcItem.setGravity(Gravity.CENTER_HORIZONTAL);
-                    LinearLayout.LayoutParams pLp = new LinearLayout.LayoutParams(dp(100), ViewGroup.LayoutParams.WRAP_CONTENT);
-                    pLp.setMargins(0, 0, dp(8), 0);
-                    pcItem.setLayoutParams(pLp);
+                List<String> allPcs = new ArrayList<>(card.getPhotocards());
+                tvPcTitle.setText("📸 Photocards de " + card.getStageName() + " (" + card.getUnlockedPhotocards().size() + "/" + allPcs.size() + ")");
 
-                    CardView thumbCard = new CardView(MainActivity.this);
-                    thumbCard.setRadius(dp(14));
-                    thumbCard.setCardElevation(dp(1));
-                    thumbCard.setLayoutParams(new LinearLayout.LayoutParams(dp(96), dp(124)));
-
-                    ImageView ivThumb = new ImageView(MainActivity.this);
-                    ivThumb.setLayoutParams(new FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                    ivThumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                    IdolCard temp = new IdolCard(card.getId() + "_thumb_" + idx, card.getStageName(),
-                            card.getFullName(), card.getGroupName(), card.isSoloist(), card.getCountry(),
-                            card.getBirthDate(), card.getRole(), pcUri, card.getAccentColor(), card.getBio(), card.getCollections());
-                    CardImageLoader.loadCardImage(MainActivity.this, temp, ivThumb);
-                    ivThumb.setOnClickListener(v -> {
-                        card.setPhotoUri(pcUri);
-                        repo.saveOrUpdateIdol(card);
-                        CardImageLoader.loadCardImage(MainActivity.this, card, ivMain);
-                        Toast.makeText(MainActivity.this, "✨ Photocard principal actualizada", Toast.LENGTH_SHORT).show();
+                // Render first 8 immediately for instant dialog opening, and post remaining on next frame
+                int firstBatch = Math.min(8, allPcs.size());
+                for (int i = 0; i < firstBatch; i++) {
+                    pcRow.addView(buildPhotocardBinderCell(card, allPcs.get(i), i, ivMain, this));
+                }
+                if (firstBatch < allPcs.size()) {
+                    pcRow.post(() -> {
+                        if (isFinishing() || (dialogRef[0] != null && !dialogRef[0].isShowing())) return;
+                        for (int i = firstBatch; i < allPcs.size(); i++) {
+                            pcRow.addView(buildPhotocardBinderCell(card, allPcs.get(i), i, ivMain, this));
+                        }
                     });
-                    boolean isUnlocked = card.isPhotocardUnlocked(pcUri);
-                    if (!isUnlocked) {
-                        FrameLayout lockOverlay = new FrameLayout(MainActivity.this);
-                        lockOverlay.setLayoutParams(new FrameLayout.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                        lockOverlay.setBackgroundColor(Color.parseColor("#88000000"));
-                        TextView tvLock = new TextView(MainActivity.this);
-                        tvLock.setText("🔒\nBloqueada");
-                        tvLock.setTextColor(Color.WHITE);
-                        tvLock.setTextSize(10.5f);
-                        tvLock.setTypeface(Typeface.DEFAULT_BOLD);
-                        tvLock.setGravity(Gravity.CENTER);
-                        FrameLayout.LayoutParams lkLp = new FrameLayout.LayoutParams(
-                                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
-                        tvLock.setLayoutParams(lkLp);
-                        lockOverlay.addView(tvLock);
-                        thumbCard.addView(lockOverlay);
-                        lockOverlay.setOnClickListener(v -> Toast.makeText(MainActivity.this, "✨ ¡Desbloqueá más photocards en el Photocard Gacha diario!", Toast.LENGTH_SHORT).show());
-                    }
-                    thumbCard.addView(ivThumb);
-                    pcItem.addView(thumbCard);
-
-                    if (card.getPhotocards().size() > 1) {
-                        TextView btnRemovePc = new TextView(MainActivity.this);
-                        btnRemovePc.setText("Quitar");
-                        btnRemovePc.setTextColor(Color.parseColor("#EF4444"));
-                        btnRemovePc.setTextSize(10.5f);
-                        btnRemovePc.setPadding(0, dp(4), 0, 0);
-                        btnRemovePc.setOnClickListener(v -> {
-                            card.getPhotocards().remove(idx);
-                            if (pcUri.equals(card.getPhotoUri())) {
-                                card.setPhotoUri(card.getPhotocards().isEmpty() ? "" : card.getPhotocards().get(0));
-                            }
-                            repo.saveOrUpdateIdol(card);
-                            CardImageLoader.loadCardImage(MainActivity.this, card, ivMain);
-                            run();
-                        });
-                        pcItem.addView(btnRemovePc);
-                    }
-                    pcRow.addView(pcItem);
                 }
             }
         };
+
+        ivMain.setOnClickListener(v -> showPhotocardZoomPreviewDialog(card, card.getPhotoUri(), 1, ivMain, rebuildPhotocardsRow));
+
         rebuildPhotocardsRow.run();
         pcScroll.addView(pcRow);
         root.addView(pcScroll);
+
+        // Background-resolve any virtual fandom_pc:// slots into real Fandom concept photo URLs
+        KpopWikiImporter.resolveAllPhotocardSlotsAsync(card, repo, rebuildPhotocardsRow);
 
         // Add Photocard Buttons (Upload, Paste Clipboard Image/URL, or Paste Link)
         LinearLayout addPcRow = new LinearLayout(this);
@@ -2574,6 +2587,202 @@ public class MainActivity extends AppCompatActivity {
             dialogRef[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
         dialogRef[0].show();
+    }
+
+    private View buildPhotocardBinderCell(IdolCard card, String pcUri, int idx, ImageView ivMain, Runnable rebuildCallback) {
+        LinearLayout pcItem = new LinearLayout(this);
+        pcItem.setOrientation(LinearLayout.VERTICAL);
+        pcItem.setGravity(Gravity.CENTER_HORIZONTAL);
+        LinearLayout.LayoutParams pLp = new LinearLayout.LayoutParams(dp(102), ViewGroup.LayoutParams.WRAP_CONTENT);
+        pLp.setMargins(0, 0, dp(8), 0);
+        pcItem.setLayoutParams(pLp);
+
+        boolean isUnlocked = card.isPhotocardUnlocked(pcUri);
+        boolean isPrimaryCover = pcUri != null && pcUri.equals(card.getPhotoUri());
+
+        CardView thumbCard = new CardView(this);
+        thumbCard.setRadius(dp(14));
+        thumbCard.setCardElevation(dp(isPrimaryCover ? 3 : 1));
+        thumbCard.setLayoutParams(new LinearLayout.LayoutParams(dp(96), dp(126)));
+
+        FrameLayout frame = new FrameLayout(this);
+        frame.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        if (isUnlocked) {
+            ImageView ivThumb = new ImageView(this);
+            ivThumb.setLayoutParams(new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            ivThumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            IdolCard temp = new IdolCard(card.getId() + "_thumb_" + idx, card.getStageName(),
+                    card.getFullName(), card.getGroupName(), card.isSoloist(), card.getCountry(),
+                    card.getBirthDate(), card.getRole(), pcUri, card.getAccentColor(), card.getBio(), card.getCollections());
+            CardImageLoader.loadCardImage(this, temp, ivThumb);
+            frame.addView(ivThumb);
+
+            if (isPrimaryCover) {
+                View goldBorder = new View(this);
+                GradientDrawable gd = new GradientDrawable();
+                gd.setCornerRadius(dp(14));
+                gd.setStroke(dp(2), Color.parseColor("#F59E0B"));
+                gd.setColor(Color.TRANSPARENT);
+                goldBorder.setBackground(gd);
+                goldBorder.setLayoutParams(new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                frame.addView(goldBorder);
+            }
+
+            // Tapping the photocard opens the Full-HD Pinch-to-Zoom Preview (does NOT overwrite main cover)
+            frame.setOnClickListener(v -> showPhotocardZoomPreviewDialog(card, pcUri, idx + 1, ivMain, rebuildCallback));
+        } else {
+            frame.setBackgroundColor(Color.parseColor("#1F2937"));
+            TextView tvLock = new TextView(this);
+            tvLock.setText("🔒\n#" + (idx + 1) + "\nGacha");
+            tvLock.setTextColor(Color.parseColor("#E5E7EB"));
+            tvLock.setTextSize(10.5f);
+            tvLock.setTypeface(Typeface.DEFAULT_BOLD);
+            tvLock.setGravity(Gravity.CENTER);
+            FrameLayout.LayoutParams lkLp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+            tvLock.setLayoutParams(lkLp);
+            frame.addView(tvLock);
+            frame.setOnClickListener(v -> Toast.makeText(this, "✨ ¡Desbloqueá esta photocard en el Photocard Gacha!", Toast.LENGTH_SHORT).show());
+        }
+
+        thumbCard.addView(frame);
+        pcItem.addView(thumbCard);
+
+        // Separate dedicated button below each unlocked photocard to set it as Primary Cover Photo
+        if (isUnlocked) {
+            TextView btnSetCover = new TextView(this);
+            btnSetCover.setText(isPrimaryCover ? "⭐ Portada" : "☆ Portada");
+            btnSetCover.setTextColor(Color.parseColor(isPrimaryCover ? "#B45309" : "#4B5563"));
+            btnSetCover.setTextSize(10f);
+            btnSetCover.setTypeface(Typeface.DEFAULT_BOLD);
+            btnSetCover.setGravity(Gravity.CENTER);
+            btnSetCover.setBackground(ThemeManager.createPillDrawable(this,
+                    Color.parseColor(isPrimaryCover ? "#FEF3C7" : "#F3F4F6"), 12));
+            btnSetCover.setPadding(dp(8), dp(4), dp(8), dp(4));
+            LinearLayout.LayoutParams scLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            scLp.topMargin = dp(5);
+            btnSetCover.setLayoutParams(scLp);
+            btnSetCover.setOnClickListener(v -> {
+                card.setPhotoUri(pcUri);
+                repo.saveOrUpdateIdol(card);
+                CardImageLoader.loadCardImage(this, card, ivMain);
+                if (rebuildCallback != null) rebuildCallback.run();
+                refreshCurrentTab();
+                Toast.makeText(this, "⭐ Definida como portada principal de " + card.getStageName(), Toast.LENGTH_SHORT).show();
+            });
+            pcItem.addView(btnSetCover);
+        } else {
+            TextView tvLockedSub = new TextView(this);
+            tvLockedSub.setText("Bloqueada");
+            tvLockedSub.setTextColor(Color.parseColor("#9CA3AF"));
+            tvLockedSub.setTextSize(9.5f);
+            tvLockedSub.setPadding(0, dp(5), 0, 0);
+            pcItem.addView(tvLockedSub);
+        }
+
+        return pcItem;
+    }
+
+    private void showPhotocardZoomPreviewDialog(IdolCard card, String pcUri, int pcNumber,
+                                                ImageView ivMainInBinder, Runnable rebuildBinderCallback) {
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog[] ref = new AlertDialog[1];
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        root.setPadding(pad, pad, pad, pad);
+        root.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("📸 " + card.getStageName() + "  •  Photocard #" + pcNumber);
+        tvTitle.setTextColor(theme.textColor);
+        tvTitle.setTextSize(17f);
+        tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        root.addView(tvTitle);
+
+        TextView tvHint = new TextView(this);
+        tvHint.setText("🔍 Pellizcá con 2 dedos o hacé doble toque para hacer Zoom");
+        tvHint.setTextColor(theme.getMutedTextColor());
+        tvHint.setTextSize(11.5f);
+        tvHint.setPadding(0, dp(2), 0, dp(12));
+        root.addView(tvHint);
+
+        CardView zoomCard = new CardView(this);
+        zoomCard.setRadius(dp(22));
+        zoomCard.setCardElevation(dp(3));
+        zoomCard.setCardBackgroundColor(Color.parseColor("#111827"));
+        LinearLayout.LayoutParams zLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(420));
+        zLp.setMargins(0, 0, 0, dp(14));
+        zoomCard.setLayoutParams(zLp);
+
+        ZoomablePhotocardView zoomView = new ZoomablePhotocardView(this);
+        zoomView.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        CardImageLoader.loadHighResForZoomPreview(this, card, pcUri, zoomView);
+        zoomCard.addView(zoomView);
+        root.addView(zoomCard);
+
+        boolean isCurrentCover = pcUri != null && pcUri.equals(card.getPhotoUri());
+
+        TextView btnSetAsMain = new TextView(this);
+        btnSetAsMain.setText(isCurrentCover ? "⭐ Portada Principal Actual" : "⭐ Definir como Portada Principal");
+        btnSetAsMain.setTextColor(isCurrentCover ? Color.parseColor("#B45309") : theme.getButtonTextColor(theme.primaryColor));
+        btnSetAsMain.setTypeface(Typeface.DEFAULT_BOLD);
+        btnSetAsMain.setTextSize(13f);
+        btnSetAsMain.setGravity(Gravity.CENTER);
+        btnSetAsMain.setBackground(ThemeManager.createPillDrawable(this,
+                isCurrentCover ? Color.parseColor("#FEF3C7") : theme.primaryColor, 20));
+        btnSetAsMain.setPadding(dp(14), dp(12), dp(14), dp(12));
+        LinearLayout.LayoutParams smLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        smLp.bottomMargin = dp(8);
+        btnSetAsMain.setLayoutParams(smLp);
+        btnSetAsMain.setOnClickListener(v -> {
+            if (pcUri != null && !pcUri.isEmpty()) {
+                card.setPhotoUri(pcUri);
+                repo.saveOrUpdateIdol(card);
+                if (ivMainInBinder != null) {
+                    CardImageLoader.loadCardImage(this, card, ivMainInBinder);
+                }
+                if (rebuildBinderCallback != null) {
+                    rebuildBinderCallback.run();
+                }
+                refreshCurrentTab();
+                btnSetAsMain.setText("⭐ Portada Principal Actual");
+                btnSetAsMain.setTextColor(Color.parseColor("#B45309"));
+                btnSetAsMain.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#FEF3C7"), 20));
+                Toast.makeText(this, "⭐ Definida como portada principal de " + card.getStageName(), Toast.LENGTH_SHORT).show();
+            }
+        });
+        root.addView(btnSetAsMain);
+
+        TextView btnClose = new TextView(this);
+        btnClose.setText("Cerrar Vista Previa");
+        btnClose.setTextColor(Color.parseColor("#374151"));
+        btnClose.setTypeface(Typeface.DEFAULT_BOLD);
+        btnClose.setTextSize(13f);
+        btnClose.setGravity(Gravity.CENTER);
+        btnClose.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 20));
+        btnClose.setPadding(dp(14), dp(11), dp(14), dp(11));
+        btnClose.setOnClickListener(v -> {
+            if (ref[0] != null) ref[0].dismiss();
+        });
+        root.addView(btnClose);
+
+        builder.setView(root);
+        ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        ref[0].show();
     }
 
     public void showCreateOrEditIdolDialog(IdolCard existing, Runnable onSavedCallback) {
