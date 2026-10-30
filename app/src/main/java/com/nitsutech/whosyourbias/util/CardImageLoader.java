@@ -7,6 +7,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
@@ -15,6 +16,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
 import android.util.LruCache;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 
 import com.nitsutech.whosyourbias.data.IdolCard;
@@ -37,49 +39,200 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class CardImageLoader {
-    private static final LruCache<String, Bitmap> memoryCache = new LruCache<>(80);
-    private static final ExecutorService executor = Executors.newFixedThreadPool(4);
+    // Large cache (600 entries) so loaded idol photos NEVER get evicted and never flicker back to placeholder
+    private static final LruCache<String, Bitmap> rawMemoryCache = new LruCache<>(350);
+    private static final LruCache<String, Bitmap> fittedMemoryCache = new LruCache<>(600);
+    private static final ExecutorService executor = Executors.newFixedThreadPool(6);
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public static void loadCardImage(Context context, IdolCard card, ImageView imageView) {
         if (card == null || imageView == null) return;
-        final String tag = card.getId() + "_" + card.getPhotoUri();
-        imageView.setTag(tag);
+        int[] ratio = inferTargetCanvasSize(imageView);
+        loadCardImageWithSize(context, card, imageView, ratio[0], ratio[1]);
+    }
 
-        Bitmap cached = memoryCache.get(tag);
-        if (cached != null && !cached.isRecycled()) {
-            imageView.setImageBitmap(cached);
+    public static void loadUriIntoImageView(Context context, String uriStr, ImageView imageView, String label, int accentColor) {
+        if (uriStr == null || imageView == null) return;
+        IdolCard temp = new IdolCard("custom_uri_" + Math.abs(uriStr.hashCode()),
+                label != null && !label.isEmpty() ? label : "Bias",
+                label != null ? label : "", "Who's your Bias", false,
+                "South Korea", "2004-01-01", "Idol",
+                uriStr, String.format("#%06X", (0xFFFFFF & accentColor)), "", "");
+        loadCardImage(context, temp, imageView);
+    }
+
+    public static void loadCardImageWithSize(Context context, IdolCard card, ImageView imageView, int targetW, int targetH) {
+        if (card == null || imageView == null) return;
+        imageView.setScaleType(ImageView.ScaleType.FIT_XY);
+
+        final String rawKey = card.getId() + "_" + (card.getPhotoUri() != null ? card.getPhotoUri() : "");
+        final String fittedKey = rawKey + "_" + targetW + "x" + targetH;
+
+        // If this ImageView is already displaying this exact fitted image, do nothing (zero flicker!)
+        if (fittedKey.equals(imageView.getTag()) && imageView.getDrawable() != null) {
+            return;
+        }
+        imageView.setTag(fittedKey);
+
+        Bitmap cachedFitted = fittedMemoryCache.get(fittedKey);
+        if (cachedFitted != null && !cachedFitted.isRecycled()) {
+            imageView.setImageBitmap(cachedFitted);
             return;
         }
 
-        // Set instant stylized collectible portrait first so UI never flickers
-        Bitmap fallback = createStylizedPortrait(card, 480, 600);
-        imageView.setImageBitmap(fallback);
+        Bitmap cachedRaw = rawMemoryCache.get(rawKey);
+        if (cachedRaw != null && !cachedRaw.isRecycled()) {
+            Bitmap fitted = createUncroppedFittedPhoto(cachedRaw, targetW, targetH);
+            fittedMemoryCache.put(fittedKey, fitted);
+            imageView.setImageBitmap(fitted);
+            return;
+        }
 
+        // Fast synchronous check if already on disk cache so we don't even show a loading screen for cached files
         final Context appCtx = context.getApplicationContext();
+        File diskCached = getExistingDiskCacheFile(appCtx, card);
+        if (diskCached != null) {
+            Bitmap diskBmp = decodeSampledFile(diskCached, 540, 540);
+            if (diskBmp != null) {
+                rawMemoryCache.put(rawKey, diskBmp);
+                Bitmap fitted = createUncroppedFittedPhoto(diskBmp, targetW, targetH);
+                fittedMemoryCache.put(fittedKey, fitted);
+                imageView.setImageBitmap(fitted);
+                return;
+            }
+        }
+
+        // Only show cute kawaii loading art when downloading from network for the first time
+        Bitmap cuteLoader = createCuteKawaiiLoadingArt(card, targetW, targetH);
+        imageView.setImageBitmap(cuteLoader);
+
         executor.execute(() -> {
             Bitmap loaded = fetchOrResolveBitmap(appCtx, card);
             if (loaded != null) {
-                memoryCache.put(tag, loaded);
+                rawMemoryCache.put(rawKey, loaded);
+                final Bitmap fitted = createUncroppedFittedPhoto(loaded, targetW, targetH);
+                fittedMemoryCache.put(fittedKey, fitted);
                 mainHandler.post(() -> {
-                    if (tag.equals(imageView.getTag())) {
-                        imageView.setImageBitmap(loaded);
+                    if (fittedKey.equals(imageView.getTag())) {
+                        imageView.setImageBitmap(fitted);
                     }
                 });
             } else {
-                memoryCache.put(tag, fallback);
+                final Bitmap fallback = createStylizedPortrait(card, targetW, targetH);
+                mainHandler.post(() -> {
+                    if (fittedKey.equals(imageView.getTag())) {
+                        imageView.setImageBitmap(fallback);
+                    }
+                });
             }
         });
     }
 
+    private static int[] inferTargetCanvasSize(ImageView iv) {
+        ViewGroup.LayoutParams lp = iv.getLayoutParams();
+        if (lp != null && lp.width > 0 && lp.height > 0) {
+            float ratio = (float) lp.width / (float) lp.height;
+            if (Math.abs(ratio - 1.0f) < 0.15f) {
+                return new int[]{360, 360}; // Square squircle
+            } else if (ratio > 1.05f) {
+                return new int[]{460, Math.max(280, Math.round(460f / ratio))};
+            } else {
+                return new int[]{380, Math.min(540, Math.round(380f / ratio))};
+            }
+        }
+        if (lp != null && lp.height > 0 && lp.width == ViewGroup.LayoutParams.MATCH_PARENT) {
+            // Estimate container width around 340dp
+            float density = iv.getContext().getResources().getDisplayMetrics().density;
+            float hDp = lp.height / Math.max(1f, density);
+            if (hDp <= 160f) {
+                return new int[]{400, 340}; // Carousel card
+            } else if (hDp <= 230f) {
+                return new int[]{360, 460}; // 2-col grid card
+            } else {
+                return new int[]{440, 440}; // Large profile photo card
+            }
+        }
+        // Default for duel cards in MatchActivity (slightly wider than tall)
+        return new int[]{480, 380};
+    }
+
+    /**
+     * Renders 100% of the original photo (`fitCenter`) over a soft, dreamy blurred backdrop of the same photo
+     * so NO head, forehead, eyes, or body is EVER cut off in any aspect ratio!
+     */
+    public static Bitmap createUncroppedFittedPhoto(Bitmap src, int targetW, int targetH) {
+        if (src == null) return null;
+        int sW = src.getWidth();
+        int sH = src.getHeight();
+        if (sW <= 0 || sH <= 0) return src;
+
+        Bitmap out = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(out);
+
+        // 1. Fast soft blurred background fill from tiny downscaled bitmap (takes < 0.3ms)
+        Bitmap tiny = Bitmap.createScaledBitmap(src, 18, 18, true);
+        Bitmap blurredBg = Bitmap.createScaledBitmap(tiny, targetW, targetH, true);
+        Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        canvas.drawBitmap(blurredBg, 0, 0, bgPaint);
+
+        // Soft pastel veil over the blurred background so the full photo pops cleanly
+        Paint veil = new Paint();
+        veil.setColor(Color.argb(65, 255, 248, 252));
+        canvas.drawRect(0, 0, targetW, targetH, veil);
+
+        // 2. Fit 100% of the source image inside targetW x targetH without cropping a single pixel!
+        float scale = Math.min((float) targetW / (float) sW, (float) targetH / (float) sH);
+        float drawW = sW * scale;
+        float drawH = sH * scale;
+        float left = (targetW - drawW) / 2f;
+        float top = (targetH - drawH) / 2f;
+
+        RectF dst = new RectF(left, top, left + drawW, top + drawH);
+        canvas.drawBitmap(src, null, dst, bgPaint);
+
+        return out;
+    }
+
     public static Bitmap getCardBitmapSync(Context context, IdolCard card, int width, int height) {
         if (card == null) return null;
-        String tag = card.getId() + "_" + card.getPhotoUri();
-        Bitmap cached = memoryCache.get(tag);
-        if (cached != null && !cached.isRecycled()) return cached;
+        String rawKey = card.getId() + "_" + (card.getPhotoUri() != null ? card.getPhotoUri() : "");
+        Bitmap cached = rawMemoryCache.get(rawKey);
+        if (cached != null && !cached.isRecycled()) {
+            return createUncroppedFittedPhoto(cached, width, height);
+        }
         Bitmap loaded = fetchOrResolveBitmap(context.getApplicationContext(), card);
-        if (loaded != null) return loaded;
+        if (loaded != null) {
+            rawMemoryCache.put(rawKey, loaded);
+            return createUncroppedFittedPhoto(loaded, width, height);
+        }
         return createStylizedPortrait(card, width, height);
+    }
+
+    public static void invalidateCacheForCard(IdolCard card) {
+        if (card == null) return;
+        rawMemoryCache.evictAll();
+        fittedMemoryCache.evictAll();
+    }
+
+    private static File getExistingDiskCacheFile(Context context, IdolCard card) {
+        try {
+            String uri = card.getPhotoUri();
+            File cacheDir = new File(context.getCacheDir(), "idol_img_cache");
+            if (uri != null && !uri.trim().isEmpty()) {
+                uri = uri.trim();
+                if (uri.startsWith("/") || uri.startsWith("file://")) {
+                    File f = new File(uri.startsWith("file://") ? uri.substring(7) : uri);
+                    if (f.exists() && f.length() > 200) return f;
+                } else if (uri.startsWith("http://") || uri.startsWith("https://")) {
+                    File f = new File(cacheDir, "url_" + Math.abs(uri.hashCode()) + ".jpg");
+                    if (f.exists() && f.length() > 500) return f;
+                }
+            }
+            File wikiCache = new File(cacheDir, "wiki_" + card.getId() + ".jpg");
+            if (wikiCache.exists() && wikiCache.length() > 500) return wikiCache;
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     private static Bitmap fetchOrResolveBitmap(Context context, IdolCard card) {
@@ -90,7 +243,6 @@ public class CardImageLoader {
 
             if (uri != null && !uri.trim().isEmpty()) {
                 uri = uri.trim();
-                // 1. Base64 embedded data URI
                 if (uri.startsWith("data:image")) {
                     int comma = uri.indexOf(',');
                     if (comma > 0) {
@@ -98,7 +250,6 @@ public class CardImageLoader {
                         return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
                     }
                 }
-                // 2. Local file path
                 if (uri.startsWith("/") || uri.startsWith("file://")) {
                     String path = uri.startsWith("file://") ? uri.substring(7) : uri;
                     File f = new File(path);
@@ -106,7 +257,6 @@ public class CardImageLoader {
                         return decodeSampledFile(f, 600, 600);
                     }
                 }
-                // 3. Content URI
                 if (uri.startsWith("content://")) {
                     try (InputStream is = context.getContentResolver().openInputStream(Uri.parse(uri))) {
                         if (is != null) {
@@ -114,7 +264,6 @@ public class CardImageLoader {
                         }
                     }
                 }
-                // 4. HTTP / HTTPS URL
                 if (uri.startsWith("http://") || uri.startsWith("https://")) {
                     File cachedFile = new File(cacheDir, "url_" + Math.abs(uri.hashCode()) + ".jpg");
                     if (cachedFile.exists() && cachedFile.length() > 500) {
@@ -122,20 +271,19 @@ public class CardImageLoader {
                     }
                     Bitmap dl = downloadBitmap(uri);
                     if (dl != null) {
-                        saveBitmapToFile(dl, cachedFile, 85);
+                        saveBitmapToFile(dl, cachedFile, 88);
                         return dl;
                     }
                 }
             }
 
-            // 5. Automatic Wikimedia Commons / Wikipedia portrait lookup for starter idols
             File wikiCache = new File(cacheDir, "wiki_" + card.getId() + ".jpg");
             if (wikiCache.exists() && wikiCache.length() > 500) {
                 return decodeSampledFile(wikiCache, 600, 600);
             }
             Bitmap wikiBmp = tryFetchWikipediaPortrait(card);
             if (wikiBmp != null) {
-                saveBitmapToFile(wikiBmp, wikiCache, 85);
+                saveBitmapToFile(wikiBmp, wikiCache, 88);
                 return wikiBmp;
             }
         } catch (Exception ignored) {
@@ -156,8 +304,8 @@ public class CardImageLoader {
                 String apiUrl = "https://kpop.fandom.com/api.php?action=query&generator=search&gsrsearch="
                         + encoded + "&gsrlimit=2&prop=pageimages&piprop=thumbnail|original&pithumbsize=600&format=json";
                 HttpURLConnection conn = (HttpURLConnection) new URL(apiUrl).openConnection();
-                conn.setConnectTimeout(4000);
-                conn.setReadTimeout(4000);
+                conn.setConnectTimeout(4500);
+                conn.setReadTimeout(4500);
                 conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14)");
                 if (conn.getResponseCode() == 200) {
                     StringBuilder sb = new StringBuilder();
@@ -193,10 +341,10 @@ public class CardImageLoader {
     private static Bitmap downloadBitmap(String urlStr) {
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-            conn.setConnectTimeout(4500);
-            conn.setReadTimeout(4500);
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
             conn.setInstanceFollowRedirects(true);
-            conn.setRequestProperty("User-Agent", "WhosYourBiasApp/1.0 (Android)");
+            conn.setRequestProperty("User-Agent", "WhosYourBiasApp/2.0 (Android)");
             if (conn.getResponseCode() == 200) {
                 try (InputStream is = conn.getInputStream()) {
                     return BitmapFactory.decodeStream(is);
@@ -207,9 +355,6 @@ public class CardImageLoader {
         return null;
     }
 
-    /**
-     * Copies a picked gallery/file URI into internal app storage so permissions never expire.
-     */
     public static String copyUriToInternalStorage(Context context, Uri sourceUri) {
         try {
             File dir = new File(context.getFilesDir(), "idol_photos");
@@ -218,14 +363,14 @@ public class CardImageLoader {
             try (InputStream is = context.getContentResolver().openInputStream(sourceUri)) {
                 Bitmap bmp = BitmapFactory.decodeStream(is);
                 if (bmp != null) {
-                    int maxDim = 720;
+                    int maxDim = 800;
                     int w = bmp.getWidth();
                     int h = bmp.getHeight();
                     if (w > maxDim || h > maxDim) {
                         float ratio = Math.min((float) maxDim / w, (float) maxDim / h);
                         bmp = Bitmap.createScaledBitmap(bmp, Math.round(w * ratio), Math.round(h * ratio), true);
                     }
-                    saveBitmapToFile(bmp, dest, 85);
+                    saveBitmapToFile(bmp, dest, 88);
                     return dest.getAbsolutePath();
                 }
             }
@@ -235,9 +380,6 @@ public class CardImageLoader {
         return sourceUri.toString();
     }
 
-    /**
-     * Encodes a local photo file as a compact Base64 data URI so it can be embedded inside a shared .wyb file!
-     */
     public static String encodeLocalPhotoAsDataUri(String photoUri) {
         if (photoUri == null || photoUri.isEmpty()) return "";
         if (photoUri.startsWith("http://") || photoUri.startsWith("https://") || photoUri.startsWith("data:")) {
@@ -259,88 +401,96 @@ public class CardImageLoader {
     }
 
     /**
-     * Renders a sleek holographic collectible portrait when offline or before photo loads.
+     * Cute Kawaii Pastel Bunny & Sparkles Loading Illustration (shown only while downloading a photo for the first time).
      */
-    public static Bitmap createStylizedPortrait(IdolCard card, int width, int height) {
-        Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    public static Bitmap createCuteKawaiiLoadingArt(IdolCard card, int width, int height) {
+        int w = Math.max(240, width);
+        int h = Math.max(240, height);
+        Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bmp);
 
-        int accent = parseColorSafe(card.getAccentColor(), Color.parseColor("#7B61FF"));
-        int darkTop = Color.parseColor("#0F1526");
-        int darkMid = blendColors(darkTop, accent, 0.28f);
-        int darkBot = Color.parseColor("#0B0E18");
-
+        // Soft Pastel Pink to Butter Cream Gradient
         Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bgPaint.setShader(new LinearGradient(0, 0, width, height,
-                new int[]{darkTop, darkMid, darkBot}, null, Shader.TileMode.CLAMP));
-        canvas.drawRect(0, 0, width, height, bgPaint);
+        bgPaint.setShader(new LinearGradient(0, 0, w, h,
+                new int[]{Color.parseColor("#FFF0F6"), Color.parseColor("#FFFBEB"), Color.parseColor("#F3E8FF")},
+                null, Shader.TileMode.CLAMP));
+        canvas.drawRect(0, 0, w, h, bgPaint);
 
-        // Ambient neon orbs
-        Paint orbPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        orbPaint.setColor(withAlpha(accent, 48));
-        canvas.drawCircle(width * 0.82f, height * 0.20f, width * 0.36f, orbPaint);
-        orbPaint.setColor(withAlpha(Color.parseColor("#00F0FF"), 32));
-        canvas.drawCircle(width * 0.18f, height * 0.78f, width * 0.32f, orbPaint);
+        // Cute Polka Dots pattern
+        Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dotPaint.setColor(Color.argb(90, 255, 255, 255));
+        int step = Math.max(28, Math.min(w, h) / 7);
+        for (int y = step / 2; y < h; y += step) {
+            for (int x = step / 2; x < w; x += step) {
+                canvas.drawCircle(x, y, step * 0.18f, dotPaint);
+            }
+        }
 
-        // Center Avatar Crest Ring
-        float cx = width / 2f;
-        float cy = height * 0.43f;
-        float radius = Math.min(width, height) * 0.25f;
+        float cx = w / 2f;
+        float cy = h * 0.44f;
+        float r = Math.min(w, h) * 0.20f;
 
-        Paint ringFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        ringFill.setColor(Color.parseColor("#161E35"));
-        canvas.drawCircle(cx, cy, radius, ringFill);
+        // Cute Kawaii Bunny Ears & Head
+        Paint whiteFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        whiteFill.setColor(Color.WHITE);
+        Paint pinkFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        pinkFill.setColor(Color.parseColor("#FFB3C6"));
+        Paint brownStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        brownStroke.setStyle(Paint.Style.STROKE);
+        brownStroke.setStrokeWidth(Math.max(3f, r * 0.08f));
+        brownStroke.setColor(Color.parseColor("#7C4D3A"));
 
-        Paint ringStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
-        ringStroke.setStyle(Paint.Style.STROKE);
-        ringStroke.setStrokeWidth(6f);
-        ringStroke.setColor(accent);
-        canvas.drawCircle(cx, cy, radius, ringStroke);
+        // Left & Right Bunny Ears
+        RectF leftEar = new RectF(cx - r * 0.72f, cy - r * 1.65f, cx - r * 0.16f, cy - r * 0.35f);
+        RectF rightEar = new RectF(cx + r * 0.16f, cy - r * 1.65f, cx + r * 0.72f, cy - r * 0.35f);
+        canvas.drawRoundRect(leftEar, r * 0.3f, r * 0.3f, whiteFill);
+        canvas.drawRoundRect(leftEar, r * 0.3f, r * 0.3f, brownStroke);
+        canvas.drawRoundRect(rightEar, r * 0.3f, r * 0.3f, whiteFill);
+        canvas.drawRoundRect(rightEar, r * 0.3f, r * 0.3f, brownStroke);
 
-        // Outer dashed/glow ring
-        ringStroke.setStrokeWidth(2f);
-        ringStroke.setColor(withAlpha(accent, 110));
-        canvas.drawCircle(cx, cy, radius + 14f, ringStroke);
+        // Inner pink ears
+        RectF leftInner = new RectF(cx - r * 0.58f, cy - r * 1.42f, cx - r * 0.30f, cy - r * 0.55f);
+        RectF rightInner = new RectF(cx + r * 0.30f, cy - r * 1.42f, cx + r * 0.58f, cy - r * 0.55f);
+        canvas.drawRoundRect(leftInner, r * 0.2f, r * 0.2f, pinkFill);
+        canvas.drawRoundRect(rightInner, r * 0.2f, r * 0.2f, pinkFill);
 
-        // Stage Name Initials inside Crest
-        String initials = getInitials(card.getStageName());
+        // Bunny Face Oval
+        RectF headRect = new RectF(cx - r, cy - r * 0.78f, cx + r, cy + r * 0.78f);
+        canvas.drawOval(headRect, whiteFill);
+        canvas.drawOval(headRect, brownStroke);
+
+        // Cute Rosy Cheeks
+        canvas.drawCircle(cx - r * 0.55f, cy + r * 0.08f, r * 0.18f, pinkFill);
+        canvas.drawCircle(cx + r * 0.55f, cy + r * 0.08f, r * 0.18f, pinkFill);
+
+        // Eyes & Nose
+        Paint eyePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        eyePaint.setColor(Color.parseColor("#5C3728"));
+        canvas.drawCircle(cx - r * 0.36f, cy - r * 0.08f, r * 0.10f, eyePaint);
+        canvas.drawCircle(cx + r * 0.36f, cy - r * 0.08f, r * 0.10f, eyePaint);
+
+        // Text below bunny
         Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        textPaint.setColor(Color.WHITE);
-        textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
         textPaint.setTextAlign(Paint.Align.CENTER);
-        textPaint.setTextSize(radius * 0.78f);
-        Paint.FontMetrics fm = textPaint.getFontMetrics();
-        float textY = cy - (fm.ascent + fm.descent) / 2f;
-        canvas.drawText(initials, cx, textY, textPaint);
+        textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+        textPaint.setColor(Color.parseColor("#EC4899"));
+        textPaint.setTextSize(Math.min(w, h) * 0.065f);
+        canvas.drawText("✨ Cargando... ✨", cx, cy + r * 1.38f, textPaint);
 
-        // Top Group Pill
-        String grp = card.isSoloist() ? "★ SOLOIST" : "✦ " + card.getGroupName().toUpperCase();
-        textPaint.setTextSize(width * 0.052f);
-        textPaint.setColor(accent);
-        canvas.drawText(grp, cx, height * 0.12f, textPaint);
-
-        // Bottom Stage Name & Role Banner inside Portrait
-        textPaint.setColor(Color.WHITE);
-        textPaint.setTextSize(width * 0.085f);
-        canvas.drawText(card.getStageName(), cx, height * 0.78f, textPaint);
-
-        textPaint.setColor(Color.parseColor("#94A3B8"));
-        textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-        textPaint.setTextSize(width * 0.044f);
-        String sub = card.getFullName() != null && !card.getFullName().isEmpty() ? card.getFullName() : card.getRole();
-        canvas.drawText(sub, cx, height * 0.85f, textPaint);
+        if (card != null && card.getStageName() != null) {
+            textPaint.setColor(Color.parseColor("#4B5563"));
+            textPaint.setTextSize(Math.min(w, h) * 0.055f);
+            canvas.drawText(card.getStageName(), cx, cy + r * 1.78f, textPaint);
+        }
 
         return bmp;
     }
 
-    private static String getInitials(String name) {
-        if (name == null || name.trim().isEmpty()) return "★";
-        String n = name.trim();
-        String[] parts = n.split("\\s+");
-        if (parts.length >= 2) {
-            return ("" + parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
-        }
-        return n.substring(0, Math.min(2, n.length())).toUpperCase();
+    /**
+     * Soft Pastel Collectible Portrait when offline.
+     */
+    public static Bitmap createStylizedPortrait(IdolCard card, int width, int height) {
+        return createCuteKawaiiLoadingArt(card, width, height);
     }
 
     public static int parseColorSafe(String hex, int fallback) {
@@ -350,18 +500,6 @@ public class CardImageLoader {
         } catch (Exception e) {
             return fallback;
         }
-    }
-
-    private static int withAlpha(int color, int alpha) {
-        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
-    }
-
-    private static int blendColors(int c1, int c2, float ratio) {
-        float ir = 1f - ratio;
-        int r = Math.round(Color.red(c1) * ir + Color.red(c2) * ratio);
-        int g = Math.round(Color.green(c1) * ir + Color.green(c2) * ratio);
-        int b = Math.round(Color.blue(c1) * ir + Color.blue(c2) * ratio);
-        return Color.rgb(r, g, b);
     }
 
     private static Bitmap decodeSampledFile(File file, int reqWidth, int reqHeight) {

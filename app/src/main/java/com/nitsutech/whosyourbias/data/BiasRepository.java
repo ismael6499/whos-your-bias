@@ -69,7 +69,9 @@ public class BiasRepository {
                 if (ex == null) {
                     idols.add(seed);
                     updatedAny = true;
-                } else if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty() || ex.getPhotoUri().contains("wikimedia.org"))
+                } else if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty()
+                        || ex.getPhotoUri().contains("wikimedia.org")
+                        || ex.getPhotoUri().contains("I_Got_Your_Back_concept_photo_4"))
                         && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
                     ex.setPhotoUri(seed.getPhotoUri());
                     ex.addPhotocard(seed.getPhotoUri());
@@ -340,6 +342,14 @@ public class BiasRepository {
 
     public SharedPreferences getPrefs() {
         return appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+    }
+
+    public String getCustomProfileAvatarUri() {
+        return getPrefs().getString("custom_user_profile_avatar_uri", "");
+    }
+
+    public void setCustomProfileAvatarUri(String uri) {
+        getPrefs().edit().putString("custom_user_profile_avatar_uri", uri != null ? uri : "").apply();
     }
 
     private String readFile(File file) throws Exception {

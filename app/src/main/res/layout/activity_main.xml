@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootMainLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -7,6 +8,7 @@
 
     <!-- Clean Minimalist Top Header (Vibrary + Moshicam style) -->
     <LinearLayout
+        android:id="@+id/topHeaderLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -24,21 +26,34 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/tvAppTitleHeader"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/app_name"
                 android:textColor="#111827"
-                android:textSize="22sp"
+                android:textSize="21sp"
                 android:fontFamily="sans-serif-black"
                 android:textStyle="bold" />
 
             <!-- Vibrary Golden Underline Accent -->
             <View
+                android:id="@+id/viewHeaderUnderline"
                 android:layout_width="48dp"
                 android:layout_height="3.5dp"
                 android:layout_marginTop="3dp"
                 android:background="#FFC700" />
         </LinearLayout>
+
+        <!-- Theme Customization Button -->
+        <TextView
+            android:id="@+id/btnOpenThemeStudio"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:gravity="center"
+            android:text="🎨"
+            android:textSize="15sp"
+            android:background="@drawable/bg_chip_tag"
+            android:layout_marginEnd="6dp" />
 
         <!-- Compact Pill Music Bar (Click title to pick song, Play/Pause, Mute) -->
         <LinearLayout
@@ -138,6 +153,7 @@
 
     <!-- Vibrary + Moshicam Bottom Bar with Center Circular '+' Button -->
     <LinearLayout
+        android:id="@+id/bottomNavLayout"
         android:layout_width="match_parent"
         android:layout_height="64dp"
         android:orientation="horizontal"
