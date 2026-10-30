@@ -136,25 +136,58 @@ public class BiasRepository {
             while ((line = br.readLine()) != null) {
                 sb.append(line);
             }
-            JSONObject db = new JSONObject(sb.toString());
+            String rawJson = sb.toString();
+            if (rawJson.startsWith("\uFEFF")) {
+                rawJson = rawJson.substring(1);
+            }
+            JSONObject db = new JSONObject(rawJson);
             for (IdolCard c : targetList) {
                 if (c.deduplicatePhotocards()) {
                     changed = true;
                 }
                 JSONArray arr = db.optJSONArray(c.getId());
                 if (arr != null && arr.length() > 0) {
-                    int prevUnlCount = c.getUnlockedPhotocards().size();
-                    boolean removedVirtual = c.getPhotocards().removeIf(u -> u != null && u.startsWith("fandom_pc://"));
-                    boolean removedVirtualUnl = c.getUnlockedPhotocards().removeIf(u -> u != null && u.startsWith("fandom_pc://"));
-                    if (removedVirtual || removedVirtualUnl) changed = true;
-
-                    for (int i = 0; i < arr.length() && c.getPhotocards().size() < 30; i++) {
+                    List<String> bundledList = new ArrayList<>();
+                    for (int i = 0; i < arr.length(); i++) {
                         String url = arr.optString(i, "").trim();
-                        if (!url.isEmpty() && !c.containsPhotocardIdentity(url)) {
-                            c.addPhotocard(url);
-                            changed = true;
+                        if (!url.isEmpty() && !bundledList.contains(url)) {
+                            bundledList.add(url);
                         }
                     }
+
+                    // Preserve any user-added custom local photos (e.g. file:// or content://)
+                    List<String> customUserPhotos = new ArrayList<>();
+                    for (String pc : c.getPhotocards()) {
+                        if (pc != null && (pc.startsWith("file://") || pc.startsWith("content://"))) {
+                            customUserPhotos.add(pc);
+                        }
+                    }
+
+                    // Check if current list differs from bundledList + customUserPhotos
+                    List<String> current = c.getPhotocards();
+                    boolean needsSync = false;
+                    if (current.size() != (bundledList.size() + customUserPhotos.size())) {
+                        needsSync = true;
+                    } else {
+                        for (int i = 0; i < bundledList.size(); i++) {
+                            if (!bundledList.get(i).equalsIgnoreCase(current.get(i))) {
+                                needsSync = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    int prevUnlCount = c.getUnlockedPhotocards().size();
+
+                    if (needsSync) {
+                        List<String> updated = new ArrayList<>(bundledList);
+                        for (String cp : customUserPhotos) {
+                            if (!updated.contains(cp)) updated.add(cp);
+                        }
+                        c.setPhotocards(updated);
+                        changed = true;
+                    }
+
                     if (c.getPhotoUri() == null || c.getPhotoUri().isEmpty() || c.getPhotoUri().startsWith("fandom_pc://")) {
                         if (!c.getPhotocards().isEmpty()) {
                             c.setPhotoUri(c.getPhotocards().get(0));

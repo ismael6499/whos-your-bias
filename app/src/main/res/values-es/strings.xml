@@ -142,6 +142,9 @@
     <string name="gacha_opening_pack">✨ Abriendo sobre Gacha…</string>
     <string name="gacha_unlocked_sub">✨ ¡Nueva photocard desbloqueada! (%1$d/%2$d en tu binder)</string>
     <string name="gacha_btn_view_binder">📸 Ver Binder</string>
+    <string name="gacha_cooldown_title">⏳ Photocard Gacha en Enfriamiento</string>
+    <string name="gacha_cooldown_msg">¡Tu próximo sobre estará listo en %1$s!\n\nPodés abrir un sobre gratuito cada 15 minutos para coleccionar nuevas photocards exclusivas.</string>
+    <string name="btn_understood">Entendido</string>
 
     <!-- GitHub Auto-Updater -->
     <string name="update_badge_github">🚀 NUEVA VERSIÓN EN GITHUB</string>

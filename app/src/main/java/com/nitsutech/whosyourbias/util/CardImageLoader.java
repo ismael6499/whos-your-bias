@@ -407,10 +407,10 @@ public class CardImageLoader {
         // Horizontally center
         float left = (targetW - drawW) / 2f;
 
-        // Vertically frame with slight upper bias (22%) so idol hair/head isn't cut off
+        // Vertically frame with balanced portrait bias (35%) so hair/crown is preserved without cutting off the chin
         float top;
         if (drawH > targetH) {
-            top = (targetH - drawH) * 0.22f;
+            top = (targetH - drawH) * 0.35f;
         } else {
             top = (targetH - drawH) / 2f;
         }
