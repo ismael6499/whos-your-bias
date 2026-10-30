@@ -69,14 +69,39 @@ public class BiasRepository {
                 if (ex == null) {
                     idols.add(seed);
                     updatedAny = true;
-                } else if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty()
-                        || ex.getPhotoUri().contains("wikimedia.org")
-                        || ex.getPhotoUri().contains("I_Got_Your_Back_concept_photo_4")
-                        || ex.getPhotoUri().contains("I%27ll_Like_You_concept_photo_1"))
-                        && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
-                    ex.setPhotoUri(seed.getPhotoUri());
-                    for (String pc : seed.getPhotocards()) ex.addPhotocard(pc);
-                    updatedAny = true;
+                } else {
+                    if ("idol_illit_moka".equals(ex.getId()) && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
+                        ex.setPhotoUri(seed.getPhotoUri());
+                        updatedAny = true;
+                    } else if (("idol_nexz_sogeon".equals(ex.getId()) || "idol_nexz_hyui".equals(ex.getId()))
+                            && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
+                        ex.setPhotoUri(seed.getPhotoUri());
+                        updatedAny = true;
+                    } else if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty()
+                            || ex.getPhotoUri().contains("wikimedia.org")
+                            || ex.getPhotoUri().contains("I_Got_Your_Back_concept_photo_4"))
+                            && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
+                        ex.setPhotoUri(seed.getPhotoUri());
+                        updatedAny = true;
+                    }
+                    for (String pc : seed.getPhotocards()) {
+                        if (!ex.getPhotocards().contains(pc)) {
+                            ex.addPhotocard(pc);
+                            updatedAny = true;
+                        }
+                    }
+                    if (seed.getNativeName() != null && !seed.getNativeName().isEmpty()
+                            && (ex.getNativeName() == null || ex.getNativeName().isEmpty())) {
+                        ex.setNativeName(seed.getNativeName());
+                        updatedAny = true;
+                    }
+                    if ("idol_illit_moka".equals(ex.getId())) {
+                        ex.unlockAllPhotocards();
+                        updatedAny = true;
+                    } else if (ex.getUnlockedPhotocards().isEmpty()) {
+                        ex.unlockInitialPhotocards();
+                        updatedAny = true;
+                    }
                 }
             }
             if (updatedAny) saveIdols();

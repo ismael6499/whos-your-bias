@@ -59,6 +59,7 @@ public class MatchActivity extends AppCompatActivity {
     private ConfettiView confettiOverlay;
 
     private boolean isAnimatingPick = false;
+    private int duelCount = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -160,7 +161,14 @@ public class MatchActivity extends AppCompatActivity {
         ImageView ivPhoto = new ImageView(this);
         ivPhoto.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        CardImageLoader.loadCardImageWithSize(this, card, ivPhoto, 480, 380);
+        String initialPhotoUri = card.isUseRandomPhotocard() ? card.getRandomOrPrimaryPhotocardUri() : card.getPhotoUri();
+        IdolCard displayCard = card;
+        if (initialPhotoUri != null && !initialPhotoUri.equals(card.getPhotoUri())) {
+            displayCard = new IdolCard(card.getId() + "_rnd", card.getStageName(), card.getFullName(),
+                    card.getGroupName(), card.isSoloist(), card.getCountry(), card.getBirthDate(),
+                    card.getRole(), initialPhotoUri, card.getAccentColor(), card.getBio(), card.getCollections());
+        }
+        CardImageLoader.loadCardImageWithSize(this, displayCard, ivPhoto, 480, 380);
         frontInner.addView(ivPhoto);
 
         // Soft bottom gradient overlay for crisp text readability
@@ -177,11 +185,16 @@ public class MatchActivity extends AppCompatActivity {
         // Top-Left Photocard Switcher Pill
         final int[] pcIndex = {0};
         List<String> allPhotos = new ArrayList<>();
-        if (card.getPhotoUri() != null && !card.getPhotoUri().isEmpty()) {
-            allPhotos.add(card.getPhotoUri());
-        }
-        for (String p : card.getPhotocards()) {
-            if (!allPhotos.contains(p)) allPhotos.add(p);
+        List<String> unlockedList = card.getUnlockedPhotocards();
+        if (unlockedList != null && !unlockedList.isEmpty()) {
+            allPhotos.addAll(unlockedList);
+        } else {
+            if (card.getPhotoUri() != null && !card.getPhotoUri().isEmpty()) {
+                allPhotos.add(card.getPhotoUri());
+            }
+            for (String p : card.getPhotocards()) {
+                if (!allPhotos.contains(p)) allPhotos.add(p);
+            }
         }
         if (allPhotos.size() > 1) {
             TextView btnCyclePc = new TextView(this);
@@ -210,9 +223,13 @@ public class MatchActivity extends AppCompatActivity {
             frontInner.addView(btnCyclePc);
         }
 
-        // Top-Right 3D Info Flip Pill
+        // Top-Right 3D Info Flip Pill: full hint on first round, minimalist icon thereafter
         TextView btnFlipInfo = new TextView(this);
-        btnFlipInfo.setText("🔄 Deslizá o tocá para Info");
+        if (duelCount == 0) {
+            btnFlipInfo.setText("🔄 " + getString(R.string.tap_or_slide_hint));
+        } else {
+            btnFlipInfo.setText("🔄");
+        }
         btnFlipInfo.setTextColor(Color.parseColor("#111827"));
         btnFlipInfo.setTextSize(10.5f);
         btnFlipInfo.setTypeface(Typeface.DEFAULT_BOLD);
@@ -257,9 +274,13 @@ public class MatchActivity extends AppCompatActivity {
 
         bottomInfo.addView(nameCol);
 
-        // Dedicated Pick Pill Button on bottom right
+        // Dedicated Pick Pill Button on bottom right: full text on first duel, minimalist thereafter
         TextView tvPickBadge = new TextView(this);
-        tvPickBadge.setText("✓ Elegir");
+        if (duelCount == 0) {
+            tvPickBadge.setText("⚡ " + getString(R.string.btn_pick_this_bias));
+        } else {
+            tvPickBadge.setText("⚡");
+        }
         tvPickBadge.setGravity(Gravity.CENTER);
         tvPickBadge.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         tvPickBadge.setTextSize(13f);
@@ -316,6 +337,9 @@ public class MatchActivity extends AppCompatActivity {
         backDetails.setPadding(0, dp(8), 0, dp(8));
 
         addCleanInfoRow(backDetails, "Grupo / Artista", card.isSoloist() ? "Solista" : card.getGroupName());
+        if (card.getNativeName() != null && !card.getNativeName().isEmpty()) {
+            addCleanInfoRow(backDetails, "Nombre Nativo", card.getNativeName());
+        }
         addCleanInfoRow(backDetails, "Origen y Edad", card.getCountryWithFlag() + " • " + card.getCalculatedAge() + " años (" + card.getZodiacSign() + ")");
         addCleanInfoRow(backDetails, "Posición / Rol", card.getRole());
 
@@ -462,6 +486,7 @@ public class MatchActivity extends AppCompatActivity {
                         .scaleY(1.0f)
                         .setDuration(90)
                         .withEndAction(() -> {
+                            duelCount++;
                             engine.pickWinner(pickedTopLeft);
                             renderCurrentDuel();
                         }).start())
@@ -570,6 +595,7 @@ public class MatchActivity extends AppCompatActivity {
         rmLp.setMargins(0, 0, dp(6), 0);
         btnRematch.setLayoutParams(rmLp);
         btnRematch.setOnClickListener(v -> {
+            duelCount = 0;
             engine = new TournamentEngine(engine.getTournamentTitle(), engine.getGameMode(), engine.getInitialRoster());
             renderCurrentDuel();
         });
@@ -595,7 +621,7 @@ public class MatchActivity extends AppCompatActivity {
         podiumBox.setLayoutParams(podLp);
 
         TextView tvPodTitle = new TextView(this);
-        tvPodTitle.setText("🏅 Podio Final (1° • 2° • 3° Puesto)");
+        tvPodTitle.setText(getString(R.string.victory_podium_title));
         tvPodTitle.setTextColor(theme.textColor);
         tvPodTitle.setTextSize(15f);
         tvPodTitle.setTypeface(Typeface.DEFAULT_BOLD);

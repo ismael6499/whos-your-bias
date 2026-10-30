@@ -15,6 +15,7 @@ public class IdolCard implements Serializable {
     private String id;
     private String stageName;
     private String fullName;
+    private String nativeName; // Native script name (Korean Hangul, Japanese Kanji/Kana, etc.)
     private String groupName;
     private boolean isSoloist;
     private String country;
@@ -22,6 +23,8 @@ public class IdolCard implements Serializable {
     private String role;
     private String photoUri;
     private List<String> photocards = new ArrayList<>(); // Multiple favorite photocards per idol!
+    private List<String> unlockedPhotocards = new ArrayList<>(); // Photocards unlocked via Gacha or default
+    private boolean useRandomPhotocard = true; // Use random photocards by default in challenges / matches!
     private String accentColor;
     private String bio;
     private String collections; // Comma-separated collection names
@@ -127,6 +130,7 @@ public class IdolCard implements Serializable {
         obj.put("id", id);
         obj.put("stageName", stageName);
         obj.put("fullName", fullName);
+        obj.put("nativeName", nativeName != null ? nativeName : "");
         obj.put("groupName", groupName);
         obj.put("isSoloist", isSoloist);
         obj.put("country", country);
@@ -140,6 +144,14 @@ public class IdolCard implements Serializable {
             }
         }
         obj.put("photocards", pcArr);
+        JSONArray upcArr = new JSONArray();
+        if (unlockedPhotocards != null) {
+            for (String u : unlockedPhotocards) {
+                if (u != null && !u.trim().isEmpty()) upcArr.put(u.trim());
+            }
+        }
+        obj.put("unlockedPhotocards", upcArr);
+        obj.put("useRandomPhotocard", useRandomPhotocard);
         obj.put("accentColor", accentColor);
         obj.put("bio", bio);
         obj.put("collections", collections);
@@ -181,6 +193,17 @@ public class IdolCard implements Serializable {
             pcs.add(c.getPhotoUri().trim());
         }
         c.setPhotocards(pcs);
+        JSONArray upcArr = obj.optJSONArray("unlockedPhotocards");
+        List<String> upcs = new ArrayList<>();
+        if (upcArr != null) {
+            for (int i = 0; i < upcArr.length(); i++) {
+                String u = upcArr.optString(i, "").trim();
+                if (!u.isEmpty()) upcs.add(u);
+            }
+        }
+        c.setUnlockedPhotocards(upcs);
+        c.setNativeName(obj.optString("nativeName", ""));
+        c.setUseRandomPhotocard(obj.optBoolean("useRandomPhotocard", true));
         return c;
     }
 
@@ -203,6 +226,74 @@ public class IdolCard implements Serializable {
         if (this.photoUri == null || this.photoUri.trim().isEmpty()) {
             this.photoUri = trimmed;
         }
+    }
+
+    public boolean isUseRandomPhotocard() {
+        return useRandomPhotocard;
+    }
+
+    public void setUseRandomPhotocard(boolean useRandomPhotocard) {
+        this.useRandomPhotocard = useRandomPhotocard;
+    }
+
+    public List<String> getUnlockedPhotocards() {
+        if ("idol_illit_moka".equals(id)) {
+            return getPhotocards(); // Moka has 100% of her photocards unlocked!
+        }
+        if (unlockedPhotocards == null || unlockedPhotocards.isEmpty()) {
+            unlockedPhotocards = new ArrayList<>();
+            // Default 3 unlocked photocards for all other idols
+            List<String> all = getPhotocards();
+            for (int i = 0; i < Math.min(3, all.size()); i++) {
+                unlockedPhotocards.add(all.get(i));
+            }
+            if (unlockedPhotocards.isEmpty() && photoUri != null && !photoUri.isEmpty()) {
+                unlockedPhotocards.add(photoUri);
+            }
+        }
+        return unlockedPhotocards;
+    }
+
+    public void setUnlockedPhotocards(List<String> unlocked) {
+        this.unlockedPhotocards = unlocked != null ? unlocked : new ArrayList<>();
+    }
+
+    public boolean isPhotocardUnlocked(String uri) {
+        if ("idol_illit_moka".equals(id)) return true;
+        if (uri == null || uri.trim().isEmpty()) return false;
+        return getUnlockedPhotocards().contains(uri.trim());
+    }
+
+    public boolean unlockPhotocard(String uri) {
+        if (uri == null || uri.trim().isEmpty()) return false;
+        String trimmed = uri.trim();
+        List<String> unlocked = getUnlockedPhotocards();
+        if (!unlocked.contains(trimmed)) {
+            unlocked.add(trimmed);
+            return true;
+        }
+        return false;
+    }
+
+    public List<String> getLockedPhotocards() {
+        if ("idol_illit_moka".equals(id)) return new ArrayList<>();
+        List<String> locked = new ArrayList<>();
+        List<String> unlocked = getUnlockedPhotocards();
+        for (String pc : getPhotocards()) {
+            if (!unlocked.contains(pc)) {
+                locked.add(pc);
+            }
+        }
+        return locked;
+    }
+
+    public String getRandomOrPrimaryPhotocardUri() {
+        List<String> pool = getUnlockedPhotocards();
+        if (!useRandomPhotocard || pool == null || pool.isEmpty()) {
+            return (photoUri != null && !photoUri.isEmpty()) ? photoUri : "";
+        }
+        int idx = (int) (Math.random() * pool.size());
+        return pool.get(idx);
     }
 
     public String getId() { return id; }
@@ -237,4 +328,28 @@ public class IdolCard implements Serializable {
     public void setMatchesPlayed(int matchesPlayed) { this.matchesPlayed = matchesPlayed; }
     public boolean isFavorite() { return isFavorite; }
     public void setFavorite(boolean favorite) { isFavorite = favorite; }
+
+    public String getNativeName() {
+        return nativeName != null ? nativeName : "";
+    }
+
+    public void setNativeName(String nativeName) {
+        this.nativeName = nativeName;
+    }
+
+    public void unlockAllPhotocards() {
+        if (unlockedPhotocards == null) unlockedPhotocards = new ArrayList<>();
+        unlockedPhotocards.clear();
+        unlockedPhotocards.addAll(getPhotocards());
+    }
+
+    public void unlockInitialPhotocards() {
+        if (unlockedPhotocards == null) unlockedPhotocards = new ArrayList<>();
+        unlockedPhotocards.clear();
+        List<String> all = getPhotocards();
+        int count = Math.min(3, all.size());
+        for (int i = 0; i < count; i++) {
+            unlockedPhotocards.add(all.get(i));
+        }
+    }
 }
