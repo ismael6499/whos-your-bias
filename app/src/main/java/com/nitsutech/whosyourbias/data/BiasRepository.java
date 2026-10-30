@@ -71,10 +71,11 @@ public class BiasRepository {
                     updatedAny = true;
                 } else if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty()
                         || ex.getPhotoUri().contains("wikimedia.org")
-                        || ex.getPhotoUri().contains("I_Got_Your_Back_concept_photo_4"))
+                        || ex.getPhotoUri().contains("I_Got_Your_Back_concept_photo_4")
+                        || ex.getPhotoUri().contains("I%27ll_Like_You_concept_photo_1"))
                         && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
                     ex.setPhotoUri(seed.getPhotoUri());
-                    ex.addPhotocard(seed.getPhotoUri());
+                    for (String pc : seed.getPhotocards()) ex.addPhotocard(pc);
                     updatedAny = true;
                 }
             }

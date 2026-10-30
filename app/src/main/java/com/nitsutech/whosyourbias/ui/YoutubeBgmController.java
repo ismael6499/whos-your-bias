@@ -57,8 +57,9 @@ public class YoutubeBgmController {
 
     // Verified high-speed studio audio streams (.m4a)
     public static final String[][] PRESETS = new String[][]{
+            {"✨ ILLIT - It's Me", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/08/ae/11/08ae11aa-40b1-231d-4013-12ca6de70701/mzaf_12606446026212796138.plus.aac.p.m4a"},
             {"🍬 ILLIT - Jellyous", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/13/13/20/13132098-7412-2b3b-f54b-5f9515c4a075/mzaf_12702295383222688240.plus.aac.p.m4a"},
-            {"🎵 ILLIT - Tick-Tack (It's Me Theme)", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/68/e9/78/68e978c1-6d32-713d-c91b-836669da6ee3/mzaf_14472264782207748518.plus.aac.p.m4a"},
+            {"🎵 ILLIT - Tick-Tack", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/68/e9/78/68e978c1-6d32-713d-c91b-836669da6ee3/mzaf_14472264782207748518.plus.aac.p.m4a"},
             {"🧲 ILLIT - Magnetic", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/e8/7e/67/e87e6795-4ada-2f65-d562-1fd2a3eddfdf/mzaf_11263458879279601822.plus.aac.p.m4a"},
             {"🍒 ILLIT - Cherish (My Love)", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/ff/c5/9d/ffc59d63-bd5d-0b93-4592-2dd7d797de8e/mzaf_7002868842246643213.plus.aac.p.m4a"},
             {"✨ ILLIT - IYKYK (If You Know You Know)", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/eb/4a/ea/eb4aea2f-9b99-0c18-7f4e-5c9930a3d4b7/mzaf_17432026377570440264.plus.aac.p.m4a"},
@@ -73,7 +74,7 @@ public class YoutubeBgmController {
             {"🐰 NewJeans - Super Shy", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/a0/0c/47/a00c4790-3bbe-c669-fc8b-d8779508b512/mzaf_4170831274187670095.plus.aac.p.m4a"},
             {"⚡ LE SSERAFIM - CRAZY", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/46/0b/ae/460bae7f-536e-9df1-8aa4-ef1ed6d3b314/mzaf_17541894071969246196.plus.aac.p.m4a"},
             {"🧛 ENHYPEN - XO (Only If You Say Yes)", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/03/67/e1/0367e19c-00be-22c0-77e0-50395fa347fa/mzaf_5914760408694089352.plus.aac.p.m4a"},
-            {"👑 BLACKPINK - Shut Down", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/c3/15/06/c31506be-4ea9-81b8-4f7f-803ee7305721/mzaf_5655789092813624412.plus.aac.p.m4a"},
+            {"👑 BLACKPINK - Shut Down", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/c3/15/06/c31506be-4ea9-81b8-4f7f-803ee7305721/mzaf_5655789092813624412.plus.aac.p.m4a"},
             {"😈 BABYMONSTER - DRIP", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/11/49/8d/11498d26-33f8-d33e-9641-0931f48c1530/mzaf_16154189721053536181.plus.aac.p.m4a"}
     };
 

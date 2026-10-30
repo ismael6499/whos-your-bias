@@ -368,10 +368,12 @@ public class MatchActivity extends AppCompatActivity {
         btnFlipInfo.setOnClickListener(v -> flipCard3D(wrapper, frontCard, backCard));
         btnFlipBack.setOnClickListener(v -> flipCard3D(wrapper, backCard, frontCard));
 
-        // Slide / Swipe finger on card (or tap card background) rotates the card in 3D to see info!
-        // Only tapping the "✓ Elegir" button selects the idol as winner!
+        // Slide / Swipe finger on card rotates the card in 3D to see info, and sliding/swiping again rotates back to photo!
         attachSlideOrTapToFlipGesture(frontInner, () -> flipCard3D(wrapper, frontCard, backCard));
+        attachSlideOrTapToFlipGesture(backCard, () -> flipCard3D(wrapper, backCard, frontCard));
         attachSlideOrTapToFlipGesture(backInner, () -> flipCard3D(wrapper, backCard, frontCard));
+        attachSlideOrTapToFlipGesture(backScroll, () -> flipCard3D(wrapper, backCard, frontCard));
+        attachSlideOrTapToFlipGesture(backDetails, () -> flipCard3D(wrapper, backCard, frontCard));
 
         View.OnClickListener pickAction = v -> onCardPicked(wrapper, isTopSlot);
         tvPickBadge.setOnClickListener(pickAction);
@@ -404,6 +406,8 @@ public class MatchActivity extends AppCompatActivity {
                     if (!triggered[0]) {
                         onFlip.run();
                     }
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
                     return true;
             }
             return false;
