@@ -539,75 +539,44 @@ public class CardImageLoader {
 
         Bitmap out = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(out);
-
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
 
-        FaceLocation face = detectFaceFast(src);
-
-        float baseScale = Math.max((float) targetW / (float) sW, (float) targetH / (float) sH);
-        float scale = baseScale;
-
-        if (face != null) {
-            // Smart Face Zoom: if the idol is small or far away in a wide shot (e.g. sitting on bed),
-            // auto-zoom up to 2.0x so her face and expression are prominent!
-            float faceSizeInCard = face.eyeDistance * baseScale;
-            if (faceSizeInCard < targetW * 0.16f) {
-                float zoom = Math.min(2.0f, (targetW * 0.22f) / Math.max(1f, faceSizeInCard));
-                scale = baseScale * zoom;
+        // 1. GORGEOUS BLURRED BACKGROUND (Fondo Difuminado):
+        // Scale down to ~50px for fast, smooth Gaussian blur without any lag or memory overhead
+        int bgW = Math.max(16, targetW / 8);
+        int bgH = Math.max(16, targetH / 8);
+        try {
+            Bitmap smallBg = Bitmap.createScaledBitmap(src, bgW, bgH, true);
+            Bitmap blurredBg = fastStackBlur(smallBg, 12);
+            if (blurredBg != null && !blurredBg.isRecycled()) {
+                RectF bgDst = new RectF(0, 0, targetW, targetH);
+                canvas.drawBitmap(blurredBg, null, bgDst, paint);
+                // Soft dark scrim overlay (35% darkness) so foreground photo pops with beautiful depth
+                Paint dimPaint = new Paint();
+                dimPaint.setColor(Color.parseColor("#4D000000"));
+                canvas.drawRect(bgDst, dimPaint);
+                if (blurredBg != smallBg && blurredBg != src) blurredBg.recycle();
             }
-
-            float drawW = sW * scale;
-            float drawH = sH * scale;
-
-            // Center horizontally on the face (avoiding empty side padding)
-            float left = (targetW * 0.5f) - (face.centerX * scale);
-            left = Math.min(0f, Math.max(targetW - drawW, left));
-
-            // Position eyes around 36% from top of card (ideal golden portrait framing)
-            float top = (targetH * 0.36f) - (face.centerY * scale);
-
-            // Headroom check: top of hair/head is roughly face.centerY - (face.eyeDistance * 1.95f)
-            float estimatedCrownY = face.centerY - (face.eyeDistance * 1.95f);
-            if (estimatedCrownY <= sH * 0.15f) {
-                // If head/hair is near the top of the photo, NEVER shift up! Keep top anchored at 0!
-                top = 0f;
-            } else {
-                float crownInCard = estimatedCrownY * scale + top;
-                if (crownInCard < targetH * 0.05f) {
-                    top += (targetH * 0.05f - crownInCard);
-                }
+            if (smallBg != null && smallBg != src && !smallBg.isRecycled()) {
+                smallBg.recycle();
             }
+        } catch (Throwable ignored) {}
 
-            // Ensure card is 100% filled and top never exceeds 0
-            top = Math.min(0f, Math.max(targetH - drawH, top));
-
-            RectF dst = new RectF(left, top, left + drawW, top + drawH);
-            try {
-                if (!src.isRecycled()) {
-                    canvas.drawBitmap(src, null, dst, paint);
-                    return out;
-                }
-            } catch (Throwable ignored) {}
-            return out;
-        }
-
-        // Fallback when no front face was detected:
+        // 2. FULL CRISP FOREGROUND IMAGE (Fit Center - 0% Zoom, Zero Cropping):
+        // Displays the entire photo in full HD, perfectly centered, sharp and uncropped!
+        float scale = Math.min((float) targetW / (float) sW, (float) targetH / (float) sH);
         float drawW = sW * scale;
         float drawH = sH * scale;
         float left = (targetW - drawW) / 2f;
-        // In idol photography, head/face is always in the upper third!
-        // Always anchor top at 0 so forehead/hair/bangs are never cut off!
-        float top = 0f;
-        if (drawH < targetH) {
-            top = (targetH - drawH) / 2f;
-        }
+        float top = (targetH - drawH) / 2f;
 
-        RectF dst = new RectF(left, top, left + drawW, top + drawH);
+        RectF fgDst = new RectF(left, top, left + drawW, top + drawH);
         try {
             if (!src.isRecycled()) {
-                canvas.drawBitmap(src, null, dst, paint);
+                canvas.drawBitmap(src, null, fgDst, paint);
             }
         } catch (Throwable ignored) {}
+
         return out;
     }
 

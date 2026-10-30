@@ -137,6 +137,11 @@
     <string name="btn_link_url">🔗 Link URL</string>
     <string name="btn_edit_data">✏️ Edit Info</string>
     <string name="btn_share_short">📤 Share</string>
+    <string name="bgm_volume_title">Music Volume</string>
+    <string name="challenge_photo_mode_title">🖼️ Challenge Photocard Mode</string>
+    <string name="challenge_photo_cover_only">⭐ Cover Photo Only (Default)</string>
+    <string name="challenge_photo_random">🎲 Random Unlocked Photocards</string>
+    <string name="challenge_photo_selected">📸 Custom Selected Photocards</string>
     <string name="random_pc_on">🎲 Random Photocards in matches: ON</string>
     <string name="random_pc_off">📌 Match Photocards: FIXED COVER</string>
     <string name="gacha_opening_pack">✨ Opening Gacha Pack…</string>

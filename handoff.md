@@ -2,8 +2,8 @@
 
 **Active Project**: `whos-your-bias`  
 **User**: Agustín Acosta (`acostaagustin6499@gmail.com`)  
-**Last Updated**: 2026-10-30 19:50:00 -03:00  
-**Current Release Version**: `v1.2.7` (versionCode 10)
+**Last Updated**: 2026-10-30 20:18:00 -03:00  
+**Current Release Version**: `v1.2.8` (versionCode 11)
 
 ---
 
@@ -109,3 +109,19 @@
     - Set dynamic volume: `0.20f` (20%) in `MainActivity` menu, `0.85f` (85%) in `MatchActivity`. Same volume scaling applied to YouTube iframe (`player.setVolume(targetVol)`).
     - `destroy()` in `MatchActivity` calls `pause()` and dismisses the notification.
   - `MainActivity.java`: Pauses menu BGM before launching `MatchActivity` to guarantee seamless audio transition.
+
+### 11. Full-Image Blurred Background, Volume Slider & Challenge Cover Mode
+- **Requirement**:
+  - Eliminate all face-zoom cropping on cards (which caused blurriness and awkward cuts on wide shots like Moka and close-ups like Iroha).
+  - Render cards with a beautiful **blurred background (fondo difuminado)** and the **entire photo sharp and uncropped (fitCenter)**.
+  - Set default match photo mode to **Solo Portada (Cover only)**.
+  - Remove the `📸 1/30` / `1/4` pill when in default Cover mode; in random/selected mode, display `📸 #{N}` (photocard number in collection).
+  - Add in-app music volume slider and configuration.
+  - Fix YouTube audio playback in background WebView.
+- **Status**: `[x] Done`
+- **Implementation**:
+  - `CardImageLoader.java`: Replaced face-zoom cropping in `createPhysicalPhotocardBitmap` with downsampled `fastStackBlur` background + 35% dark scrim + uncropped `fitCenter` foreground photo.
+  - `IdolCard.java`: Default `useRandomPhotocard` set to `false` (Solo Portada).
+  - `MatchActivity.java`: Hid cycling pill when in Cover mode; in random mode, shows `📸 #N` corresponding to the photo's number in the idol's collection.
+  - `YoutubeBgmController.java`: Added real-time volume slider in song selector dialog and via long-click on mute button (`setCustomVolumePercent`). Fixed WebView container sizing (keeping active 1x1 rendering container) so YouTube iframe audio plays continuously.
+  - Layout XMLs (`activity_main.xml`, `activity_match.xml`): Updated `bgmVideoContainer` to maintain 1x1 active rendering size instead of 0x0 `GONE`.

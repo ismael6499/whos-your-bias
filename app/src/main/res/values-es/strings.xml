@@ -137,6 +137,11 @@
     <string name="btn_link_url">🔗 Link URL</string>
     <string name="btn_edit_data">✏️ Editar Datos</string>
     <string name="btn_share_short">📤 Compartir</string>
+    <string name="bgm_volume_title">Volumen de Música</string>
+    <string name="challenge_photo_mode_title">🖼️ Modo de Fotos en Challenges</string>
+    <string name="challenge_photo_cover_only">⭐ Solo Portada (Por defecto)</string>
+    <string name="challenge_photo_random">🎲 Photocards Aleatorias</string>
+    <string name="challenge_photo_selected">📸 Photocards Seleccionadas</string>
     <string name="random_pc_on">🎲 Photocards aleatorias en partidas: ACTIVADO</string>
     <string name="random_pc_off">📌 Photocards en partidas: FOTO FIJA</string>
     <string name="gacha_opening_pack">✨ Abriendo sobre Gacha…</string>

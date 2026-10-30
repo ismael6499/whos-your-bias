@@ -30,6 +30,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -63,6 +64,7 @@ public class YoutubeBgmController {
     private static final String PREF_BGM_URL = "bgm_stream_url_v2";
     private static final String PREF_BGM_TITLE = "bgm_stream_title_v2";
     private static final String PREF_BGM_AUTOPLAY = "bgm_autoplay";
+    private static final String PREF_BGM_VOLUME = "bgm_custom_volume_level";
     private static final String PREF_SAVED_SONGS = "bgm_saved_songs_json";
 
     public static final String ACTION_TOGGLE_PLAY = "com.nitsutech.whosyourbias.ACTION_BGM_TOGGLE";
@@ -147,17 +149,35 @@ public class YoutubeBgmController {
             ws.setMediaPlaybackRequiresUserGesture(false);
             this.webView.setBackgroundColor(Color.BLACK);
             this.webView.setWebChromeClient(new WebChromeClient());
-            this.webView.setWebViewClient(new WebViewClient());
+            this.webView.setWebViewClient(new WebViewClient() {
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                    return false;
+                }
+            });
         }
 
-        if (videoContainer != null) videoContainer.setVisibility(View.GONE);
+        if (videoContainer != null) {
+            ViewGroup.LayoutParams lp = videoContainer.getLayoutParams();
+            if (lp != null) {
+                lp.height = dp(1);
+                lp.width = dp(1);
+                videoContainer.setLayoutParams(lp);
+            }
+            videoContainer.setVisibility(View.VISIBLE);
+        }
         if (btnVideoToggle != null) {
             btnVideoToggle.setVisibility(View.GONE);
             btnVideoToggle.setOnClickListener(v -> {
                 if (videoContainer != null) {
-                    boolean isVis = videoContainer.getVisibility() == View.VISIBLE;
-                    videoContainer.setVisibility(isVis ? View.GONE : View.VISIBLE);
-                    btnVideoToggle.setText(isVis ? "📺" : "✕");
+                    ViewGroup.LayoutParams lp = videoContainer.getLayoutParams();
+                    boolean isExpanded = lp != null && lp.height > dp(10);
+                    if (lp != null) {
+                        lp.height = isExpanded ? dp(1) : dp(220);
+                        lp.width = isExpanded ? dp(1) : ViewGroup.LayoutParams.MATCH_PARENT;
+                        videoContainer.setLayoutParams(lp);
+                    }
+                    btnVideoToggle.setText(isExpanded ? "📺" : "✕");
                 }
             });
         }
@@ -173,6 +193,10 @@ public class YoutubeBgmController {
 
         this.btnPlayPause.setOnClickListener(v -> togglePlayPause());
         this.btnMute.setOnClickListener(v -> toggleMute());
+        this.btnMute.setOnLongClickListener(v -> {
+            showVolumeSliderDialog();
+            return true;
+        });
         if (btnChangeSong != null) {
             btnChangeSong.setOnClickListener(v -> showSongSelectorDialog());
         }
@@ -366,33 +390,120 @@ public class YoutubeBgmController {
         }
     }
 
-    private String buildYoutubeIframeHtml(String videoId) {
+    public int getActiveVolumeLevel() {
         boolean isMatch = (activity instanceof MatchActivity);
-        int targetVol = isMatch ? 85 : 20;
+        int defaultVol = isMatch ? 85 : 25;
+        return prefs.getInt(PREF_BGM_VOLUME, defaultVol);
+    }
+
+    public void setCustomVolumePercent(int val) {
+        val = Math.max(0, Math.min(100, val));
+        prefs.edit().putInt(PREF_BGM_VOLUME, val).apply();
+        isMuted = (val == 0);
+        applyActiveVolume(val);
+        updateButtonsUi();
+    }
+
+    private void applyActiveVolume(int volumePercent) {
+        float f = isMuted ? 0f : (volumePercent / 100f);
+        if (sharedPlayer != null) {
+            try {
+                sharedPlayer.setVolume(f, f);
+            } catch (Exception ignored) {}
+        }
+        if (isYoutubeUrl(activeStreamUrl) && webView != null) {
+            webView.evaluateJavascript("if(window.setBgmVolume){setBgmVolume(" + (isMuted ? 0 : volumePercent) + ");}", null);
+        }
+    }
+
+    public void showVolumeSliderDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+        LinearLayout root = new LinearLayout(activity);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int p = dp(20);
+        root.setPadding(p, p, p, p);
+        root.setBackgroundColor(Color.WHITE);
+
+        TextView tvTitle = new TextView(activity);
+        tvTitle.setText("🔊 " + activity.getString(R.string.bgm_volume_title));
+        tvTitle.setTextColor(Color.parseColor("#111827"));
+        tvTitle.setTextSize(16f);
+        tvTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        tvTitle.setPadding(0, 0, 0, dp(12));
+        root.addView(tvTitle);
+
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView tvIcon = new TextView(activity);
+        tvIcon.setText("🔊");
+        tvIcon.setTextSize(16f);
+        row.addView(tvIcon);
+
+        SeekBar sb = new SeekBar(activity);
+        sb.setMax(100);
+        int cur = getActiveVolumeLevel();
+        sb.setProgress(cur);
+        LinearLayout.LayoutParams sbLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        sbLp.setMargins(dp(8), 0, dp(8), 0);
+        sb.setLayoutParams(sbLp);
+
+        TextView tvPct = new TextView(activity);
+        tvPct.setText(cur + "%");
+        tvPct.setTextColor(Color.parseColor("#374151"));
+        tvPct.setTextSize(13f);
+        tvPct.setTypeface(Typeface.DEFAULT_BOLD);
+        tvPct.setMinWidth(dp(42));
+
+        sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    setCustomVolumePercent(progress);
+                    tvPct.setText(progress + "%");
+                    tvIcon.setText(progress == 0 ? "🔇" : "🔊");
+                }
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+
+        row.addView(sb);
+        row.addView(tvPct);
+        root.addView(row);
+
+        builder.setView(root);
+        builder.setPositiveButton(activity.getString(R.string.btn_understood), null);
+        builder.show();
+    }
+
+    private String buildYoutubeIframeHtml(String videoId) {
+        int targetVol = isMuted ? 0 : getActiveVolumeLevel();
         return "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>"
                 + "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000000;overflow:hidden;}"
-                + "#player{width:100%;height:100%;}</style></head><body>"
-                + "<div id='player'></div>"
+                + "iframe{width:100%;height:100%;border:none;}</style></head><body>"
+                + "<iframe id='ytplayer' src='https://www.youtube.com/embed/" + videoId + "?autoplay=1&enablejsapi=1&playsinline=1&loop=1&playlist=" + videoId + "' allow='autoplay; encrypted-media' allowfullscreen></iframe>"
                 + "<script>"
-                + "var tag = document.createElement('script');"
-                + "tag.src = 'https://www.youtube.com/iframe_api';"
-                + "var firstScriptTag = document.getElementsByTagName('script')[0];"
-                + "firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);"
                 + "var player;"
                 + "function onYouTubeIframeAPIReady() {"
-                + "  player = new YT.Player('player', {"
-                + "    height: '100%', width: '100%',"
-                + "    videoId: '" + videoId + "',"
-                + "    playerVars: { 'autoplay': 1, 'playsinline': 1, 'loop': 1, 'playlist': '" + videoId + "', 'controls': 1, 'rel': 0 },"
+                + "  player = new YT.Player('ytplayer', {"
                 + "    events: {"
-                + "      'onReady': function(e) { if(e.target.setVolume) e.target.setVolume(" + targetVol + "); e.target.playVideo(); if(" + isMuted + ") e.target.mute(); }"
+                + "      'onReady': function(e) {"
+                + "        try { e.target.setVolume(" + targetVol + "); } catch(x){}"
+                + "        try { e.target.playVideo(); } catch(x){}"
+                + "        if(" + isMuted + ") { try { e.target.mute(); } catch(x){} }"
+                + "      }"
                 + "    }"
                 + "  });"
                 + "}"
-                + "window.toggleMuteBgm = function(m) { if(!player) return; if(m) player.mute(); else player.unMute(); };"
-                + "window.playBgm = function() { if(player) { if(player.setVolume) player.setVolume(" + targetVol + "); player.playVideo(); } };"
+                + "window.toggleMuteBgm = function(m) { if(player) { if(m) player.mute(); else player.unMute(); } };"
+                + "window.playBgm = function() { if(player) { try{player.setVolume(" + targetVol + ");}catch(x){} player.playVideo(); } };"
                 + "window.pauseBgm = function() { if(player) player.pauseVideo(); };"
-                + "</script></body></html>";
+                + "window.setBgmVolume = function(v) { if(player && player.setVolume) player.setVolume(v); };"
+                + "</script>"
+                + "<script src='https://www.youtube.com/iframe_api'></script>"
+                + "</body></html>";
     }
 
     public static void handleNotificationToggle(Context context) {
@@ -730,6 +841,49 @@ public class YoutubeBgmController {
         header.setTypeface(Typeface.DEFAULT_BOLD);
         header.setPadding(0, 0, 0, dp(10));
         root.addView(header);
+
+        // Music Volume Control Bar
+        LinearLayout volRow = new LinearLayout(activity);
+        volRow.setOrientation(LinearLayout.HORIZONTAL);
+        volRow.setGravity(Gravity.CENTER_VERTICAL);
+        volRow.setPadding(0, 0, 0, dp(12));
+
+        TextView tvVolIcon = new TextView(activity);
+        tvVolIcon.setText("🔊");
+        tvVolIcon.setTextSize(16f);
+        volRow.addView(tvVolIcon);
+
+        SeekBar sbVol = new SeekBar(activity);
+        sbVol.setMax(100);
+        int curVol = getActiveVolumeLevel();
+        sbVol.setProgress(curVol);
+        LinearLayout.LayoutParams sbLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        sbLp.setMargins(dp(8), 0, dp(8), 0);
+        sbVol.setLayoutParams(sbLp);
+
+        TextView tvVolVal = new TextView(activity);
+        tvVolVal.setText(curVol + "%");
+        tvVolVal.setTextColor(Color.parseColor("#374151"));
+        tvVolVal.setTextSize(12f);
+        tvVolVal.setTypeface(Typeface.DEFAULT_BOLD);
+        tvVolVal.setMinWidth(dp(40));
+
+        sbVol.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    setCustomVolumePercent(progress);
+                    tvVolVal.setText(progress + "%");
+                    tvVolIcon.setText(progress == 0 ? "🔇" : "🔊");
+                }
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+
+        volRow.addView(sbVol);
+        volRow.addView(tvVolVal);
+        root.addView(volRow);
 
         // Search Bar with Clear '✕' Button
         LinearLayout searchRow = new LinearLayout(activity);

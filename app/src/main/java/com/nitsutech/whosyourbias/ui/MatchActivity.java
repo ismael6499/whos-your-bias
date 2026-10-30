@@ -182,45 +182,64 @@ public class MatchActivity extends AppCompatActivity {
         bottomScrim.setLayoutParams(scrimLp);
         frontInner.addView(bottomScrim);
 
-        // Top-Left Photocard Switcher Pill
-        final int[] pcIndex = {0};
-        List<String> allPhotos = new ArrayList<>();
-        List<String> unlockedList = card.getUnlockedPhotocards();
-        if (unlockedList != null && !unlockedList.isEmpty()) {
-            allPhotos.addAll(unlockedList);
-        } else {
-            if (card.getPhotoUri() != null && !card.getPhotoUri().isEmpty()) {
-                allPhotos.add(card.getPhotoUri());
+        // Top-Left Photocard Switcher Pill (only shown when random or selected photocards mode is active)
+        boolean isRandomOrSelected = card.isUseRandomPhotocard();
+        if (isRandomOrSelected) {
+            final int[] pcIndex = {0};
+            List<String> allPhotos = new ArrayList<>();
+            List<String> unlockedList = card.getUnlockedPhotocards();
+            if (unlockedList != null && !unlockedList.isEmpty()) {
+                allPhotos.addAll(unlockedList);
+            } else {
+                if (card.getPhotoUri() != null && !card.getPhotoUri().isEmpty()) {
+                    allPhotos.add(card.getPhotoUri());
+                }
+                for (String p : card.getPhotocards()) {
+                    if (!allPhotos.contains(p)) allPhotos.add(p);
+                }
             }
-            for (String p : card.getPhotocards()) {
-                if (!allPhotos.contains(p)) allPhotos.add(p);
+            if (allPhotos.size() > 1) {
+                // Find current photo's 1-based number in idol's full collection
+                int currentNumber = 1;
+                List<String> fullCollection = card.getPhotocards();
+                for (int i = 0; i < fullCollection.size(); i++) {
+                    if (IdolCard.isSamePhoto(fullCollection.get(i), initialPhotoUri)) {
+                        currentNumber = i + 1;
+                        break;
+                    }
+                }
+                TextView btnCyclePc = new TextView(this);
+                btnCyclePc.setText("📸 #" + currentNumber);
+                btnCyclePc.setTextColor(Color.WHITE);
+                btnCyclePc.setTextSize(11f);
+                btnCyclePc.setTypeface(Typeface.DEFAULT_BOLD);
+                GradientDrawable pillBg = new GradientDrawable();
+                pillBg.setColor(Color.parseColor("#88111827"));
+                pillBg.setCornerRadius(dp(16));
+                btnCyclePc.setBackground(pillBg);
+                btnCyclePc.setPadding(dp(10), dp(5), dp(10), dp(5));
+                FrameLayout.LayoutParams pcLp = new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
+                pcLp.setMargins(dp(12), dp(12), 0, 0);
+                btnCyclePc.setLayoutParams(pcLp);
+                btnCyclePc.setOnClickListener(v -> {
+                    pcIndex[0] = (pcIndex[0] + 1) % allPhotos.size();
+                    String chosenUri = allPhotos.get(pcIndex[0]);
+                    int numInColl = 1;
+                    for (int i = 0; i < fullCollection.size(); i++) {
+                        if (IdolCard.isSamePhoto(fullCollection.get(i), chosenUri)) {
+                            numInColl = i + 1;
+                            break;
+                        }
+                    }
+                    btnCyclePc.setText("📸 #" + numInColl);
+                    IdolCard temp = new IdolCard(card.getId() + "_pc" + pcIndex[0], card.getStageName(),
+                            card.getFullName(), card.getGroupName(), card.isSoloist(), card.getCountry(),
+                            card.getBirthDate(), card.getRole(), chosenUri, card.getAccentColor(), card.getBio(), card.getCollections());
+                    CardImageLoader.loadCardImageWithSize(this, temp, ivPhoto, 480, 380);
+                });
+                frontInner.addView(btnCyclePc);
             }
-        }
-        if (allPhotos.size() > 1) {
-            TextView btnCyclePc = new TextView(this);
-            btnCyclePc.setText("📸 1/" + allPhotos.size());
-            btnCyclePc.setTextColor(Color.WHITE);
-            btnCyclePc.setTextSize(11f);
-            btnCyclePc.setTypeface(Typeface.DEFAULT_BOLD);
-            GradientDrawable pillBg = new GradientDrawable();
-            pillBg.setColor(Color.parseColor("#88111827"));
-            pillBg.setCornerRadius(dp(16));
-            btnCyclePc.setBackground(pillBg);
-            btnCyclePc.setPadding(dp(10), dp(5), dp(10), dp(5));
-            FrameLayout.LayoutParams pcLp = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
-            pcLp.setMargins(dp(12), dp(12), 0, 0);
-            btnCyclePc.setLayoutParams(pcLp);
-            btnCyclePc.setOnClickListener(v -> {
-                pcIndex[0] = (pcIndex[0] + 1) % allPhotos.size();
-                btnCyclePc.setText("📸 " + (pcIndex[0] + 1) + "/" + allPhotos.size());
-                String chosenUri = allPhotos.get(pcIndex[0]);
-                IdolCard temp = new IdolCard(card.getId() + "_pc" + pcIndex[0], card.getStageName(),
-                        card.getFullName(), card.getGroupName(), card.isSoloist(), card.getCountry(),
-                        card.getBirthDate(), card.getRole(), chosenUri, card.getAccentColor(), card.getBio(), card.getCollections());
-                CardImageLoader.loadCardImageWithSize(this, temp, ivPhoto, 480, 380);
-            });
-            frontInner.addView(btnCyclePc);
         }
 
         // Top-Right 3D Info Flip Pill: full hint on first round, minimalist icon thereafter

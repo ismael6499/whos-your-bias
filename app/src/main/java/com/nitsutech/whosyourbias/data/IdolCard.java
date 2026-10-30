@@ -24,7 +24,7 @@ public class IdolCard implements Serializable {
     private String photoUri;
     private List<String> photocards = new ArrayList<>(); // Multiple favorite photocards per idol!
     private List<String> unlockedPhotocards = new ArrayList<>(); // Photocards unlocked via Gacha or default
-    private boolean useRandomPhotocard = true; // Use random photocards by default in challenges / matches!
+    private boolean useRandomPhotocard = false; // Default: Solo Portada!
     private String accentColor;
     private String bio;
     private String collections; // Comma-separated collection names
@@ -203,7 +203,7 @@ public class IdolCard implements Serializable {
         }
         c.setUnlockedPhotocards(upcs);
         c.setNativeName(obj.optString("nativeName", ""));
-        c.setUseRandomPhotocard(obj.optBoolean("useRandomPhotocard", true));
+        c.setUseRandomPhotocard(obj.optBoolean("useRandomPhotocard", false));
         return c;
     }
 

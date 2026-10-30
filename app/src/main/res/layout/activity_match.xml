@@ -126,13 +126,13 @@
 
         <FrameLayout
             android:id="@+id/matchBgmVideoContainer"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone">
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="visible">
             <WebView
                 android:id="@+id/matchBgmWebView"
-                android:layout_width="1dp"
-                android:layout_height="1dp" />
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
         </FrameLayout>
 
         <!-- Golden Match Progress Bar -->
