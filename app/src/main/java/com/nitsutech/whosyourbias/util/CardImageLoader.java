@@ -8,9 +8,11 @@ import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
+import android.media.FaceDetector;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -37,6 +39,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -181,6 +184,79 @@ public class CardImageLoader {
             try {
                 // Wait up to 35 seconds max so offline connections never hang forever
                 latch.await(35, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+            }
+            if (listener != null) {
+                mainHandler.post(listener::onComplete);
+            }
+        });
+    }
+
+    public static void preloadMatchCardsAsync(Context context, List<IdolCard> matchCards, PreloadProgressListener listener) {
+        if (context == null || matchCards == null || matchCards.isEmpty()) {
+            if (listener != null) mainHandler.post(listener::onComplete);
+            return;
+        }
+        final Context appCtx = context.getApplicationContext();
+        preloadExecutor.execute(() -> {
+            List<IdolCard> itemsToPreload = new ArrayList<>();
+            for (IdolCard c : matchCards) {
+                if (c == null) continue;
+                // Primary cover photo
+                if (getExistingDiskCacheFile(appCtx, c) == null) {
+                    itemsToPreload.add(c);
+                }
+                // Preload unlocked photocards if random photocards are used
+                if (c.isUseRandomPhotocard()) {
+                    List<String> unl = c.getUnlockedPhotocards();
+                    for (int i = 0; i < Math.min(unl.size(), 5); i++) {
+                        String uri = unl.get(i);
+                        if (uri != null && !uri.isEmpty() && !IdolCard.isSamePhoto(uri, c.getPhotoUri())) {
+                            IdolCard dummy = new IdolCard(c.getId() + "_pc" + i, c.getStageName(), c.getFullName(),
+                                    c.getGroupName(), c.isSoloist(), c.getCountry(), c.getBirthDate(), c.getRole(),
+                                    uri, c.getAccentColor(), c.getBio(), c.getCollections());
+                            if (getExistingDiskCacheFile(appCtx, dummy) == null) {
+                                itemsToPreload.add(dummy);
+                            }
+                        }
+                    }
+                }
+            }
+
+            final int total = itemsToPreload.size();
+            if (total == 0) {
+                if (listener != null) mainHandler.post(listener::onComplete);
+                return;
+            }
+
+            if (listener != null) {
+                mainHandler.post(() -> listener.onProgress(0, total));
+            }
+
+            final java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(total);
+
+            for (IdolCard item : itemsToPreload) {
+                preloadExecutor.execute(() -> {
+                    try {
+                        Bitmap b = fetchOrResolveBitmap(appCtx, item);
+                        if (b != null) {
+                            rawMemoryCache.put(getRawCacheKey(item), b);
+                        }
+                    } catch (Exception ignored) {
+                    } finally {
+                        int cur = done.incrementAndGet();
+                        if (listener != null) {
+                            mainHandler.post(() -> listener.onProgress(cur, total));
+                        }
+                        latch.countDown();
+                    }
+                });
+            }
+
+            try {
+                // Wait up to 15 seconds max so it never hangs indefinitely
+                latch.await(15, TimeUnit.SECONDS);
             } catch (InterruptedException ignored) {
             }
             if (listener != null) {
@@ -388,6 +464,60 @@ public class CardImageLoader {
         return createPhysicalPhotocardBitmap(src, targetW, targetH);
     }
 
+    public static class FaceLocation {
+        public final float centerX;
+        public final float centerY;
+        public final float eyeDistance;
+
+        public FaceLocation(float centerX, float centerY, float eyeDistance) {
+            this.centerX = centerX;
+            this.centerY = centerY;
+            this.eyeDistance = eyeDistance;
+        }
+    }
+
+    private static final LruCache<Integer, FaceLocation> faceLocationCache = new LruCache<>(400);
+
+    public static FaceLocation detectFaceFast(Bitmap src) {
+        if (src == null || src.getWidth() <= 10 || src.getHeight() <= 10) return null;
+        int cacheKey = src.hashCode() ^ ((src.getWidth() << 16) | (src.getHeight() & 0xFFFF));
+        FaceLocation cached = faceLocationCache.get(cacheKey);
+        if (cached != null) return cached;
+
+        try {
+            int origW = src.getWidth();
+            int origH = src.getHeight();
+
+            int maxDim = 320;
+            float ratio = Math.min(1.0f, (float) maxDim / Math.max(origW, origH));
+            int sw = Math.round(origW * ratio);
+            int sh = Math.round(origH * ratio);
+            if (sw % 2 != 0) sw++; // FaceDetector requires strictly even width
+
+            Bitmap sample = Bitmap.createScaledBitmap(src, sw, sh, false);
+            Bitmap rgb565 = (sample.getConfig() == Bitmap.Config.RGB_565) ? sample : sample.copy(Bitmap.Config.RGB_565, false);
+            if (rgb565 != sample) sample.recycle();
+
+            FaceDetector detector = new FaceDetector(sw, sh, 1);
+            FaceDetector.Face[] faces = new FaceDetector.Face[1];
+            int count = detector.findFaces(rgb565, faces);
+            rgb565.recycle();
+
+            if (count > 0 && faces[0] != null && faces[0].confidence() > 0.30f) {
+                PointF pt = new PointF();
+                faces[0].getMidPoint(pt);
+                float eyeDist = faces[0].eyesDistance();
+                float scaleX = (float) origW / sw;
+                float scaleY = (float) origH / sh;
+                FaceLocation loc = new FaceLocation(pt.x * scaleX, pt.y * scaleY, eyeDist * scaleX);
+                faceLocationCache.put(cacheKey, loc);
+                return loc;
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
     public static Bitmap createPhysicalPhotocardBitmap(Bitmap src, int targetW, int targetH) {
         if (src == null) return null;
         int sW = src.getWidth();
@@ -399,25 +529,59 @@ public class CardImageLoader {
 
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
 
-        // Smart scale to fill full card edge-to-edge (Full HD Physical Photocard)
-        float scale = Math.max((float) targetW / (float) sW, (float) targetH / (float) sH);
+        FaceLocation face = detectFaceFast(src);
+
+        float baseScale = Math.max((float) targetW / (float) sW, (float) targetH / (float) sH);
+        float scale = baseScale;
+
+        if (face != null) {
+            // Smart Face Zoom: if the idol is small or far away in a wide shot (e.g. sitting on bed),
+            // auto-zoom up to 2.0x so her face and expression are prominent!
+            float faceSizeInCard = face.eyeDistance * baseScale;
+            if (faceSizeInCard < targetW * 0.16f) {
+                float zoom = Math.min(2.0f, (targetW * 0.22f) / Math.max(1f, faceSizeInCard));
+                scale = baseScale * zoom;
+            }
+
+            float drawW = sW * scale;
+            float drawH = sH * scale;
+
+            // Center horizontally on the face (avoiding empty side padding)
+            float left = (targetW * 0.5f) - (face.centerX * scale);
+            left = Math.min(0f, Math.max(targetW - drawW, left));
+
+            // Position eyes around 36% from top of card (ideal golden portrait framing)
+            float top = (targetH * 0.36f) - (face.centerY * scale);
+
+            // Headroom check: top of hair/head is roughly face.centerY - (face.eyeDistance * 1.55f)
+            float crownInCard = (face.centerY - (face.eyeDistance * 1.55f)) * scale + top;
+            if (crownInCard < targetH * 0.04f) {
+                // If the forehead/hair would be cut off, push down so her entire head is preserved!
+                top += (targetH * 0.04f - crownInCard);
+            }
+
+            // Ensure card is 100% filled
+            top = Math.min(0f, Math.max(targetH - drawH, top));
+
+            RectF dst = new RectF(left, top, left + drawW, top + drawH);
+            canvas.drawBitmap(src, null, dst, paint);
+            return out;
+        }
+
+        // Fallback when no front face was detected:
         float drawW = sW * scale;
         float drawH = sH * scale;
-
-        // Horizontally center
         float left = (targetW - drawW) / 2f;
-
-        // Vertically frame with balanced portrait bias (35%) so hair/crown is preserved without cutting off the chin
         float top;
         if (drawH > targetH) {
-            top = (targetH - drawH) * 0.35f;
+            // Keep upper bias gentle (12%) so forehead/hair are never cut off
+            top = (targetH - drawH) * 0.12f;
         } else {
             top = (targetH - drawH) / 2f;
         }
 
         RectF dst = new RectF(left, top, left + drawW, top + drawH);
         canvas.drawBitmap(src, null, dst, paint);
-
         return out;
     }
 
@@ -603,17 +767,68 @@ public class CardImageLoader {
         fittedMemoryCache.evictAll();
     }
 
+    private static final Map<String, String> bundledPhotoMap = new ConcurrentHashMap<>();
+    private static volatile boolean manifestLoaded = false;
+
+    private static void ensureManifestLoaded(Context context) {
+        if (manifestLoaded || context == null) return;
+        synchronized (bundledPhotoMap) {
+            if (manifestLoaded) return;
+            try (InputStream is = context.getAssets().open("bundled_photos/manifest.json");
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+                String raw = sb.toString();
+                if (raw.startsWith("\uFEFF")) raw = raw.substring(1);
+                JSONObject json = new JSONObject(raw);
+                java.util.Iterator<String> keys = json.keys();
+                while (keys.hasNext()) {
+                    String k = keys.next();
+                    bundledPhotoMap.put(k.toLowerCase(java.util.Locale.ROOT), json.getString(k));
+                }
+            } catch (Exception ignored) {
+            }
+            manifestLoaded = true;
+        }
+    }
+
+    private static String getBundledAssetName(Context context, String normalizedUri) {
+        if (normalizedUri == null || normalizedUri.isEmpty()) return null;
+        ensureManifestLoaded(context);
+        return bundledPhotoMap.get(normalizedUri.toLowerCase(java.util.Locale.ROOT));
+    }
+
     private static File getExistingDiskCacheFile(Context context, IdolCard card) {
         try {
             String uri = card.getPhotoUri();
             File cacheDir = new File(context.getCacheDir(), "idol_img_cache");
             if (uri != null && !uri.trim().isEmpty()) {
                 uri = uri.trim();
+                String norm = IdolCard.normalizePhotoIdentity(uri);
+                String bundledAsset = getBundledAssetName(context, norm);
+                if (bundledAsset != null) {
+                    File bundledCached = new File(cacheDir, "bnd_" + bundledAsset);
+                    if (bundledCached.exists() && bundledCached.length() > 500) {
+                        return bundledCached;
+                    }
+                    if (!cacheDir.exists()) cacheDir.mkdirs();
+                    try (InputStream is = context.getAssets().open("bundled_photos/" + bundledAsset);
+                         FileOutputStream fos = new FileOutputStream(bundledCached)) {
+                        byte[] buf = new byte[8192];
+                        int r;
+                        while ((r = is.read(buf)) != -1) {
+                            fos.write(buf, 0, r);
+                        }
+                        return bundledCached;
+                    } catch (Exception ignored) {}
+                }
                 if (uri.startsWith("/") || uri.startsWith("file://")) {
                     File f = new File(uri.startsWith("file://") ? uri.substring(7) : uri);
                     if (f.exists() && f.length() > 200) return f;
                 } else if (uri.startsWith("http://") || uri.startsWith("https://")) {
-                    String norm = IdolCard.normalizePhotoIdentity(uri);
                     File fNorm = new File(cacheDir, "url_" + Math.abs(norm.hashCode()) + ".jpg");
                     if (fNorm.exists() && fNorm.length() > 500) return fNorm;
                     File f = new File(cacheDir, "url_" + Math.abs(uri.hashCode()) + ".jpg");
@@ -663,6 +878,13 @@ public class CardImageLoader {
                 }
                 if (uri.startsWith("http://") || uri.startsWith("https://")) {
                     String norm = IdolCard.normalizePhotoIdentity(uri);
+                    String bundledAsset = getBundledAssetName(context, norm);
+                    if (bundledAsset != null) {
+                        try (InputStream is = context.getAssets().open("bundled_photos/" + bundledAsset)) {
+                            Bitmap b = BitmapFactory.decodeStream(is);
+                            if (b != null) return b;
+                        } catch (Exception ignored) {}
+                    }
                     File cachedFile = new File(cacheDir, "url_" + Math.abs(norm.hashCode()) + ".jpg");
                     if (cachedFile.exists() && cachedFile.length() > 500) {
                         return decodeSampledFile(cachedFile, 600, 600);
