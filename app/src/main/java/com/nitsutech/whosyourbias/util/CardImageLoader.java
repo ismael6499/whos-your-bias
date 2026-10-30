@@ -486,7 +486,7 @@ public class CardImageLoader {
     private static final LruCache<Integer, FaceLocation> faceLocationCache = new LruCache<>(400);
 
     public static FaceLocation detectFaceFast(Bitmap src) {
-        if (src == null || src.getWidth() <= 10 || src.getHeight() <= 10) return null;
+        if (src == null || src.isRecycled() || src.getWidth() <= 10 || src.getHeight() <= 10) return null;
         int cacheKey = src.hashCode() ^ ((src.getWidth() << 16) | (src.getHeight() & 0xFFFF));
         FaceLocation cached = faceLocationCache.get(cacheKey);
         if (cached != null) return cached;
@@ -503,12 +503,18 @@ public class CardImageLoader {
 
             Bitmap sample = Bitmap.createScaledBitmap(src, sw, sh, false);
             Bitmap rgb565 = (sample.getConfig() == Bitmap.Config.RGB_565) ? sample : sample.copy(Bitmap.Config.RGB_565, false);
-            if (rgb565 != sample) sample.recycle();
+            // CRITICAL: NEVER recycle 'src' if createScaledBitmap or copy returned 'src'!
+            if (sample != null && sample != src && sample != rgb565) {
+                sample.recycle();
+            }
 
             FaceDetector detector = new FaceDetector(sw, sh, 1);
             FaceDetector.Face[] faces = new FaceDetector.Face[1];
             int count = detector.findFaces(rgb565, faces);
-            rgb565.recycle();
+            // CRITICAL: NEVER recycle 'src'!
+            if (rgb565 != null && rgb565 != src) {
+                rgb565.recycle();
+            }
 
             if (count > 0 && faces[0] != null && faces[0].confidence() > 0.30f) {
                 PointF pt = new PointF();
@@ -526,7 +532,7 @@ public class CardImageLoader {
     }
 
     public static Bitmap createPhysicalPhotocardBitmap(Bitmap src, int targetW, int targetH) {
-        if (src == null) return null;
+        if (src == null || src.isRecycled() || targetW <= 0 || targetH <= 0) return null;
         int sW = src.getWidth();
         int sH = src.getHeight();
         if (sW <= 0 || sH <= 0) return src;
@@ -576,7 +582,12 @@ public class CardImageLoader {
             top = Math.min(0f, Math.max(targetH - drawH, top));
 
             RectF dst = new RectF(left, top, left + drawW, top + drawH);
-            canvas.drawBitmap(src, null, dst, paint);
+            try {
+                if (!src.isRecycled()) {
+                    canvas.drawBitmap(src, null, dst, paint);
+                    return out;
+                }
+            } catch (Throwable ignored) {}
             return out;
         }
 
@@ -592,7 +603,11 @@ public class CardImageLoader {
         }
 
         RectF dst = new RectF(left, top, left + drawW, top + drawH);
-        canvas.drawBitmap(src, null, dst, paint);
+        try {
+            if (!src.isRecycled()) {
+                canvas.drawBitmap(src, null, dst, paint);
+            }
+        } catch (Throwable ignored) {}
         return out;
     }
 

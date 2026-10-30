@@ -143,7 +143,7 @@
     <string name="gacha_unlocked_sub">✨ ¡Nueva photocard desbloqueada! (%1$d/%2$d en tu binder)</string>
     <string name="gacha_btn_view_binder">📸 Ver Binder</string>
     <string name="gacha_cooldown_title">⏳ Photocard Gacha en Enfriamiento</string>
-    <string name="gacha_cooldown_msg">¡Tu próximo sobre estará listo en %1$s!\n\nPodés abrir un sobre gratuito cada 15 minutos para coleccionar nuevas photocards exclusivas.</string>
+    <string name="gacha_cooldown_msg">¡Tu próximo sobre estará listo en %1$s!\n\nPodés abrir un sobre gratuito cada 3 minutos para coleccionar nuevas photocards exclusivas.</string>
     <string name="btn_understood">Entendido</string>
     <string name="match_prep_title">⚔️ Preparando Batalla…</string>
     <string name="match_prep_loading">Cargando photocards de los idols… (%1$d/%2$d)</string>

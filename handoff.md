@@ -2,19 +2,19 @@
 
 **Active Project**: `whos-your-bias`  
 **User**: Agustín Acosta (`acostaagustin6499@gmail.com`)  
-**Last Updated**: 2026-10-30 16:20:00 -03:00  
-**Current Release Version**: `v1.2.5` (versionCode 8)
+**Last Updated**: 2026-10-30 19:35:00 -03:00  
+**Current Release Version**: `v1.2.6` (versionCode 9)
 
 ---
 
 ## Task Backlog & Status
 
-### 1. Gacha Timer Cooldown (15 Minutes)
-- **Requirement**: Allow opening Gacha envelopes every **15 minutes** (previously 24h/6h).
+### 1. Gacha Timer Cooldown (3 Minutes)
+- **Requirement**: Allow opening Gacha envelopes every **3 minutes** (reduced from 24h -> 6h -> 15m -> 3m).
 - **Status**: `[x] Done`
 - **Implementation**:
-  - `MainActivity.java`: Updated `gachaCooldown = 15 * 60 * 1000L` on home screen strip and in dialog.
-  - Added centralized i18n strings for cooldown display (`gacha_cooldown_strip` and `gacha_open_ready`) with `mm:ss` countdown format.
+  - `MainActivity.java`: Updated `gachaCooldown = 3 * 60 * 1000L` on home screen strip and `cooldown = 3 * 60 * 1000L` in dialog.
+  - Centralized i18n strings in `res/values/strings.xml` and `res/values-es/strings.xml` updated to mention 3 minutes.
 
 ### 2. Photocard Unlock Consistency & Count
 - **Requirement**:
@@ -83,5 +83,14 @@
 - **Requirement**:
   - Commit history starts Thursday Oct 29 at **18:14** (after work hours).
   - No commits between 09:00 and 18:00 on weekdays unless backdated.
-  - Release version bumped to `v1.2.5` and published.
+  - Release version bumped to `v1.2.6` and published.
 - **Status**: `[x] Done`
+
+### 9. Fix Crash in Song Search (Canvas Recycled Bitmap Guard)
+- **Requirement**:
+  - Fix crash `java.lang.RuntimeException: Canvas: trying to use a recycled bitmap` when searching songs in YouTube BGM controller.
+  - Root cause: `Bitmap.createScaledBitmap` returns the same source reference when dimensions match (320x180 YouTube thumbnails), causing `sample.recycle()` in face detection to recycle `src` directly before drawing to canvas.
+- **Status**: `[x] Done`
+- **Implementation**:
+  - `CardImageLoader.java`: Guarded face detection downsampling to ensure `src` is NEVER recycled if returned by `createScaledBitmap` or format conversions (`if (sample != src && sample != rgb565) sample.recycle();`).
+  - Added defensive `isRecycled()` checks and wrapped `canvas.drawBitmap` in try-catch.

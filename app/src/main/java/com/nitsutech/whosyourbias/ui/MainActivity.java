@@ -406,7 +406,7 @@ public class MainActivity extends AppCompatActivity {
         TextView tvGachaRight = new TextView(this);
         SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
         long lastGacha = wybPrefs.getLong("last_gacha_open_time", 0);
-        long gachaCooldown = 15 * 60 * 1000L; // Free gacha every 15 minutes!
+        long gachaCooldown = 3 * 60 * 1000L; // Free gacha every 3 minutes!
         long gachaRem = (lastGacha + gachaCooldown) - System.currentTimeMillis();
         if (gachaRem > 0) {
             long gm = gachaRem / (60 * 1000L);
@@ -3325,7 +3325,7 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
         long lastTime = wybPrefs.getLong("last_gacha_open_time", 0);
         long now = System.currentTimeMillis();
-        long cooldown = 15 * 60 * 1000L; // 15 minutes
+        long cooldown = 3 * 60 * 1000L; // 3 minutes
         long remaining = (lastTime + cooldown) - now;
 
         if (remaining > 0) {
