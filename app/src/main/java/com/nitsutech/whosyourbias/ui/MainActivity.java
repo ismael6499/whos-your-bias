@@ -3552,7 +3552,19 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra(MatchActivity.EXTRA_TITLE, title);
         intent.putExtra(MatchActivity.EXTRA_MODE, gameMode);
         intent.putStringArrayListExtra(MatchActivity.EXTRA_CARD_IDS, ids);
-        startActivity(intent);
+
+        CardImageLoader.preloadMatchCardsAsync(this, cards, new CardImageLoader.PreloadProgressListener() {
+            @Override
+            public void onProgress(int current, int total) {
+            }
+
+            @Override
+            public void onComplete() {
+                if (!isFinishing()) {
+                    startActivity(intent);
+                }
+            }
+        });
     }
 
     private void updateCountChipsHighlight(List<TextView> views, int[] values, int selected) {
