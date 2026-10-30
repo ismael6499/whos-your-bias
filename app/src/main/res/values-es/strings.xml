@@ -40,6 +40,11 @@
     <string name="btn_create_custom_match">➕ Armar Partida Personalizada</string>
     <string name="btn_import_whatsapp">📥 Importar Archivo (.wyb) o Código de WhatsApp</string>
     <string name="empty_custom_matches">Todavía no armaste partidas personalizadas. ¡Creá una para desafiar a un amigo!</string>
+    <string name="hint_match_custom_title">Nombre de la partida (ej: Duelo Supremo, Reinas K-Pop)</string>
+    <string name="title_custom_match_default">Partida Personalizada</string>
+    <string name="tap_or_slide_hint">Deslizá o tocá la carta para girar en 3D</string>
+    <string name="action_share_whatsapp">Compartir por WhatsApp</string>
+    <string name="action_select_idols_share">Elegir Idols para compartir</string>
 
     <!-- Idol Cards Tab -->
     <string name="search_idols_hint">Buscar por nombre, apellido, grupo, país, rol…</string>
@@ -95,4 +100,13 @@
     <string name="btn_share_victory_poster">📸 Compartir Tarjeta de Victoria (WhatsApp / Stories)</string>
     <string name="btn_rematch_same">🔄 Revancha (Mismas Cartas)</string>
     <string name="btn_finish_home">🏠 Volver al Inicio</string>
+    <string name="btn_deselect_all">Deseleccionar</string>
+    <string name="btn_reset_selection">Reiniciar</string>
+    <string name="btn_save_and_play">Guardar y Jugar / Enviar</string>
+    <string name="filter_group_or_name_hint">🔍 Filtrar por grupo o nombre…</string>
+    <string name="share_idols_header">📤 Elegí los Idols para enviar por WhatsApp</string>
+    <string name="toast_pick_min_2_idols">Elegí al menos 2 idols tocando sus fotos</string>
+    <string name="toast_pick_min_1_idol">Tocá al menos un idol para compartir</string>
+    <string name="dialog_match_created_title">✅ Partida Creada: %1$s</string>
+    <string name="btn_play_now">▶ Jugar Ahora</string>
 </resources>

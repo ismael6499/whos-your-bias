@@ -941,6 +941,10 @@ public class MainActivity extends AppCompatActivity {
 
         cell.addView(footer);
         cell.setOnClickListener(v -> showIdolDetailAndPhotocardBinderDialog(card));
+        cell.setOnLongClickListener(v -> {
+            showVibraryStyleShareIdolsDialog();
+            return true;
+        });
         return cell;
     }
 
@@ -1129,7 +1133,7 @@ public class MainActivity extends AppCompatActivity {
 
         CardView squircle = new CardView(this);
         squircle.setRadius(dp(22)); // Vibrary rounded squircle shape!
-        squircle.setCardElevation(dp(1));
+        squircle.setCardElevation(0);
         squircle.setCardBackgroundColor(theme.surfaceColor);
         squircle.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -1142,17 +1146,35 @@ public class MainActivity extends AppCompatActivity {
         squircle.addView(iv);
         avatarWrap.addView(squircle);
 
-        // Vibrary check circle badge on bottom-right when in selection mode
-        TextView checkBadge = new TextView(this);
-        checkBadge.setGravity(Gravity.CENTER);
-        checkBadge.setTextSize(10f);
-        checkBadge.setTypeface(Typeface.DEFAULT_BOLD);
-        FrameLayout.LayoutParams cbLp = new FrameLayout.LayoutParams(dp(22), dp(22), Gravity.BOTTOM | Gravity.END);
-        checkBadge.setLayoutParams(cbLp);
-
+        final View selBorder;
+        final TextView checkBadge;
         if (selectionSet != null) {
-            updateSquircleCheckBadge(checkBadge, selectionSet.contains(member.getId()));
+            selBorder = new View(this);
+            FrameLayout.LayoutParams borderLp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            selBorder.setLayoutParams(borderLp);
+            GradientDrawable borderGd = new GradientDrawable();
+            borderGd.setCornerRadius(dp(22));
+            borderGd.setStroke(dp(3), theme.primaryColor);
+            borderGd.setColor(Color.TRANSPARENT);
+            selBorder.setBackground(borderGd);
+            selBorder.setElevation(dp(4));
+            avatarWrap.addView(selBorder);
+
+            checkBadge = new TextView(this);
+            checkBadge.setGravity(Gravity.CENTER);
+            checkBadge.setTextSize(11f);
+            checkBadge.setTypeface(Typeface.DEFAULT_BOLD);
+            FrameLayout.LayoutParams cbLp = new FrameLayout.LayoutParams(dp(24), dp(24), Gravity.BOTTOM | Gravity.END);
+            cbLp.setMargins(0, 0, dp(3), dp(3));
+            checkBadge.setLayoutParams(cbLp);
+            checkBadge.setElevation(dp(8));
             avatarWrap.addView(checkBadge);
+
+            updateSquircleSelectionVisuals(checkBadge, selBorder, selectionSet.contains(member.getId()));
+        } else {
+            selBorder = null;
+            checkBadge = null;
         }
 
         cell.addView(avatarWrap);
@@ -1168,28 +1190,65 @@ public class MainActivity extends AppCompatActivity {
         tvName.setPadding(0, dp(6), 0, 0);
         cell.addView(tvName);
 
-        cell.setOnClickListener(v -> {
+        // Make whole cell and children clickable
+        View.OnClickListener toggleClick = v -> {
             if (selectionSet != null) {
-                if (selectionSet.contains(member.getId())) selectionSet.remove(member.getId());
-                else selectionSet.add(member.getId());
-                updateSquircleCheckBadge(checkBadge, selectionSet.contains(member.getId()));
+                if (selectionSet.contains(member.getId())) {
+                    selectionSet.remove(member.getId());
+                } else {
+                    selectionSet.add(member.getId());
+                }
+                updateSquircleSelectionVisuals(checkBadge, selBorder, selectionSet.contains(member.getId()));
             } else {
                 showIdolDetailAndPhotocardBinderDialog(member);
             }
-        });
+        };
+
+        cell.setOnClickListener(toggleClick);
+        avatarWrap.setOnClickListener(toggleClick);
+        squircle.setOnClickListener(toggleClick);
+        iv.setOnClickListener(toggleClick);
+        if (selBorder != null) selBorder.setOnClickListener(toggleClick);
+        if (checkBadge != null) checkBadge.setOnClickListener(toggleClick);
+        tvName.setOnClickListener(toggleClick);
+
+        if (selectionSet == null) {
+            View.OnLongClickListener longShare = v -> {
+                showVibraryStyleShareIdolsDialog();
+                return true;
+            };
+            cell.setOnLongClickListener(longShare);
+            avatarWrap.setOnLongClickListener(longShare);
+            squircle.setOnLongClickListener(longShare);
+            iv.setOnLongClickListener(longShare);
+            tvName.setOnLongClickListener(longShare);
+        }
 
         return cell;
     }
 
-    private void updateSquircleCheckBadge(TextView badge, boolean checked) {
+    private void updateSquircleSelectionVisuals(TextView badge, View selBorder, boolean checked) {
+        if (badge == null) return;
         ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+        if (selBorder != null) {
+            selBorder.setVisibility(checked ? View.VISIBLE : View.GONE);
+            selBorder.bringToFront();
+        }
         GradientDrawable gd = new GradientDrawable();
         gd.setShape(GradientDrawable.OVAL);
-        gd.setColor(checked ? theme.primaryColor : Color.parseColor("#E5E7EB"));
-        gd.setStroke(dp(2), Color.WHITE);
-        badge.setBackground(gd);
-        badge.setText("✓");
-        badge.setTextColor(Color.WHITE);
+        if (checked) {
+            gd.setColor(theme.primaryColor);
+            gd.setStroke(dp(2), Color.WHITE);
+            badge.setBackground(gd);
+            badge.setText("✓");
+            badge.setTextColor(Color.WHITE);
+        } else {
+            gd.setColor(Color.parseColor("#991F2937"));
+            gd.setStroke(dp(2), Color.WHITE);
+            badge.setBackground(gd);
+            badge.setText("");
+        }
+        badge.bringToFront();
     }
 
     // =========================================================================
@@ -1576,7 +1635,7 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog[] ref = new AlertDialog[1];
         final Set<String> chosenIds = new LinkedHashSet<>();
 
-        EditText etTitle = addFormInput(root, "Nombre de la partida (ej: Desafío de Agustín)", "");
+        EditText etTitle = addFormInput(root, getString(R.string.hint_match_custom_title), "");
 
         final String[] modeValues = {"BRACKET", "KING_OF_THE_HILL", "ROUND_ROBIN", "DOUBLE_ELIMINATION"};
         final String[] modeLabels = {
@@ -1588,7 +1647,7 @@ public class MainActivity extends AppCompatActivity {
         Spinner spMode = createStyledSpinner(modeLabels);
         root.addView(spMode);
 
-        EditText etFilter = addFormInput(root, "🔍 Filtrar por grupo o nombre...", "");
+        EditText etFilter = addFormInput(root, getString(R.string.filter_group_or_name_hint), "");
 
         ScrollView gridScroll = new ScrollView(this);
         gridScroll.setLayoutParams(new LinearLayout.LayoutParams(
@@ -1602,6 +1661,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 groupsBox.removeAllViews();
+                ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(MainActivity.this);
                 String q = etFilter.getText().toString().toLowerCase(Locale.ROOT).trim();
                 List<String> groups = repo.getAllGroups();
                 groups.add("Soloists");
@@ -1633,14 +1693,26 @@ public class MainActivity extends AppCompatActivity {
                     hRow.addView(tvG);
 
                     final List<IdolCard> finalMembers = members;
+                    boolean allSelected = true;
+                    for (IdolCard m : finalMembers) {
+                        if (!chosenIds.contains(m.getId())) {
+                            allSelected = false;
+                            break;
+                        }
+                    }
+                    final boolean groupAllSelected = allSelected;
                     TextView btnTodo = new TextView(MainActivity.this);
-                    btnTodo.setText("✓ Todo");
-                    btnTodo.setTextColor(Color.parseColor("#6B7280"));
+                    btnTodo.setText(groupAllSelected ? "✕ " + getString(R.string.btn_deselect_all) : "✓ " + getString(R.string.btn_select_all));
+                    btnTodo.setTextColor(groupAllSelected ? theme.primaryColor : Color.parseColor("#6B7280"));
                     btnTodo.setTextSize(11.5f);
-                    btnTodo.setPadding(dp(10), dp(4), dp(10), dp(4));
+                    btnTodo.setPadding(dp(12), dp(6), dp(12), dp(6));
                     btnTodo.setBackgroundResource(R.drawable.bg_btn_secondary);
                     btnTodo.setOnClickListener(v -> {
-                        for (IdolCard m : finalMembers) chosenIds.add(m.getId());
+                        if (groupAllSelected) {
+                            for (IdolCard m : finalMembers) chosenIds.remove(m.getId());
+                        } else {
+                            for (IdolCard m : finalMembers) chosenIds.add(m.getId());
+                        }
                         run();
                     });
                     hRow.addView(btnTodo);
@@ -1681,7 +1753,7 @@ public class MainActivity extends AppCompatActivity {
         bottomBar.setLayoutParams(bbLp);
 
         TextView btnReset = new TextView(this);
-        btnReset.setText("↻ Inicialización");
+        btnReset.setText("↻ " + getString(R.string.btn_reset_selection));
         btnReset.setTextColor(Color.WHITE);
         btnReset.setBackgroundColor(Color.parseColor("#6B7280"));
         btnReset.setGravity(Gravity.CENTER);
@@ -1694,7 +1766,7 @@ public class MainActivity extends AppCompatActivity {
         bottomBar.addView(btnReset);
 
         TextView btnSavePlay = new TextView(this);
-        btnSavePlay.setText("Guardar y Jugar / Enviar");
+        btnSavePlay.setText(getString(R.string.btn_save_and_play));
         btnSavePlay.setTextColor(Color.WHITE);
         btnSavePlay.setBackgroundColor(Color.parseColor("#FFC700"));
         btnSavePlay.setGravity(Gravity.CENTER);
@@ -1702,15 +1774,15 @@ public class MainActivity extends AppCompatActivity {
         btnSavePlay.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.5f));
         btnSavePlay.setOnClickListener(v -> {
             if (chosenIds.size() < 2) {
-                Toast.makeText(this, "Elegí al menos 2 idols tocando sus fotos", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.toast_pick_min_2_idols), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (ref[0] != null) ref[0].dismiss();
             String title = etTitle.getText().toString().trim();
-            if (title.isEmpty()) title = "Partida Personalizada (" + chosenIds.size() + ")";
+            if (title.isEmpty()) title = getString(R.string.title_custom_match_default) + " (" + chosenIds.size() + ")";
             String mode = modeValues[spMode.getSelectedItemPosition()];
 
-            CustomMatch cm = new CustomMatch(null, title, "Agustín", mode, new ArrayList<>(chosenIds), System.currentTimeMillis());
+            CustomMatch cm = new CustomMatch(null, title, "Player", mode, new ArrayList<>(chosenIds), System.currentTimeMillis());
             repo.saveOrUpdateCustomMatch(cm);
             refreshCurrentTab();
 
@@ -1720,8 +1792,8 @@ public class MainActivity extends AppCompatActivity {
                 if (c != null) cards.add(c);
             }
             new AlertDialog.Builder(this)
-                    .setTitle("✅ Partida Creada: " + title)
-                    .setItems(new String[]{"▶ Jugar Ahora", "📤 Compartir por WhatsApp"}, (d2, w2) -> {
+                    .setTitle(getString(R.string.dialog_match_created_title, title))
+                    .setItems(new String[]{getString(R.string.btn_play_now), getString(R.string.action_share_whatsapp)}, (d2, w2) -> {
                         if (w2 == 0) launchMatch(cm.getTitle(), cm.getGameMode(), cards);
                         else showShareChoiceDialog(cm.getTitle(), cm, cards);
                     }).show();
@@ -1746,14 +1818,14 @@ public class MainActivity extends AppCompatActivity {
         final Set<String> chosenIds = new LinkedHashSet<>();
 
         TextView tvHeader = new TextView(this);
-        tvHeader.setText("📤 Elegí los Idols para enviar por WhatsApp");
+        tvHeader.setText(getString(R.string.share_idols_header));
         tvHeader.setTextColor(Color.parseColor("#111827"));
         tvHeader.setTextSize(16f);
         tvHeader.setTypeface(Typeface.DEFAULT_BOLD);
         tvHeader.setPadding(0, 0, 0, dp(8));
         root.addView(tvHeader);
 
-        EditText etFilter = addFormInput(root, "🔍 Buscar grupo o idol...", "");
+        EditText etFilter = addFormInput(root, getString(R.string.filter_group_or_name_hint), "");
 
         ScrollView gridScroll = new ScrollView(this);
         gridScroll.setLayoutParams(new LinearLayout.LayoutParams(
@@ -1767,6 +1839,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 groupsBox.removeAllViews();
+                ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(MainActivity.this);
                 String q = etFilter.getText().toString().toLowerCase(Locale.ROOT).trim();
                 List<String> groups = repo.getAllGroups();
                 groups.add("Soloists");
@@ -1797,14 +1870,26 @@ public class MainActivity extends AppCompatActivity {
                     hRow.addView(tvG);
 
                     final List<IdolCard> finalMembers = members;
+                    boolean allSelected = true;
+                    for (IdolCard m : finalMembers) {
+                        if (!chosenIds.contains(m.getId())) {
+                            allSelected = false;
+                            break;
+                        }
+                    }
+                    final boolean groupAllSelected = allSelected;
                     TextView btnTodo = new TextView(MainActivity.this);
-                    btnTodo.setText("✓ Todo");
-                    btnTodo.setTextColor(Color.parseColor("#6B7280"));
+                    btnTodo.setText(groupAllSelected ? "✕ " + getString(R.string.btn_deselect_all) : "✓ " + getString(R.string.btn_select_all));
+                    btnTodo.setTextColor(groupAllSelected ? theme.primaryColor : Color.parseColor("#6B7280"));
                     btnTodo.setTextSize(11.5f);
-                    btnTodo.setPadding(dp(10), dp(4), dp(10), dp(4));
+                    btnTodo.setPadding(dp(12), dp(6), dp(12), dp(6));
                     btnTodo.setBackgroundResource(R.drawable.bg_btn_secondary);
                     btnTodo.setOnClickListener(v -> {
-                        for (IdolCard m : finalMembers) chosenIds.add(m.getId());
+                        if (groupAllSelected) {
+                            for (IdolCard m : finalMembers) chosenIds.remove(m.getId());
+                        } else {
+                            for (IdolCard m : finalMembers) chosenIds.add(m.getId());
+                        }
                         run();
                     });
                     hRow.addView(btnTodo);
@@ -1844,7 +1929,7 @@ public class MainActivity extends AppCompatActivity {
         bottomBar.setLayoutParams(bbLp);
 
         TextView btnSend = new TextView(this);
-        btnSend.setText("📤 Compartir por WhatsApp");
+        btnSend.setText(getString(R.string.action_share_whatsapp));
         btnSend.setTextColor(Color.parseColor("#111827"));
         btnSend.setBackgroundColor(Color.parseColor("#FFC700"));
         btnSend.setGravity(Gravity.CENTER);
@@ -1852,7 +1937,7 @@ public class MainActivity extends AppCompatActivity {
         btnSend.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         btnSend.setOnClickListener(v -> {
             if (chosenIds.isEmpty()) {
-                Toast.makeText(this, "Tocá al menos un idol para compartir", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.toast_pick_min_1_idol), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (ref[0] != null) ref[0].dismiss();
@@ -1861,7 +1946,7 @@ public class MainActivity extends AppCompatActivity {
                 IdolCard c = repo.getIdolById(id);
                 if (c != null) toShare.add(c);
             }
-            showShareChoiceDialog("Pack de Idols (" + toShare.size() + ")", null, toShare);
+            showShareChoiceDialog("Pack (" + toShare.size() + ")", null, toShare);
         });
         bottomBar.addView(btnSend);
         root.addView(bottomBar);
