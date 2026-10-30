@@ -3567,6 +3567,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onComplete() {
                 if (!isFinishing()) {
+                    if (bgmController != null) bgmController.pause();
                     startActivity(intent);
                 }
             }

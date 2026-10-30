@@ -164,7 +164,10 @@ public class YoutubeBgmController {
 
         String savedUrl = prefs.getString(PREF_BGM_URL, PRESETS[0][1]);
         String savedTitle = prefs.getString(PREF_BGM_TITLE, PRESETS[0][0]);
-        boolean shouldAutoPlay = prefs.getBoolean(PREF_BGM_AUTOPLAY, true);
+        boolean isMatch = (activity instanceof MatchActivity);
+        // Only autoplay when entering a tournament/challenge (MatchActivity).
+        // On app startup (MainActivity), music is NEVER started automatically.
+        boolean shouldAutoPlay = isMatch;
 
         if (this.tvNowPlaying != null) this.tvNowPlaying.setText(savedTitle);
 
@@ -179,6 +182,14 @@ public class YoutubeBgmController {
 
         if (sharedPlayer != null && isPrepared && savedUrl.equals(activeStreamUrl)) {
             updateButtonsUi();
+            if (isMatch && !isPlaying) {
+                float vol = isMuted ? 0f : 0.85f;
+                sharedPlayer.setVolume(vol, vol);
+                sharedPlayer.start();
+                isPlaying = true;
+                updateButtonsUi();
+                showOrUpdateMusicNotification(activity.getApplicationContext());
+            }
         } else {
             startStream(savedTitle, savedUrl, shouldAutoPlay);
         }
@@ -255,7 +266,9 @@ public class YoutubeBgmController {
                     .build());
             sharedPlayer.setDataSource(streamUrl);
             sharedPlayer.setLooping(true);
-            float vol = isMuted ? 0f : 1f;
+            boolean isMatch = (activity instanceof MatchActivity);
+            float baseVol = isMatch ? 0.85f : 0.20f;
+            float vol = isMuted ? 0f : baseVol;
             sharedPlayer.setVolume(vol, vol);
             sharedPlayer.setOnPreparedListener(mp -> {
                 isPrepared = true;
@@ -312,6 +325,10 @@ public class YoutubeBgmController {
                 isPlaying = false;
                 prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
             } else {
+                boolean isMatch = (activity instanceof MatchActivity);
+                float baseVol = isMatch ? 0.85f : 0.20f;
+                float vol = isMuted ? 0f : baseVol;
+                sharedPlayer.setVolume(vol, vol);
                 sharedPlayer.start();
                 isPlaying = true;
                 prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
@@ -329,7 +346,9 @@ public class YoutubeBgmController {
                 webView.evaluateJavascript("if(window.toggleMuteBgm){toggleMuteBgm(" + isMuted + ");}", null);
             }
         } else if (sharedPlayer != null) {
-            float vol = isMuted ? 0f : 1f;
+            boolean isMatch = (activity instanceof MatchActivity);
+            float baseVol = isMatch ? 0.85f : 0.20f;
+            float vol = isMuted ? 0f : baseVol;
             sharedPlayer.setVolume(vol, vol);
         }
         updateButtonsUi();
@@ -348,6 +367,8 @@ public class YoutubeBgmController {
     }
 
     private String buildYoutubeIframeHtml(String videoId) {
+        boolean isMatch = (activity instanceof MatchActivity);
+        int targetVol = isMatch ? 85 : 20;
         return "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>"
                 + "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000000;overflow:hidden;}"
                 + "#player{width:100%;height:100%;}</style></head><body>"
@@ -364,12 +385,12 @@ public class YoutubeBgmController {
                 + "    videoId: '" + videoId + "',"
                 + "    playerVars: { 'autoplay': 1, 'playsinline': 1, 'loop': 1, 'playlist': '" + videoId + "', 'controls': 1, 'rel': 0 },"
                 + "    events: {"
-                + "      'onReady': function(e) { e.target.playVideo(); if(" + isMuted + ") e.target.mute(); }"
+                + "      'onReady': function(e) { if(e.target.setVolume) e.target.setVolume(" + targetVol + "); e.target.playVideo(); if(" + isMuted + ") e.target.mute(); }"
                 + "    }"
                 + "  });"
                 + "}"
                 + "window.toggleMuteBgm = function(m) { if(!player) return; if(m) player.mute(); else player.unMute(); };"
-                + "window.playBgm = function() { if(player) player.playVideo(); };"
+                + "window.playBgm = function() { if(player) { if(player.setVolume) player.setVolume(" + targetVol + "); player.playVideo(); } };"
                 + "window.pauseBgm = function() { if(player) player.pauseVideo(); };"
                 + "</script></body></html>";
     }
@@ -1064,8 +1085,16 @@ public class YoutubeBgmController {
         if (isYoutubeUrl(activeStreamUrl) && webView != null) {
             webView.evaluateJavascript("if(window.pauseBgm){pauseBgm();}else if(player){player.pauseVideo();}", null);
         } else if (sharedPlayer != null && sharedPlayer.isPlaying()) {
-            sharedPlayer.pause();
+            try {
+                sharedPlayer.pause();
+            } catch (Exception ignored) {}
         }
+        isPlaying = false;
+        updateButtonsUi();
+        try {
+            NotificationManager nm = (NotificationManager) activity.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) nm.cancel(NOTIF_ID);
+        } catch (Exception ignored) {}
     }
 
     public void resume() {
@@ -1073,6 +1102,9 @@ public class YoutubeBgmController {
     }
 
     public void destroy() {
+        if (activity instanceof MatchActivity) {
+            pause();
+        }
     }
 
     private int dp(int val) {

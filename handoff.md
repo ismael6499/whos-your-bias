@@ -2,8 +2,8 @@
 
 **Active Project**: `whos-your-bias`  
 **User**: Agustín Acosta (`acostaagustin6499@gmail.com`)  
-**Last Updated**: 2026-10-30 19:35:00 -03:00  
-**Current Release Version**: `v1.2.6` (versionCode 9)
+**Last Updated**: 2026-10-30 19:50:00 -03:00  
+**Current Release Version**: `v1.2.7` (versionCode 10)
 
 ---
 
@@ -94,3 +94,18 @@
 - **Implementation**:
   - `CardImageLoader.java`: Guarded face detection downsampling to ensure `src` is NEVER recycled if returned by `createScaledBitmap` or format conversions (`if (sample != src && sample != rgb565) sample.recycle();`).
   - Added defensive `isRecycled()` checks and wrapped `canvas.drawBitmap` in try-catch.
+
+### 10. BGM Startup Silence & Dynamic Battle Volume
+- **Requirement**:
+  - Do NOT play music immediately on app startup / fresh install (`MainActivity`). Avoid loud jarring music on opening the app.
+  - Automatically start BGM when entering a challenge/battle (`MatchActivity`).
+  - Dynamic volume: Soft gentle volume (20%) when played in the main menu; energetic volume (85%) in tournament battles.
+  - Pause BGM when tournament finishes / exits so the home menu returns to peace.
+  - Default preset remains "✨ ILLIT - It's Me" via fast iTunes studio preview (.m4a); YouTube search is used when the user wants to search and pick specific YouTube songs/videos.
+- **Status**: `[x] Done`
+- **Implementation**:
+  - `YoutubeBgmController.java`:
+    - `shouldAutoPlay` defaults to `isMatch` (`activity instanceof MatchActivity`). App launch in `MainActivity` stays silent with `▶` button.
+    - Set dynamic volume: `0.20f` (20%) in `MainActivity` menu, `0.85f` (85%) in `MatchActivity`. Same volume scaling applied to YouTube iframe (`player.setVolume(targetVol)`).
+    - `destroy()` in `MatchActivity` calls `pause()` and dismisses the notification.
+  - `MainActivity.java`: Pauses menu BGM before launching `MatchActivity` to guarantee seamless audio transition.
