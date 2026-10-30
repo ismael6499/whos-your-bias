@@ -179,4 +179,5 @@
     <string name="bgm_saved_section">⭐ Mis Canciones y Videos Guardados</string>
     <string name="bgm_presets_section">🎵 Canciones Recomendadas K-Pop</string>
     <string name="bgm_video_saved_toast">⭐ Canción agregada a tu lista guardada</string>
+    <string name="bgm_video_removed_toast">Canción eliminada de guardados</string>
 </resources>

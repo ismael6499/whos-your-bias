@@ -2,8 +2,8 @@
 
 **Active Project**: `whos-your-bias`  
 **User**: Agustín Acosta (`acostaagustin6499@gmail.com`)  
-**Last Updated**: 2026-10-30 20:18:00 -03:00  
-**Current Release Version**: `v1.2.8` (versionCode 11)
+**Last Updated**: 2026-10-30 20:35:00 -03:00  
+**Current Release Version**: `v1.2.9` (versionCode 12)
 
 ---
 
@@ -125,3 +125,15 @@
   - `MatchActivity.java`: Hid cycling pill when in Cover mode; in random mode, shows `📸 #N` corresponding to the photo's number in the idol's collection.
   - `YoutubeBgmController.java`: Added real-time volume slider in song selector dialog and via long-click on mute button (`setCustomVolumePercent`). Fixed WebView container sizing (keeping active 1x1 rendering container) so YouTube iframe audio plays continuously.
   - Layout XMLs (`activity_main.xml`, `activity_match.xml`): Updated `bgmVideoContainer` to maintain 1x1 active rendering size instead of 0x0 `GONE`.
+
+### 12. Direct YouTube Embed Audio & Saved Song Deletion
+- **Requirement**:
+  - Fix YouTube audio playback so custom YouTube songs/videos play with sound reliably in background.
+  - Allow removing/deleting songs and videos from `⭐ My Saved Songs & Videos` (custom manual additions).
+- **Status**: `[x] Done`
+- **Implementation**:
+  - `YoutubeBgmController.java`:
+    - Loaded direct YouTube embed URL (`https://www.youtube.com/embed/VID?autoplay=1&enablejsapi=1&playsinline=1&loop=1&playlist=VID`) to bypass cross-origin iframe autoplay blocks.
+    - Attached `onPageFinished` handler in `WebViewClient` controlling native HTML5 `<video>` element directly (`v.volume = fVol; v.muted = false; v.play();`).
+    - Added `🗑️` button to `addYoutubeSongRow` under saved songs and updated `removeCustomSong` to match on video ID as well as full URL.
+  - Centralized i18n: Added `bgm_video_removed_toast` in `strings.xml` and `values-es/strings.xml`.

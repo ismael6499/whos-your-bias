@@ -18,9 +18,12 @@ import android.os.Looper;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.ConsoleMessage;
+import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -147,12 +150,39 @@ public class YoutubeBgmController {
             ws.setJavaScriptEnabled(true);
             ws.setDomStorageEnabled(true);
             ws.setMediaPlaybackRequiresUserGesture(false);
+            ws.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            ws.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
             this.webView.setBackgroundColor(Color.BLACK);
-            this.webView.setWebChromeClient(new WebChromeClient());
+            this.webView.setWebChromeClient(new WebChromeClient() {
+                @Override
+                public void onPermissionRequest(PermissionRequest request) {
+                    request.grant(request.getResources());
+                }
+                @Override
+                public boolean onConsoleMessage(ConsoleMessage cm) {
+                    Log.d("YoutubeBgm", cm.message() + " -- Line " + cm.lineNumber());
+                    return true;
+                }
+            });
             this.webView.setWebViewClient(new WebViewClient() {
                 @Override
                 public boolean shouldOverrideUrlLoading(WebView view, String url) {
                     return false;
+                }
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    int vol = isMuted ? 0 : getActiveVolumeLevel();
+                    float fVol = vol / 100f;
+                    view.evaluateJavascript(
+                        "(function() {" +
+                        "  var v = document.querySelector('video');" +
+                        "  if (v) {" +
+                        "    v.volume = " + fVol + ";" +
+                        "    v.muted = " + isMuted + ";" +
+                        "    v.play().catch(function(e){ console.log('play error: ' + e); });" +
+                        "  }" +
+                        "})();", null);
                 }
             });
         }
@@ -256,8 +286,8 @@ public class YoutubeBgmController {
             String vid = extractYoutubeId(streamUrl);
             if (webView != null) {
                 if (autoPlay) {
-                    String html = buildYoutubeIframeHtml(vid);
-                    webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
+                    String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&enablejsapi=1&playsinline=1&loop=1&playlist=" + vid;
+                    webView.loadUrl(embedUrl);
                     isPlaying = true;
                     isPrepared = true;
                     showOrUpdateMusicNotification(activity.getApplicationContext());
@@ -322,11 +352,20 @@ public class YoutubeBgmController {
         if (isYoutubeUrl(activeStreamUrl)) {
             if (webView != null) {
                 if (isPlaying) {
-                    webView.evaluateJavascript("if(window.pauseBgm){pauseBgm();}else if(player){player.pauseVideo();}", null);
+                    webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.pause(); })();", null);
                     isPlaying = false;
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
                 } else {
-                    webView.evaluateJavascript("if(window.playBgm){playBgm();}else if(player){player.playVideo();}", null);
+                    if (!isPrepared) {
+                        String vid = extractYoutubeId(activeStreamUrl);
+                        String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&enablejsapi=1&playsinline=1&loop=1&playlist=" + vid;
+                        webView.loadUrl(embedUrl);
+                        isPrepared = true;
+                    } else {
+                        int vol = isMuted ? 0 : getActiveVolumeLevel();
+                        float fVol = vol / 100f;
+                        webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; v.play(); } })();", null);
+                    }
                     isPlaying = true;
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
                 }
@@ -367,13 +406,12 @@ public class YoutubeBgmController {
         isMuted = !isMuted;
         if (isYoutubeUrl(activeStreamUrl)) {
             if (webView != null) {
-                webView.evaluateJavascript("if(window.toggleMuteBgm){toggleMuteBgm(" + isMuted + ");}", null);
+                webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.muted = " + isMuted + "; })();", null);
             }
         } else if (sharedPlayer != null) {
-            boolean isMatch = (activity instanceof MatchActivity);
-            float baseVol = isMatch ? 0.85f : 0.20f;
-            float vol = isMuted ? 0f : baseVol;
-            sharedPlayer.setVolume(vol, vol);
+            int vol = isMuted ? 0 : getActiveVolumeLevel();
+            float f = vol / 100f;
+            sharedPlayer.setVolume(f, f);
         }
         updateButtonsUi();
     }
@@ -615,8 +653,10 @@ public class YoutubeBgmController {
 
     private void removeCustomSong(String url) {
         List<String[]> list = getSavedCustomSongs();
+        String targetVid = isYoutubeUrl(url) ? extractYoutubeId(url) : "";
         for (int i = 0; i < list.size(); i++) {
-            if (list.get(i)[1].equals(url)) {
+            String u = list.get(i)[1];
+            if (u.equals(url) || (!targetVid.isEmpty() && isYoutubeUrl(u) && targetVid.equals(extractYoutubeId(u)))) {
                 list.remove(i);
                 break;
             }
@@ -1171,6 +1211,17 @@ public class YoutubeBgmController {
                 Toast.makeText(activity, activity.getString(R.string.bgm_video_saved_toast), Toast.LENGTH_SHORT).show();
             });
             row.addView(btnSave);
+        } else {
+            TextView btnDel = new TextView(activity);
+            btnDel.setText("🗑️");
+            btnDel.setTextSize(14f);
+            btnDel.setPadding(dp(8), dp(6), dp(8), dp(6));
+            btnDel.setOnClickListener(v -> {
+                removeCustomSong(ytUrl);
+                if (refreshListCallback != null) refreshListCallback.run();
+                Toast.makeText(activity, "🗑️ " + activity.getString(R.string.bgm_video_removed_toast), Toast.LENGTH_SHORT).show();
+            });
+            row.addView(btnDel);
         }
 
         parent.addView(row);
@@ -1237,7 +1288,7 @@ public class YoutubeBgmController {
 
     public void pause() {
         if (isYoutubeUrl(activeStreamUrl) && webView != null) {
-            webView.evaluateJavascript("if(window.pauseBgm){pauseBgm();}else if(player){player.pauseVideo();}", null);
+            webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.pause(); })();", null);
         } else if (sharedPlayer != null && sharedPlayer.isPlaying()) {
             try {
                 sharedPlayer.pause();

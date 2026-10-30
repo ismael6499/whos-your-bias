@@ -179,4 +179,5 @@
     <string name="bgm_saved_section">⭐ My Saved Songs &amp; Videos</string>
     <string name="bgm_presets_section">🎵 Recommended K-Pop Hits</string>
     <string name="bgm_video_saved_toast">⭐ Song added to your saved list</string>
+    <string name="bgm_video_removed_toast">Song removed from saved list</string>
 </resources>
