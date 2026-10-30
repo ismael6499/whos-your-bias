@@ -241,7 +241,10 @@ public class CardImageLoader {
                     try {
                         Bitmap b = fetchOrResolveBitmap(appCtx, item);
                         if (b != null) {
-                            rawMemoryCache.put(getRawCacheKey(item), b);
+                            String rawKey = getRawCacheKey(item);
+                            rawMemoryCache.put(rawKey, b);
+                            Bitmap fitted = createUncroppedFittedPhoto(b, 480, 380);
+                            fittedMemoryCache.put(rawKey + "_480x380", fitted);
                         }
                     } catch (Exception ignored) {
                     } finally {
@@ -269,6 +272,10 @@ public class CardImageLoader {
         if (card == null || imageView == null) return;
         int[] ratio = inferTargetCanvasSize(imageView);
         loadCardImageWithSize(context, card, imageView, ratio[0], ratio[1]);
+    }
+
+    public static void loadUriIntoImageView(Context context, String uriStr, ImageView imageView) {
+        loadUriIntoImageView(context, uriStr, imageView, "Song", Color.parseColor("#EC4899"));
     }
 
     public static void loadUriIntoImageView(Context context, String uriStr, ImageView imageView, String label, int accentColor) {
@@ -553,14 +560,19 @@ public class CardImageLoader {
             // Position eyes around 36% from top of card (ideal golden portrait framing)
             float top = (targetH * 0.36f) - (face.centerY * scale);
 
-            // Headroom check: top of hair/head is roughly face.centerY - (face.eyeDistance * 1.55f)
-            float crownInCard = (face.centerY - (face.eyeDistance * 1.55f)) * scale + top;
-            if (crownInCard < targetH * 0.04f) {
-                // If the forehead/hair would be cut off, push down so her entire head is preserved!
-                top += (targetH * 0.04f - crownInCard);
+            // Headroom check: top of hair/head is roughly face.centerY - (face.eyeDistance * 1.95f)
+            float estimatedCrownY = face.centerY - (face.eyeDistance * 1.95f);
+            if (estimatedCrownY <= sH * 0.15f) {
+                // If head/hair is near the top of the photo, NEVER shift up! Keep top anchored at 0!
+                top = 0f;
+            } else {
+                float crownInCard = estimatedCrownY * scale + top;
+                if (crownInCard < targetH * 0.05f) {
+                    top += (targetH * 0.05f - crownInCard);
+                }
             }
 
-            // Ensure card is 100% filled
+            // Ensure card is 100% filled and top never exceeds 0
             top = Math.min(0f, Math.max(targetH - drawH, top));
 
             RectF dst = new RectF(left, top, left + drawW, top + drawH);
@@ -572,11 +584,10 @@ public class CardImageLoader {
         float drawW = sW * scale;
         float drawH = sH * scale;
         float left = (targetW - drawW) / 2f;
-        float top;
-        if (drawH > targetH) {
-            // Keep upper bias gentle (12%) so forehead/hair are never cut off
-            top = (targetH - drawH) * 0.12f;
-        } else {
+        // In idol photography, head/face is always in the upper third!
+        // Always anchor top at 0 so forehead/hair/bangs are never cut off!
+        float top = 0f;
+        if (drawH < targetH) {
             top = (targetH - drawH) / 2f;
         }
 

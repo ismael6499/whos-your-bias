@@ -179,7 +179,11 @@ public class BiasRepository {
 
                     int prevUnlCount = c.getUnlockedPhotocards().size();
 
-                    if (needsSync) {
+                    if (c.getId().startsWith("idol_illit_")) {
+                        // Always use curated 30 unique photocards without duplicates for ILLIT
+                        c.setPhotocards(new ArrayList<>(bundledList));
+                        changed = true;
+                    } else if (needsSync) {
                         List<String> updated = new ArrayList<>(bundledList);
                         for (String cp : customUserPhotos) {
                             if (!updated.contains(cp)) updated.add(cp);
@@ -203,7 +207,7 @@ public class BiasRepository {
                 }
                 if ("idol_illit_moka".equals(c.getId())) {
                     c.unlockAllPhotocards();
-                } else if (c.getUnlockedPhotocards().size() < 3) {
+                } else {
                     c.unlockInitialPhotocards();
                 }
             }

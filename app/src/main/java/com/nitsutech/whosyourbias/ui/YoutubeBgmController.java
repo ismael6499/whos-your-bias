@@ -15,20 +15,30 @@ import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.cardview.widget.CardView;
 import androidx.core.app.NotificationCompat;
 
 import com.nitsutech.whosyourbias.R;
 import com.nitsutech.whosyourbias.data.BiasRepository;
+import com.nitsutech.whosyourbias.util.CardImageLoader;
 import com.nitsutech.whosyourbias.util.ThemeManager;
 
 import org.json.JSONArray;
@@ -43,17 +53,22 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class YoutubeBgmController {
     private static final String PREF_BGM_URL = "bgm_stream_url_v2";
     private static final String PREF_BGM_TITLE = "bgm_stream_title_v2";
-    private static final String PREF_BGM_AUTOPLAY = "bgm_autoplay_v2";
-    private static final String PREF_SAVED_SONGS = "bgm_saved_songs_v2";
+    private static final String PREF_BGM_AUTOPLAY = "bgm_autoplay";
+    private static final String PREF_SAVED_SONGS = "bgm_saved_songs_json";
 
-    private static final String NOTIF_CHANNEL_ID = "whos_your_bias_music_channel";
-    private static final int NOTIF_ID = 7701;
+    public static final String ACTION_TOGGLE_PLAY = "com.nitsutech.whosyourbias.ACTION_BGM_TOGGLE";
+    public static final String ACTION_STOP = "com.nitsutech.whosyourbias.ACTION_BGM_STOP";
+    private static final String CHANNEL_ID = "wyb_music_channel";
+    private static final int NOTIF_ID = 4040;
 
     // Verified high-speed studio audio streams (.m4a)
     public static final String[][] PRESETS = new String[][]{
@@ -90,36 +105,77 @@ public class YoutubeBgmController {
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private final Activity activity;
+    private final WebView webView;
+    private final View videoContainer;
     private final TextView tvNowPlaying;
     private final TextView btnPlayPause;
     private final TextView btnMute;
+    private final TextView btnVideoToggle;
     private final SharedPreferences prefs;
 
-    public YoutubeBgmController(Activity activity, WebView unusedWebView, View videoContainer,
+    public static class YoutubeSearchResult {
+        public final String videoId;
+        public final String title;
+        public final String channel;
+        public final String thumbUrl;
+
+        public YoutubeSearchResult(String videoId, String title, String channel, String thumbUrl) {
+            this.videoId = videoId;
+            this.title = title;
+            this.channel = channel;
+            this.thumbUrl = thumbUrl;
+        }
+    }
+
+    public YoutubeBgmController(Activity activity, WebView webView, View videoContainer,
                                 TextView tvNowPlaying, TextView btnPlayPause, TextView btnMute,
                                 TextView btnVideoToggle, TextView btnChangeSong) {
         this.activity = activity;
+        this.webView = webView;
+        this.videoContainer = videoContainer;
         this.tvNowPlaying = tvNowPlaying;
         this.btnPlayPause = btnPlayPause;
         this.btnMute = btnMute;
+        this.btnVideoToggle = btnVideoToggle;
         this.prefs = BiasRepository.getInstance(activity).getPrefs();
         activeControllerRef = new WeakReference<>(this);
 
+        if (this.webView != null) {
+            WebSettings ws = this.webView.getSettings();
+            ws.setJavaScriptEnabled(true);
+            ws.setDomStorageEnabled(true);
+            ws.setMediaPlaybackRequiresUserGesture(false);
+            this.webView.setBackgroundColor(Color.BLACK);
+            this.webView.setWebChromeClient(new WebChromeClient());
+            this.webView.setWebViewClient(new WebViewClient());
+        }
+
         if (videoContainer != null) videoContainer.setVisibility(View.GONE);
-        if (btnVideoToggle != null) btnVideoToggle.setVisibility(View.GONE);
+        if (btnVideoToggle != null) {
+            btnVideoToggle.setVisibility(View.GONE);
+            btnVideoToggle.setOnClickListener(v -> {
+                if (videoContainer != null) {
+                    boolean isVis = videoContainer.getVisibility() == View.VISIBLE;
+                    videoContainer.setVisibility(isVis ? View.GONE : View.VISIBLE);
+                    btnVideoToggle.setText(isVis ? "📺" : "✕");
+                }
+            });
+        }
 
         String savedUrl = prefs.getString(PREF_BGM_URL, PRESETS[0][1]);
         String savedTitle = prefs.getString(PREF_BGM_TITLE, PRESETS[0][0]);
         boolean shouldAutoPlay = prefs.getBoolean(PREF_BGM_AUTOPLAY, true);
 
-        this.tvNowPlaying.setText(savedTitle);
+        if (this.tvNowPlaying != null) this.tvNowPlaying.setText(savedTitle);
 
         this.btnPlayPause.setOnClickListener(v -> togglePlayPause());
         this.btnMute.setOnClickListener(v -> toggleMute());
         if (btnChangeSong != null) {
             btnChangeSong.setOnClickListener(v -> showSongSelectorDialog());
         }
-        this.tvNowPlaying.setOnClickListener(v -> showSongSelectorDialog());
+        if (this.tvNowPlaying != null) {
+            this.tvNowPlaying.setOnClickListener(v -> showSongSelectorDialog());
+        }
 
         if (sharedPlayer != null && isPrepared && savedUrl.equals(activeStreamUrl)) {
             updateButtonsUi();
@@ -128,11 +184,64 @@ public class YoutubeBgmController {
         }
     }
 
+    public static boolean isYoutubeUrl(String url) {
+        if (url == null) return false;
+        String s = url.trim().toLowerCase(Locale.ROOT);
+        return s.contains("youtube.com") || s.contains("youtu.be") || s.matches("^[a-za-z0-9_\\-]{11}$");
+    }
+
+    public static String extractYoutubeId(String urlOrId) {
+        if (urlOrId == null) return "Vk5-c_v4gMU";
+        String s = urlOrId.trim();
+        Matcher m = Pattern.compile("(?:v=|youtu\\.be/|embed/|shorts/)([A-Za-z0-9_\\-]{11})").matcher(s);
+        if (m.find()) return m.group(1);
+        if (s.matches("^[A-Za-z0-9_\\-]{11}$")) return s;
+        return s;
+    }
+
     private void startStream(String title, String streamUrl, boolean autoPlay) {
         activeSongTitle = title;
         activeStreamUrl = streamUrl;
         isPrepared = false;
         if (tvNowPlaying != null) tvNowPlaying.setText(title);
+
+        boolean isYt = isYoutubeUrl(streamUrl);
+        if (btnVideoToggle != null) {
+            btnVideoToggle.setVisibility(isYt ? View.VISIBLE : View.GONE);
+            btnVideoToggle.setText("📺");
+        }
+
+        if (isYt) {
+            // Stop any native audio
+            if (sharedPlayer != null) {
+                try {
+                    sharedPlayer.reset();
+                } catch (Exception ignored) {}
+            }
+            String vid = extractYoutubeId(streamUrl);
+            if (webView != null) {
+                if (autoPlay) {
+                    String html = buildYoutubeIframeHtml(vid);
+                    webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
+                    isPlaying = true;
+                    isPrepared = true;
+                    showOrUpdateMusicNotification(activity.getApplicationContext());
+                } else {
+                    webView.loadUrl("about:blank");
+                    isPlaying = false;
+                }
+            }
+            updateButtonsUi();
+            return;
+        }
+
+        // Native .m4a / audio stream via MediaPlayer
+        if (webView != null) {
+            webView.loadUrl("about:blank");
+        }
+        if (videoContainer != null) {
+            videoContainer.setVisibility(View.GONE);
+        }
 
         try {
             if (sharedPlayer == null) {
@@ -173,6 +282,23 @@ public class YoutubeBgmController {
     }
 
     public void togglePlayPause() {
+        if (isYoutubeUrl(activeStreamUrl)) {
+            if (webView != null) {
+                if (isPlaying) {
+                    webView.evaluateJavascript("if(window.pauseBgm){pauseBgm();}else if(player){player.pauseVideo();}", null);
+                    isPlaying = false;
+                    prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
+                } else {
+                    webView.evaluateJavascript("if(window.playBgm){playBgm();}else if(player){player.playVideo();}", null);
+                    isPlaying = true;
+                    prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
+                }
+            }
+            updateButtonsUi();
+            showOrUpdateMusicNotification(activity.getApplicationContext());
+            return;
+        }
+
         if (sharedPlayer == null || !isPrepared) {
             String url = prefs.getString(PREF_BGM_URL, PRESETS[0][1]);
             String title = prefs.getString(PREF_BGM_TITLE, PRESETS[0][0]);
@@ -198,7 +324,11 @@ public class YoutubeBgmController {
 
     public void toggleMute() {
         isMuted = !isMuted;
-        if (sharedPlayer != null && isPrepared) {
+        if (isYoutubeUrl(activeStreamUrl)) {
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.toggleMuteBgm){toggleMuteBgm(" + isMuted + ");}", null);
+            }
+        } else if (sharedPlayer != null) {
             float vol = isMuted ? 0f : 1f;
             sharedPlayer.setVolume(vol, vol);
         }
@@ -206,23 +336,58 @@ public class YoutubeBgmController {
     }
 
     public void updateButtonsUi() {
-        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(activity);
         if (btnPlayPause != null) {
             btnPlayPause.setText(isPlaying ? "⏸" : "▶");
-            btnPlayPause.setBackground(ThemeManager.createPillDrawable(activity, theme.primaryColor, 14));
-            btnPlayPause.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         }
         if (btnMute != null) {
             btnMute.setText(isMuted ? "🔇" : "🔊");
         }
-        if (tvNowPlaying != null && activeSongTitle != null && !activeSongTitle.isEmpty()) {
+        if (tvNowPlaying != null) {
             tvNowPlaying.setText(activeSongTitle);
         }
     }
 
+    private String buildYoutubeIframeHtml(String videoId) {
+        return "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>"
+                + "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000000;overflow:hidden;}"
+                + "#player{width:100%;height:100%;}</style></head><body>"
+                + "<div id='player'></div>"
+                + "<script>"
+                + "var tag = document.createElement('script');"
+                + "tag.src = 'https://www.youtube.com/iframe_api';"
+                + "var firstScriptTag = document.getElementsByTagName('script')[0];"
+                + "firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);"
+                + "var player;"
+                + "function onYouTubeIframeAPIReady() {"
+                + "  player = new YT.Player('player', {"
+                + "    height: '100%', width: '100%',"
+                + "    videoId: '" + videoId + "',"
+                + "    playerVars: { 'autoplay': 1, 'playsinline': 1, 'loop': 1, 'playlist': '" + videoId + "', 'controls': 1, 'rel': 0 },"
+                + "    events: {"
+                + "      'onReady': function(e) { e.target.playVideo(); if(" + isMuted + ") e.target.mute(); }"
+                + "    }"
+                + "  });"
+                + "}"
+                + "window.toggleMuteBgm = function(m) { if(!player) return; if(m) player.mute(); else player.unMute(); };"
+                + "window.playBgm = function() { if(player) player.playVideo(); };"
+                + "window.pauseBgm = function() { if(player) player.pauseVideo(); };"
+                + "</script></body></html>";
+    }
+
     public static void handleNotificationToggle(Context context) {
-        if (sharedPlayer != null && isPrepared) {
-            try {
+        handleMediaAction(context, ACTION_TOGGLE_PLAY);
+    }
+
+    public static void handleNotificationStop(Context context) {
+        handleMediaAction(context, ACTION_STOP);
+    }
+
+    public static void handleMediaAction(Context context, String action) {
+        if (ACTION_TOGGLE_PLAY.equals(action) || BgmNotificationReceiver.ACTION_TOGGLE_PLAY.equals(action)) {
+            YoutubeBgmController active = activeControllerRef != null ? activeControllerRef.get() : null;
+            if (active != null) {
+                active.togglePlayPause();
+            } else if (sharedPlayer != null && isPrepared) {
                 if (sharedPlayer.isPlaying()) {
                     sharedPlayer.pause();
                     isPlaying = false;
@@ -230,73 +395,57 @@ public class YoutubeBgmController {
                     sharedPlayer.start();
                     isPlaying = true;
                 }
-                BiasRepository.getInstance(context).getPrefs().edit().putBoolean(PREF_BGM_AUTOPLAY, isPlaying).apply();
                 showOrUpdateMusicNotification(context);
-                if (activeControllerRef != null && activeControllerRef.get() != null) {
-                    mainHandler.post(() -> {
-                        YoutubeBgmController c = activeControllerRef.get();
-                        if (c != null) c.updateButtonsUi();
-                    });
+            }
+        } else if (ACTION_STOP.equals(action) || BgmNotificationReceiver.ACTION_STOP_BGM.equals(action)) {
+            if (sharedPlayer != null) {
+                try {
+                    sharedPlayer.stop();
+                    sharedPlayer.reset();
+                } catch (Exception ignored) {
                 }
-            } catch (Exception ignored) {
             }
-        }
-    }
-
-    public static void handleNotificationStop(Context context) {
-        if (sharedPlayer != null && isPrepared) {
-            try {
-                if (sharedPlayer.isPlaying()) sharedPlayer.pause();
-                isPlaying = false;
-                BiasRepository.getInstance(context).getPrefs().edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
-            } catch (Exception ignored) {
-            }
-        }
-        NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) nm.cancel(NOTIF_ID);
-        if (activeControllerRef != null && activeControllerRef.get() != null) {
-            mainHandler.post(() -> {
-                YoutubeBgmController c = activeControllerRef.get();
-                if (c != null) c.updateButtonsUi();
-            });
+            isPlaying = false;
+            isPrepared = false;
+            NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) nm.cancel(NOTIF_ID);
+            YoutubeBgmController active = activeControllerRef != null ? activeControllerRef.get() : null;
+            if (active != null) active.updateButtonsUi();
         }
     }
 
     public static void showOrUpdateMusicNotification(Context context) {
+        if (context == null) return;
         try {
             NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return;
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationChannel channel = new NotificationChannel(
-                        NOTIF_CHANNEL_ID,
-                        "Música de Fondo (Who's your Bias)",
-                        NotificationManager.IMPORTANCE_LOW);
-                channel.setDescription("Control rápido para pausar o reproducir la canción actual");
-                channel.setShowBadge(false);
-                nm.createNotificationChannel(channel);
+                NotificationChannel chan = new NotificationChannel(
+                        CHANNEL_ID, "Who\'s your Bias BGM", NotificationManager.IMPORTANCE_LOW);
+                chan.setDescription("Music playback controls for tournament matches");
+                chan.setShowBadge(false);
+                chan.enableVibration(false);
+                nm.createNotificationChannel(chan);
             }
 
+            Intent toggleIntent = new Intent(context, BgmNotificationReceiver.class).setAction(BgmNotificationReceiver.ACTION_TOGGLE_PLAY);
+            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT;
+            PendingIntent togglePi = PendingIntent.getBroadcast(context, 101, toggleIntent, flags);
+
+            Intent stopIntent = new Intent(context, BgmNotificationReceiver.class).setAction(BgmNotificationReceiver.ACTION_STOP_BGM);
+            PendingIntent stopPi = PendingIntent.getBroadcast(context, 102, stopIntent, flags);
+
             Intent openIntent = new Intent(context, MainActivity.class);
-            openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0);
-            PendingIntent contentPi = PendingIntent.getActivity(context, 10, openIntent, flags);
+            PendingIntent openPi = PendingIntent.getActivity(context, 100, openIntent, flags);
 
-            Intent toggleIntent = new Intent(context, BgmNotificationReceiver.class);
-            toggleIntent.setAction(BgmNotificationReceiver.ACTION_TOGGLE_PLAY);
-            PendingIntent togglePi = PendingIntent.getBroadcast(context, 11, toggleIntent, flags);
-
-            Intent stopIntent = new Intent(context, BgmNotificationReceiver.class);
-            stopIntent.setAction(BgmNotificationReceiver.ACTION_STOP_BGM);
-            PendingIntent stopPi = PendingIntent.getBroadcast(context, 12, stopIntent, flags);
-
-            NotificationCompat.Builder nb = new NotificationCompat.Builder(context, NOTIF_CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.ic_media_play)
-                    .setContentTitle(activeSongTitle != null ? activeSongTitle : "Who's your Bias")
-                    .setContentText(isPlaying ? "🎵 Reproduciendo • Tocá Pausar para silenciar" : "⏸ En pausa • Tocá Reproducir para continuar")
-                    .setContentIntent(contentPi)
+            NotificationCompat.Builder nb = new NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle("🎵 " + activeSongTitle)
+                    .setContentText("Who\'s your Bias • BGM")
+                    .setContentIntent(openPi)
                     .setOngoing(isPlaying)
-                    .setOnlyAlertOnce(true)
+                    .setAutoCancel(!isPlaying)
                     .setPriority(NotificationCompat.PRIORITY_LOW)
                     .addAction(isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
                             isPlaying ? "⏸ Pausar" : "▶ Reproducir", togglePi)
@@ -357,6 +506,80 @@ public class YoutubeBgmController {
         prefs.edit().putString(PREF_SAVED_SONGS, arr.toString()).apply();
     }
 
+    public static List<YoutubeSearchResult> searchYoutubeSync(String query) {
+        List<YoutubeSearchResult> list = new ArrayList<>();
+        if (query == null || query.trim().isEmpty()) return list;
+        try {
+            String q = URLEncoder.encode(query.trim(), "UTF-8");
+            String url = "https://www.youtube.com/results?search_query=" + q;
+            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+            conn.setConnectTimeout(6000);
+            conn.setReadTimeout(6000);
+            StringBuilder sb = new StringBuilder();
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    sb.append(line);
+                }
+            }
+            String html = sb.toString();
+            Matcher matcher = Pattern.compile("ytInitialData\\s*=\\s*(\\{.+?\\});<\\/script>").matcher(html);
+            if (matcher.find()) {
+                JSONObject json = new JSONObject(matcher.group(1));
+                JSONObject twoCol = json.optJSONObject("contents")
+                        .optJSONObject("twoColumnSearchResultsRenderer");
+                if (twoCol != null) {
+                    JSONArray sections = twoCol.optJSONObject("primaryContents")
+                            .optJSONObject("sectionListRenderer")
+                            .optJSONArray("contents");
+                    if (sections != null) {
+                        for (int s = 0; s < sections.length(); s++) {
+                            JSONObject sec = sections.optJSONObject(s);
+                            if (sec == null) continue;
+                            JSONArray items = sec.optJSONObject("itemSectionRenderer") != null ?
+                                    sec.optJSONObject("itemSectionRenderer").optJSONArray("contents") : null;
+                            if (items == null) continue;
+                            for (int i = 0; i < items.length(); i++) {
+                                JSONObject item = items.optJSONObject(i);
+                                if (item == null) continue;
+                                JSONObject vr = item.optJSONObject("videoRenderer");
+                                if (vr != null) {
+                                    String id = vr.optString("videoId", "");
+                                    String title = "";
+                                    JSONObject tObj = vr.optJSONObject("title");
+                                    if (tObj != null) {
+                                        JSONArray runs = tObj.optJSONArray("runs");
+                                        if (runs != null && runs.length() > 0) {
+                                            title = runs.getJSONObject(0).optString("text", "");
+                                        }
+                                    }
+                                    String channel = "";
+                                    JSONObject cObj = vr.optJSONObject("ownerText");
+                                    if (cObj != null) {
+                                        JSONArray runs = cObj.optJSONArray("runs");
+                                        if (runs != null && runs.length() > 0) {
+                                            channel = runs.getJSONObject(0).optString("text", "");
+                                        }
+                                    }
+                                    if (!id.isEmpty() && !title.isEmpty()) {
+                                        String thumb = "https://img.youtube.com/vi/" + id + "/mqdefault.jpg";
+                                        list.add(new YoutubeSearchResult(id, title, channel, thumb));
+                                        if (list.size() >= 12) break;
+                                    }
+                                }
+                            }
+                            if (!list.isEmpty()) break;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
     public void showSongSelectorDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
 
@@ -367,33 +590,63 @@ public class YoutubeBgmController {
         root.setBackgroundColor(Color.WHITE);
 
         TextView header = new TextView(activity);
-        header.setText("🎵 Elegir o Buscar Canción de Fondo");
+        header.setText("🎵 " + activity.getString(R.string.bgm_presets_section));
         header.setTextColor(Color.parseColor("#111827"));
         header.setTextSize(17f);
         header.setTypeface(Typeface.DEFAULT_BOLD);
         header.setPadding(0, 0, 0, dp(10));
         root.addView(header);
 
-        // Live Song Search Bar
+        // Search Bar with Clear '✕' Button
         LinearLayout searchRow = new LinearLayout(activity);
         searchRow.setOrientation(LinearLayout.HORIZONTAL);
         searchRow.setGravity(Gravity.CENTER_VERTICAL);
 
+        FrameLayout searchWrap = new FrameLayout(activity);
+        LinearLayout.LayoutParams swLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        swLp.setMargins(0, 0, dp(8), 0);
+        searchWrap.setLayoutParams(swLp);
+
         EditText etSearch = new EditText(activity);
-        etSearch.setHint("🔍 Buscar canción (ej: NEXZ, TWICE, Jennie)...");
+        etSearch.setHint(activity.getString(R.string.bgm_search_hint));
         etSearch.setTextColor(Color.parseColor("#111827"));
         etSearch.setHintTextColor(Color.parseColor("#9CA3AF"));
         etSearch.setTextSize(13f);
         etSearch.setSingleLine(true);
         etSearch.setBackgroundResource(R.drawable.bg_chip_tag);
-        etSearch.setPadding(dp(12), dp(10), dp(12), dp(10));
-        LinearLayout.LayoutParams etLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        etLp.setMargins(0, 0, dp(8), 0);
-        etSearch.setLayoutParams(etLp);
-        searchRow.addView(etSearch);
+        etSearch.setPadding(dp(14), dp(10), dp(36), dp(10));
+        etSearch.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        searchWrap.addView(etSearch);
+
+        TextView btnClear = new TextView(activity);
+        btnClear.setText("✕");
+        btnClear.setTextSize(14f);
+        btnClear.setTypeface(Typeface.DEFAULT_BOLD);
+        btnClear.setTextColor(Color.parseColor("#9CA3AF"));
+        btnClear.setGravity(Gravity.CENTER);
+        int cp = dp(8);
+        btnClear.setPadding(cp, cp, cp, cp);
+        FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.END | Gravity.CENTER_VERTICAL);
+        clp.setMargins(0, 0, dp(8), 0);
+        btnClear.setLayoutParams(clp);
+        btnClear.setVisibility(View.GONE);
+        btnClear.setOnClickListener(v -> etSearch.setText(""));
+        searchWrap.addView(btnClear);
+
+        etSearch.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                btnClear.setVisibility(s != null && s.length() > 0 ? View.VISIBLE : View.GONE);
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        searchRow.addView(searchWrap);
 
         TextView btnSearch = new TextView(activity);
-        btnSearch.setText("Buscar");
+        btnSearch.setText(activity.getString(R.string.bgm_search_btn));
         btnSearch.setTextColor(Color.parseColor("#111827"));
         btnSearch.setTypeface(Typeface.DEFAULT_BOLD);
         btnSearch.setTextSize(12.5f);
@@ -424,7 +677,7 @@ public class YoutubeBgmController {
                 List<String[]> saved = getSavedCustomSongs();
                 if (!saved.isEmpty()) {
                     TextView tvSavedSec = new TextView(activity);
-                    tvSavedSec.setText("⭐ Mis Canciones Guardadas");
+                    tvSavedSec.setText(activity.getString(R.string.bgm_saved_section));
                     tvSavedSec.setTextColor(Color.parseColor("#EC4899"));
                     tvSavedSec.setTextSize(12.5f);
                     tvSavedSec.setTypeface(Typeface.DEFAULT_BOLD);
@@ -432,11 +685,17 @@ public class YoutubeBgmController {
                     listContainer.addView(tvSavedSec);
 
                     for (String[] s : saved) {
-                        addSongRow(listContainer, s[0], s[1], dialogRef, false, true, this);
+                        if (isYoutubeUrl(s[1])) {
+                            String vid = extractYoutubeId(s[1]);
+                            String thumb = "https://img.youtube.com/vi/" + vid + "/mqdefault.jpg";
+                            addYoutubeSongRow(listContainer, vid, s[0], "YouTube", thumb, dialogRef, false, this);
+                        } else {
+                            addSongRow(listContainer, s[0], s[1], dialogRef, false, true, this);
+                        }
                     }
 
                     TextView tvPresetsSec = new TextView(activity);
-                    tvPresetsSec.setText("🎵 Canciones Recomendadas K-Pop");
+                    tvPresetsSec.setText(activity.getString(R.string.bgm_presets_section));
                     tvPresetsSec.setTextColor(Color.parseColor("#6B7280"));
                     tvPresetsSec.setTextSize(12f);
                     tvPresetsSec.setTypeface(Typeface.DEFAULT_BOLD);
@@ -459,8 +718,12 @@ public class YoutubeBgmController {
             }
             btnSearch.setText("✨...");
             searchExecutor.execute(() -> {
+                List<YoutubeSearchResult> ytResults = searchYoutubeSync(q);
+
+                // Also fetch iTunes previews as studio fallback
+                List<String[]> itunesResults = new ArrayList<>();
                 try {
-                    String url = "https://itunes.apple.com/search?term=" + URLEncoder.encode(q, "UTF-8") + "&entity=song&limit=10";
+                    String url = "https://itunes.apple.com/search?term=" + URLEncoder.encode(q, "UTF-8") + "&entity=song&limit=6";
                     HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
                     conn.setConnectTimeout(4500);
                     conn.setReadTimeout(4500);
@@ -471,24 +734,7 @@ public class YoutubeBgmController {
                     }
                     JSONObject json = new JSONObject(sb.toString());
                     JSONArray results = json.optJSONArray("results");
-                    mainHandler.post(() -> {
-                        btnSearch.setText("Buscar");
-                        listContainer.removeAllViews();
-
-                        TextView btnBackToList = new TextView(activity);
-                        btnBackToList.setText("← Volver a mi lista guardada");
-                        btnBackToList.setTextColor(Color.parseColor("#EC4899"));
-                        btnBackToList.setTextSize(12.5f);
-                        btnBackToList.setTypeface(Typeface.DEFAULT_BOLD);
-                        btnBackToList.setPadding(dp(6), dp(4), dp(6), dp(10));
-                        btnBackToList.setOnClickListener(v2 -> populateSavedAndPresets.run());
-                        listContainer.addView(btnBackToList);
-
-                        if (results == null || results.length() == 0) {
-                            Toast.makeText(activity, "No se encontraron canciones para: " + q, Toast.LENGTH_SHORT).show();
-                            populateSavedAndPresets.run();
-                            return;
-                        }
+                    if (results != null) {
                         for (int i = 0; i < results.length(); i++) {
                             JSONObject item = results.optJSONObject(i);
                             if (item != null) {
@@ -496,17 +742,62 @@ public class YoutubeBgmController {
                                 String track = item.optString("trackName", "");
                                 String preview = item.optString("previewUrl", "");
                                 if (!preview.isEmpty()) {
-                                    addSongRow(listContainer, "🎵 " + artist + " - " + track, preview, dialogRef, true, false, populateSavedAndPresets);
+                                    itunesResults.add(new String[]{"🎵 " + artist + " - " + track, preview});
                                 }
                             }
                         }
-                    });
-                } catch (Exception e) {
-                    mainHandler.post(() -> {
-                        btnSearch.setText("Buscar");
-                        Toast.makeText(activity, "Error buscando canción", Toast.LENGTH_SHORT).show();
-                    });
-                }
+                    }
+                } catch (Exception ignored) {}
+
+                mainHandler.post(() -> {
+                    btnSearch.setText(activity.getString(R.string.bgm_search_btn));
+                    listContainer.removeAllViews();
+
+                    TextView btnBackToList = new TextView(activity);
+                    btnBackToList.setText(activity.getString(R.string.bgm_back_saved));
+                    btnBackToList.setTextColor(Color.parseColor("#EC4899"));
+                    btnBackToList.setTextSize(12.5f);
+                    btnBackToList.setTypeface(Typeface.DEFAULT_BOLD);
+                    btnBackToList.setPadding(dp(6), dp(4), dp(6), dp(10));
+                    btnBackToList.setOnClickListener(v2 -> populateSavedAndPresets.run());
+                    listContainer.addView(btnBackToList);
+
+                    if (ytResults.isEmpty() && itunesResults.isEmpty()) {
+                        Toast.makeText(activity, activity.getString(R.string.bgm_no_results, q), Toast.LENGTH_SHORT).show();
+                        populateSavedAndPresets.run();
+                        return;
+                    }
+
+                    // 1. YouTube Videos
+                    if (!ytResults.isEmpty()) {
+                        TextView tvYtHeader = new TextView(activity);
+                        tvYtHeader.setText("▶️ Videos de YouTube");
+                        tvYtHeader.setTextColor(Color.parseColor("#DC2626"));
+                        tvYtHeader.setTextSize(12f);
+                        tvYtHeader.setTypeface(Typeface.DEFAULT_BOLD);
+                        tvYtHeader.setPadding(dp(4), dp(4), dp(4), dp(6));
+                        listContainer.addView(tvYtHeader);
+
+                        for (YoutubeSearchResult ytr : ytResults) {
+                            addYoutubeSongRow(listContainer, ytr.videoId, ytr.title, ytr.channel, ytr.thumbUrl, dialogRef, true, populateSavedAndPresets);
+                        }
+                    }
+
+                    // 2. Audio Previews
+                    if (!itunesResults.isEmpty()) {
+                        TextView tvAudioHeader = new TextView(activity);
+                        tvAudioHeader.setText("🎧 Audio Studio Previews");
+                        tvAudioHeader.setTextColor(Color.parseColor("#6B7280"));
+                        tvAudioHeader.setTextSize(12f);
+                        tvAudioHeader.setTypeface(Typeface.DEFAULT_BOLD);
+                        tvAudioHeader.setPadding(dp(4), dp(10), dp(4), dp(6));
+                        listContainer.addView(tvAudioHeader);
+
+                        for (String[] it : itunesResults) {
+                            addSongRow(listContainer, it[0], it[1], dialogRef, true, false, populateSavedAndPresets);
+                        }
+                    }
+                });
             });
         });
 
@@ -514,6 +805,85 @@ public class YoutubeBgmController {
         builder.setNegativeButton(R.string.btn_cancel, null);
         dialogRef[0] = builder.create();
         dialogRef[0].show();
+    }
+
+    private void addYoutubeSongRow(LinearLayout parent, String videoId, String title, String channel, String thumbUrl,
+                                   AlertDialog[] dialogRef, boolean canSaveToList, Runnable refreshListCallback) {
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(R.drawable.bg_chip_tag);
+        row.setPadding(dp(8), dp(8), dp(8), dp(8));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 0, 0, dp(8));
+        row.setLayoutParams(lp);
+
+        // 16:9 Thumbnail Card
+        CardView thumbCard = new CardView(activity);
+        thumbCard.setRadius(dp(8));
+        thumbCard.setCardElevation(dp(1));
+        LinearLayout.LayoutParams tLp = new LinearLayout.LayoutParams(dp(76), dp(48));
+        tLp.setMargins(0, 0, dp(10), 0);
+        thumbCard.setLayoutParams(tLp);
+
+        ImageView ivThumb = new ImageView(activity);
+        ivThumb.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        ivThumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        thumbCard.addView(ivThumb);
+        CardImageLoader.loadUriIntoImageView(activity, thumbUrl, ivThumb);
+        row.addView(thumbCard);
+
+        // Title and Channel Text Column
+        LinearLayout textCol = new LinearLayout(activity);
+        textCol.setOrientation(LinearLayout.VERTICAL);
+        textCol.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView tvTitle = new TextView(activity);
+        tvTitle.setText(title);
+        tvTitle.setTextColor(Color.parseColor("#111827"));
+        tvTitle.setTextSize(12.5f);
+        tvTitle.setMaxLines(2);
+        tvTitle.setEllipsize(TextUtils.TruncateAt.END);
+        tvTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        textCol.addView(tvTitle);
+
+        TextView tvChannel = new TextView(activity);
+        tvChannel.setText("▶️ " + channel);
+        tvChannel.setTextColor(Color.parseColor("#6B7280"));
+        tvChannel.setTextSize(11f);
+        tvChannel.setPadding(0, dp(2), 0, 0);
+        textCol.addView(tvChannel);
+
+        row.addView(textCol);
+
+        final String fullLabel = "▶️ " + title;
+        final String ytUrl = "https://www.youtube.com/watch?v=" + videoId;
+
+        row.setOnClickListener(v -> {
+            prefs.edit()
+                    .putString(PREF_BGM_TITLE, fullLabel)
+                    .putString(PREF_BGM_URL, ytUrl)
+                    .putBoolean(PREF_BGM_AUTOPLAY, true)
+                    .apply();
+            startStream(fullLabel, ytUrl, true);
+            if (dialogRef[0] != null) dialogRef[0].dismiss();
+        });
+
+        if (canSaveToList) {
+            TextView btnSave = new TextView(activity);
+            btnSave.setText("⭐");
+            btnSave.setTextSize(14f);
+            btnSave.setPadding(dp(8), dp(6), dp(8), dp(6));
+            btnSave.setOnClickListener(v -> {
+                saveCustomSong(fullLabel, ytUrl);
+                Toast.makeText(activity, activity.getString(R.string.bgm_video_saved_toast), Toast.LENGTH_SHORT).show();
+            });
+            row.addView(btnSave);
+        }
+
+        parent.addView(row);
     }
 
     private void addSongRow(LinearLayout parent, String label, String streamUrl, AlertDialog[] dialogRef,
@@ -547,7 +917,7 @@ public class YoutubeBgmController {
 
         if (canSaveToList) {
             final TextView btnSave = new TextView(activity);
-            btnSave.setText("⭐ Guardar");
+            btnSave.setText("⭐ " + activity.getString(R.string.btn_save_and_play));
             btnSave.setTextColor(Color.parseColor("#111827"));
             btnSave.setTextSize(11f);
             btnSave.setTypeface(Typeface.DEFAULT_BOLD);
@@ -556,8 +926,8 @@ public class YoutubeBgmController {
             btnSave.setPadding(dp(10), dp(6), dp(10), dp(6));
             btnSave.setOnClickListener(v -> {
                 saveCustomSong(label, streamUrl);
-                btnSave.setText("✅ Guardada");
-                Toast.makeText(activity, "⭐ Canción agregada a tu lista guardada", Toast.LENGTH_SHORT).show();
+                btnSave.setText("✅");
+                Toast.makeText(activity, activity.getString(R.string.bgm_video_saved_toast), Toast.LENGTH_SHORT).show();
             });
             row.addView(btnSave);
         } else if (canDeleteFromSaved) {
@@ -576,6 +946,11 @@ public class YoutubeBgmController {
     }
 
     public void pause() {
+        if (isYoutubeUrl(activeStreamUrl) && webView != null) {
+            webView.evaluateJavascript("if(window.pauseBgm){pauseBgm();}else if(player){player.pauseVideo();}", null);
+        } else if (sharedPlayer != null && sharedPlayer.isPlaying()) {
+            sharedPlayer.pause();
+        }
     }
 
     public void resume() {

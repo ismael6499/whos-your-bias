@@ -161,4 +161,17 @@
     <string name="update_download_error">Error al descargar la actualización: %1$s</string>
     <string name="update_install_perm_toast">Habilitá \'Instalar apps desconocidas\' para actualizar Who\'s your Bias</string>
     <string name="btn_check_updates">🔄 Buscar Actualización</string>
+    <string name="hint_search_idols">🔍  Ingrese la palabra clave (idol, grupo, país)...</string>
+    <string name="hint_search_groups">🔍  Buscar grupo o artista (ej: ILLIT, NEXZ, aespa)...</string>
+    <string name="gacha_open_ready">Abrir sobre ›</string>
+    <string name="gacha_cooldown_strip">⏰ Sobre en %1$s</string>
+    <string name="section_matches_title">Partidas y Desafíos</string>
+    <string name="section_create_btn">Crear +</string>
+    <string name="bgm_search_hint">Buscar canción o video en YouTube...</string>
+    <string name="bgm_search_btn">Buscar</string>
+    <string name="bgm_back_saved">← Volver a mi lista guardada</string>
+    <string name="bgm_no_results">No se encontraron canciones para: %1$s</string>
+    <string name="bgm_saved_section">⭐ Mis Canciones y Videos Guardados</string>
+    <string name="bgm_presets_section">🎵 Canciones Recomendadas K-Pop</string>
+    <string name="bgm_video_saved_toast">⭐ Canción agregada a tu lista guardada</string>
 </resources>

@@ -406,14 +406,15 @@ public class MainActivity extends AppCompatActivity {
         TextView tvGachaRight = new TextView(this);
         SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
         long lastGacha = wybPrefs.getLong("last_gacha_open_time", 0);
-        long gachaCooldown = 6 * 60 * 60 * 1000L;
+        long gachaCooldown = 15 * 60 * 1000L; // Free gacha every 15 minutes!
         long gachaRem = (lastGacha + gachaCooldown) - System.currentTimeMillis();
         if (gachaRem > 0) {
-            long gh = gachaRem / (60 * 60 * 1000L);
-            long gm = (gachaRem % (60 * 60 * 1000L)) / (60 * 1000L);
-            tvGachaRight.setText(String.format(Locale.ROOT, "⏰ Sobre en %02dh %02dm", gh, gm));
+            long gm = gachaRem / (60 * 1000L);
+            long gs = (gachaRem % (60 * 1000L)) / 1000L;
+            String timeStr = String.format(Locale.ROOT, "%02dm %02ds", gm, gs);
+            tvGachaRight.setText(getString(R.string.gacha_cooldown_strip, timeStr));
         } else {
-            tvGachaRight.setText("Abrir sobre ›");
+            tvGachaRight.setText(getString(R.string.gacha_open_ready));
         }
         tvGachaRight.setTextColor(theme.primaryColor);
         tvGachaRight.setTypeface(Typeface.DEFAULT_BOLD);
@@ -425,8 +426,8 @@ public class MainActivity extends AppCompatActivity {
         gachaStrip.setOnClickListener(v -> showPhotocardGachaDialog());
         root.addView(gachaStrip);
 
-        // 5. Section: Tus Partidas y Desafíos (Rotating daily with daySeed)
-        addSectionHeaderRow(root, "Partidas y Desafíos", "Crear +", this::showVibraryStyleCustomMatchBuilder);
+        // 5. Section: Matches & Challenges (Rotating daily with daySeed)
+        addSectionHeaderRow(root, getString(R.string.section_matches_title), getString(R.string.section_create_btn), this::showVibraryStyleCustomMatchBuilder);
 
         HorizontalScrollView matchesScroll = new HorizontalScrollView(this);
         matchesScroll.setHorizontalScrollBarEnabled(false);
@@ -748,9 +749,9 @@ public class MainActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.setPadding(dp(16), dp(6), dp(16), 0);
 
-        // 1. Clean Pill Search Bar (Vibrary screenshot #4)
+        // 1. Clean Pill Search Bar with Clear '✕' Button
         EditText etSearch = new EditText(this);
-        etSearch.setHint("🔍  Ingrese la palabra clave (idol, grupo, país)...");
+        etSearch.setHint(getString(R.string.hint_search_idols));
         etSearch.setText(idolSearchQuery);
         etSearch.setTextColor(theme.textColor);
         etSearch.setHintTextColor(theme.getMutedTextColor());
@@ -759,7 +760,7 @@ public class MainActivity extends AppCompatActivity {
         etSearch.setGravity(Gravity.CENTER_VERTICAL);
         etSearch.setBackground(ThemeManager.createPillDrawable(this, theme.surfaceColor, 16));
         etSearch.setPadding(dp(16), dp(11), dp(16), dp(11));
-        root.addView(etSearch);
+        root.addView(wrapSearchBarWithClearButton(etSearch, theme));
 
         // 2. Clean Vibrary Underlined Category Tabs (Todo | Favoritos | Girl Groups | Boy Groups | Solistas | Grupos)
         HorizontalScrollView filterScroll = new HorizontalScrollView(this);
@@ -1019,7 +1020,7 @@ public class MainActivity extends AppCompatActivity {
         root.setPadding(dp(18), dp(6), dp(18), 0);
 
         EditText etGroupSearch = new EditText(this);
-        etGroupSearch.setHint("🔍  Buscar grupo o artista (ej: ILLIT, NEXZ, aespa, JYP)...");
+        etGroupSearch.setHint(getString(R.string.hint_search_groups));
         etGroupSearch.setText(groupSearchQuery);
         etGroupSearch.setTextColor(theme.textColor);
         etGroupSearch.setHintTextColor(theme.getMutedTextColor());
@@ -1028,11 +1029,12 @@ public class MainActivity extends AppCompatActivity {
         etGroupSearch.setGravity(Gravity.CENTER_VERTICAL);
         etGroupSearch.setBackground(ThemeManager.createPillDrawable(this, theme.surfaceColor, 16));
         etGroupSearch.setPadding(dp(16), dp(11), dp(16), dp(11));
+        View wrappedGroupSearch = wrapSearchBarWithClearButton(etGroupSearch, theme);
         LinearLayout.LayoutParams sLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         sLp.setMargins(0, 0, 0, dp(12));
-        etGroupSearch.setLayoutParams(sLp);
-        root.addView(etGroupSearch);
+        wrappedGroupSearch.setLayoutParams(sLp);
+        root.addView(wrappedGroupSearch);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);
@@ -2463,7 +2465,11 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 pcRow.removeAllViews();
                 List<String> allPcs = new ArrayList<>(card.getPhotocards());
-                tvPcTitle.setText(getString(R.string.binder_title_format, card.getStageName(), card.getUnlockedPhotocards().size(), allPcs.size()));
+                int unlockedCount = 0;
+                for (String p : allPcs) {
+                    if (card.isPhotocardUnlocked(p)) unlockedCount++;
+                }
+                tvPcTitle.setText(getString(R.string.binder_title_format, card.getStageName(), unlockedCount, allPcs.size()));
 
                 int firstBatch = Math.min(8, allPcs.size());
                 for (int i = 0; i < firstBatch; i++) {
@@ -2663,11 +2669,11 @@ public class MainActivity extends AppCompatActivity {
             ImageView ivThumb = new ImageView(this);
             ivThumb.setLayoutParams(new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            ivThumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            ivThumb.setScaleType(ImageView.ScaleType.FIT_XY);
             IdolCard temp = new IdolCard(card.getId(), card.getStageName(),
                     card.getFullName(), card.getGroupName(), card.isSoloist(), card.getCountry(),
                     card.getBirthDate(), card.getRole(), pcUri, card.getAccentColor(), card.getBio(), card.getCollections());
-            CardImageLoader.loadCardImage(this, temp, ivThumb);
+            CardImageLoader.loadCardImageWithSize(this, temp, ivThumb, dp(192), dp(252));
             frame.addView(ivThumb);
 
             if (isPrimaryCover) {
@@ -3613,6 +3619,44 @@ public class MainActivity extends AppCompatActivity {
         et.setLayoutParams(lp);
         parent.addView(et);
         return et;
+    }
+
+    public View wrapSearchBarWithClearButton(EditText et, ThemeManager.AppTheme theme) {
+        FrameLayout wrap = new FrameLayout(this);
+        wrap.setLayoutParams(et.getLayoutParams() != null ? et.getLayoutParams() :
+                new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        et.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // Reserve space on the right for ✕
+        et.setPadding(et.getPaddingLeft(), et.getPaddingTop(), et.getPaddingRight() + dp(28), et.getPaddingBottom());
+        wrap.addView(et);
+
+        TextView btnClear = new TextView(this);
+        btnClear.setText("✕");
+        btnClear.setTextSize(14f);
+        btnClear.setTypeface(Typeface.DEFAULT_BOLD);
+        btnClear.setTextColor(theme != null ? theme.getMutedTextColor() : Color.parseColor("#9CA3AF"));
+        btnClear.setGravity(Gravity.CENTER);
+        int p = dp(8);
+        btnClear.setPadding(p, p, p, p);
+        FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.END | Gravity.CENTER_VERTICAL);
+        clp.setMargins(0, 0, dp(10), 0);
+        btnClear.setLayoutParams(clp);
+        btnClear.setVisibility(et.getText().length() > 0 ? View.VISIBLE : View.GONE);
+
+        et.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                btnClear.setVisibility(s != null && s.length() > 0 ? View.VISIBLE : View.GONE);
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        btnClear.setOnClickListener(v -> et.setText(""));
+        wrap.addView(btnClear);
+        return wrap;
     }
 
     @Override

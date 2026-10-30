@@ -312,11 +312,20 @@ public class IdolCard implements Serializable {
             unlockedPhotocards = new ArrayList<>();
         }
         List<String> all = getPhotocards();
+        // Remove stale virtual URIs
+        List<String> valid = new ArrayList<>();
+        for (String u : unlockedPhotocards) {
+            if (u != null && !u.startsWith("fandom_pc://") && containsPhotocardIdentity(all, u)) {
+                valid.add(u);
+            }
+        }
+        unlockedPhotocards = valid;
+
         // Guarantee at least the first 3 default photocards are always unlocked!
         int minDefault = Math.min(3, all.size());
         for (int i = 0; i < minDefault; i++) {
             String candidate = all.get(i);
-            if (!containsPhotocardIdentity(unlockedPhotocards, candidate)) {
+            if (candidate != null && !containsPhotocardIdentity(unlockedPhotocards, candidate)) {
                 unlockedPhotocards.add(candidate);
             }
         }
@@ -333,6 +342,14 @@ public class IdolCard implements Serializable {
     public boolean isPhotocardUnlocked(String uri) {
         if ("idol_illit_moka".equals(id)) return true;
         if (uri == null || uri.trim().isEmpty()) return false;
+        if (isSamePhoto(uri, photoUri)) return true;
+        // Starter slots 0, 1, 2 are ALWAYS unlocked for every idol!
+        if (photocards != null) {
+            int starterLimit = Math.min(3, photocards.size());
+            for (int i = 0; i < starterLimit; i++) {
+                if (isSamePhoto(uri, photocards.get(i))) return true;
+            }
+        }
         return containsPhotocardIdentity(getUnlockedPhotocards(), uri);
     }
 
