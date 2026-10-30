@@ -509,30 +509,73 @@ public class YoutubeBgmController {
     public static List<YoutubeSearchResult> searchYoutubeSync(String query) {
         List<YoutubeSearchResult> list = new ArrayList<>();
         if (query == null || query.trim().isEmpty()) return list;
+        String q = query.trim();
+
+        // 1. Direct YouTube link or Video ID pasted by user!
+        if (isYoutubeUrl(q)) {
+            String vid = extractYoutubeId(q);
+            String title = "YouTube Video (" + vid + ")";
+            String channel = "YouTube";
+            String thumb = "https://img.youtube.com/vi/" + vid + "/hqdefault.jpg";
+            try {
+                String oembedUrl = "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=" + vid + "&format=json";
+                HttpURLConnection conn = (HttpURLConnection) new URL(oembedUrl).openConnection();
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+                conn.setConnectTimeout(4500);
+                conn.setReadTimeout(4500);
+                if (conn.getResponseCode() == 200) {
+                    StringBuilder sb = new StringBuilder();
+                    try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                        String line;
+                        while ((line = br.readLine()) != null) sb.append(line);
+                    }
+                    JSONObject json = new JSONObject(sb.toString());
+                    title = json.optString("title", title);
+                    channel = json.optString("author_name", channel);
+                    thumb = json.optString("thumbnail_url", thumb);
+                }
+            } catch (Exception ignored) {}
+            list.add(new YoutubeSearchResult(vid, title, channel, thumb));
+            return list;
+        }
+
+        // 2. Official YouTube InnerTube JSON Endpoint (Zero redirects, instant response)
         try {
-            String q = URLEncoder.encode(query.trim(), "UTF-8");
-            String url = "https://www.youtube.com/results?search_query=" + q;
-            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+            JSONObject body = new JSONObject();
+            JSONObject context = new JSONObject();
+            JSONObject client = new JSONObject();
+            client.put("clientName", "WEB");
+            client.put("clientVersion", "2.20240401.00.00");
+            client.put("hl", "en");
+            client.put("gl", "US");
+            context.put("client", client);
+            body.put("context", context);
+            body.put("query", q);
+
+            byte[] postData = body.toString().getBytes(StandardCharsets.UTF_8);
+            HttpURLConnection conn = (HttpURLConnection) new URL("https://www.youtube.com/youtubei/v1/search").openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("Content-Length", String.valueOf(postData.length));
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            conn.setDoOutput(true);
             conn.setConnectTimeout(6000);
             conn.setReadTimeout(6000);
-            StringBuilder sb = new StringBuilder();
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    sb.append(line);
+            conn.getOutputStream().write(postData);
+
+            if (conn.getResponseCode() == 200) {
+                StringBuilder sb = new StringBuilder();
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line);
                 }
-            }
-            String html = sb.toString();
-            Matcher matcher = Pattern.compile("ytInitialData\\s*=\\s*(\\{.+?\\});<\\/script>").matcher(html);
-            if (matcher.find()) {
-                JSONObject json = new JSONObject(matcher.group(1));
-                JSONObject twoCol = json.optJSONObject("contents")
-                        .optJSONObject("twoColumnSearchResultsRenderer");
+                JSONObject json = new JSONObject(sb.toString());
+                JSONObject twoCol = json.optJSONObject("contents") != null ?
+                        json.optJSONObject("contents").optJSONObject("twoColumnSearchResultsRenderer") : null;
                 if (twoCol != null) {
-                    JSONArray sections = twoCol.optJSONObject("primaryContents")
-                            .optJSONObject("sectionListRenderer")
-                            .optJSONArray("contents");
+                    JSONArray sections = twoCol.optJSONObject("primaryContents") != null ?
+                            twoCol.optJSONObject("primaryContents").optJSONObject("sectionListRenderer") != null ?
+                                    twoCol.optJSONObject("primaryContents").optJSONObject("sectionListRenderer").optJSONArray("contents") : null : null;
                     if (sections != null) {
                         for (int s = 0; s < sections.length(); s++) {
                             JSONObject sec = sections.optJSONObject(s);
@@ -577,6 +620,76 @@ public class YoutubeBgmController {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        // 3. Fallback: Desktop Scrape if InnerTube was empty
+        if (list.isEmpty()) {
+            try {
+                String enc = URLEncoder.encode(q, "UTF-8");
+                String url = "https://www.youtube.com/results?search_query=" + enc;
+                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+                conn.setConnectTimeout(6000);
+                conn.setReadTimeout(6000);
+                conn.setInstanceFollowRedirects(true);
+                StringBuilder sb = new StringBuilder();
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line);
+                }
+                String html = sb.toString();
+                Matcher matcher = Pattern.compile("ytInitialData\\s*=\\s*(\\{.+?\\});<\\/script>").matcher(html);
+                if (matcher.find()) {
+                    JSONObject json = new JSONObject(matcher.group(1));
+                    JSONObject twoCol = json.optJSONObject("contents") != null ?
+                            json.optJSONObject("contents").optJSONObject("twoColumnSearchResultsRenderer") : null;
+                    if (twoCol != null) {
+                        JSONArray sections = twoCol.optJSONObject("primaryContents") != null ?
+                                twoCol.optJSONObject("primaryContents").optJSONObject("sectionListRenderer") != null ?
+                                        twoCol.optJSONObject("primaryContents").optJSONObject("sectionListRenderer").optJSONArray("contents") : null : null;
+                        if (sections != null) {
+                            for (int s = 0; s < sections.length(); s++) {
+                                JSONObject sec = sections.optJSONObject(s);
+                                if (sec == null) continue;
+                                JSONArray items = sec.optJSONObject("itemSectionRenderer") != null ?
+                                        sec.optJSONObject("itemSectionRenderer").optJSONArray("contents") : null;
+                                if (items == null) continue;
+                                for (int i = 0; i < items.length(); i++) {
+                                    JSONObject item = items.optJSONObject(i);
+                                    if (item == null) continue;
+                                    JSONObject vr = item.optJSONObject("videoRenderer");
+                                    if (vr != null) {
+                                        String id = vr.optString("videoId", "");
+                                        String title = "";
+                                        JSONObject tObj = vr.optJSONObject("title");
+                                        if (tObj != null) {
+                                            JSONArray runs = tObj.optJSONArray("runs");
+                                            if (runs != null && runs.length() > 0) {
+                                                title = runs.getJSONObject(0).optString("text", "");
+                                            }
+                                        }
+                                        String channel = "";
+                                        JSONObject cObj = vr.optJSONObject("ownerText");
+                                        if (cObj != null) {
+                                            JSONArray runs = cObj.optJSONArray("runs");
+                                            if (runs != null && runs.length() > 0) {
+                                                channel = runs.getJSONObject(0).optString("text", "");
+                                            }
+                                        }
+                                        if (!id.isEmpty() && !title.isEmpty()) {
+                                            String thumb = "https://img.youtube.com/vi/" + id + "/mqdefault.jpg";
+                                            list.add(new YoutubeSearchResult(id, title, channel, thumb));
+                                            if (list.size() >= 12) break;
+                                        }
+                                    }
+                                }
+                                if (!list.isEmpty()) break;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
         return list;
     }
 
@@ -720,34 +833,36 @@ public class YoutubeBgmController {
             searchExecutor.execute(() -> {
                 List<YoutubeSearchResult> ytResults = searchYoutubeSync(q);
 
-                // Also fetch iTunes previews as studio fallback
+                // Fetch iTunes previews as studio fallback only if not a direct YouTube link
                 List<String[]> itunesResults = new ArrayList<>();
-                try {
-                    String url = "https://itunes.apple.com/search?term=" + URLEncoder.encode(q, "UTF-8") + "&entity=song&limit=6";
-                    HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                    conn.setConnectTimeout(4500);
-                    conn.setReadTimeout(4500);
-                    StringBuilder sb = new StringBuilder();
-                    try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-                        String line;
-                        while ((line = br.readLine()) != null) sb.append(line);
-                    }
-                    JSONObject json = new JSONObject(sb.toString());
-                    JSONArray results = json.optJSONArray("results");
-                    if (results != null) {
-                        for (int i = 0; i < results.length(); i++) {
-                            JSONObject item = results.optJSONObject(i);
-                            if (item != null) {
-                                String artist = item.optString("artistName", "");
-                                String track = item.optString("trackName", "");
-                                String preview = item.optString("previewUrl", "");
-                                if (!preview.isEmpty()) {
-                                    itunesResults.add(new String[]{"🎵 " + artist + " - " + track, preview});
+                if (!isYoutubeUrl(q)) {
+                    try {
+                        String url = "https://itunes.apple.com/search?term=" + URLEncoder.encode(q, "UTF-8") + "&entity=song&limit=6";
+                        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                        conn.setConnectTimeout(4500);
+                        conn.setReadTimeout(4500);
+                        StringBuilder sb = new StringBuilder();
+                        try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                            String line;
+                            while ((line = br.readLine()) != null) sb.append(line);
+                        }
+                        JSONObject json = new JSONObject(sb.toString());
+                        JSONArray results = json.optJSONArray("results");
+                        if (results != null) {
+                            for (int i = 0; i < results.length(); i++) {
+                                JSONObject item = results.optJSONObject(i);
+                                if (item != null) {
+                                    String artist = item.optString("artistName", "");
+                                    String track = item.optString("trackName", "");
+                                    String preview = item.optString("previewUrl", "");
+                                    if (!preview.isEmpty()) {
+                                        itunesResults.add(new String[]{"🎵 " + artist + " - " + track, preview});
+                                    }
                                 }
                             }
                         }
-                    }
-                } catch (Exception ignored) {}
+                    } catch (Exception ignored) {}
+                }
 
                 mainHandler.post(() -> {
                     btnSearch.setText(activity.getString(R.string.bgm_search_btn));

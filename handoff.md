@@ -2,8 +2,8 @@
 
 **Active Project**: `whos-your-bias`  
 **User**: Agustín Acosta (`acostaagustin6499@gmail.com`)  
-**Last Updated**: 2026-10-30 15:51:00 -03:00  
-**Current Release Version**: `v1.2.4` (versionCode 7)
+**Last Updated**: 2026-10-30 16:20:00 -03:00  
+**Current Release Version**: `v1.2.5` (versionCode 8)
 
 ---
 
@@ -57,19 +57,17 @@
 - **Implementation**:
   - `CardImageLoader.java`: `preloadMatchCardsAsync` now decodes and caches both the raw bitmap in `rawMemoryCache` AND the pre-fitted card bitmap in `fittedMemoryCache` with key `rawKey + "_480x380"` across all unlocked photocards of every match contestant.
 
-### 6. YouTube Song Search in BGM Selector
+### 6. YouTube Song Search & Direct Link Resolution in BGM Selector
 - **Requirement**:
-  - Search YouTube songs directly in `YoutubeBgmController.java`.
-  - For each result, display:
-    - 16:9 Video thumbnail
-    - Video title
-    - YouTube channel name (with `▶️`)
-  - Selecting a song plays it directly in the battle BGM player via YouTube WebView Iframe API.
+  - Fix direct YouTube link resolution (e.g. `https://youtu.be/b8xFEnrDuIU` returned "no songs found").
+  - Fix search by name on Android returning 0 YouTube results (caused by 302 redirect on mobile user-agent).
+  - Show 16:9 thumbnail, video title, channel name, and allow direct playback.
 - **Status**: `[x] Done`
 - **Implementation**:
-  - `YoutubeBgmController.java`: Implemented `searchYoutubeSync(query)` using public YouTube endpoint parser.
-  - Renders YouTube video cards with CardView thumbnail (`https://img.youtube.com/vi/<id>/mqdefault.jpg`), bold title, channel name, and favorite save button.
-  - Seamless dual playback: native studio `.m4a` via `MediaPlayer`, and YouTube videos via iframe `WebView`.
+  - `YoutubeBgmController.java`:
+    1. Direct YouTube link/ID detection: resolves video ID via official YouTube oEmbed API (`https://www.youtube.com/oembed?url=...`), retrieving full title (`paw, paw!`), author (`ILLIT - Topic`), and thumbnail (`hqdefault.jpg`) instantly.
+    2. YouTube InnerTube API endpoint (`https://www.youtube.com/youtubei/v1/search`) with direct POST JSON payload: eliminates all 302 redirects on mobile and returns instant video cards with thumbnails, titles, and channels.
+    3. Desktop User-Agent scrape fallback with redirect following.
 
 ### 7. Clear Button ('✕') on All Search Bars
 - **Requirement**:
@@ -85,5 +83,5 @@
 - **Requirement**:
   - Commit history starts Thursday Oct 29 at **18:14** (after work hours).
   - No commits between 09:00 and 18:00 on weekdays unless backdated.
-  - Release version bumped to `v1.2.4` and published.
+  - Release version bumped to `v1.2.5` and published.
 - **Status**: `[x] Done`
