@@ -86,6 +86,7 @@
     <string name="match_choose_prompt">TOCÁ TU BIAS PARA AVANZAR • TOCÁ 🔄 PARA GIRAR EN 3D</string>
     <string name="btn_flip_card">🔄 Girar 3D / Info</string>
     <string name="btn_pick_this_bias">⚡ ELEGIR BIAS</string>
+    <string name="btn_pick_bias_action">⚡ ELEGIR</string>
     <string name="card_back_real_name">Nombre Completo:</string>
     <string name="card_back_age_zodiac">Edad y Signo:</string>
     <string name="card_back_country">Origen:</string>
@@ -228,4 +229,123 @@
     <string name="import_btn_action">📥 Importar Código</string>
     <string name="btn_import_file">Elegir archivo .wyb del dispositivo</string>
     <string name="import_detected_banner">📥 Código WYB1 detectado en portapapeles. ¿Deseas abrir la vista previa de importación?</string>
+
+    <!-- BGM & Video Controls -->
+    <string name="bgm_drag_hint">⠿ Arrastrar para Mover</string>
+    <string name="bgm_yt_videos_header">▶️ Videos de YouTube</string>
+    <string name="bgm_audio_previews_header">🎧 Audio Studio Previews</string>
+
+    <!-- CPU Match Dialog -->
+    <string name="cpu_dialog_title">⚡ Configurar Partida Aleatoria CPU</string>
+    <string name="btn_start_match">🚀  Iniciar Partida</string>
+    <string name="filter_all_idols">Todos los Idols (%1$d)</string>
+
+    <!-- Wiki Search & Import -->
+    <string name="wiki_search_title">🌐 Buscador K-Pop Wiki Oficial</string>
+    <string name="wiki_search_sub">Ingresá el nombre de un idol o grupo (ej: Wonhee, Karina, NEXZ, MEOVV, NewJeans):</string>
+    <string name="wiki_search_hint">Buscar en K-Pop Wiki...</string>
+    <string name="wiki_search_empty">No se encontraron resultados para ese término.</string>
+    <string name="btn_search_wiki">🔍 Buscar en Wiki</string>
+
+    <!-- FAB Creation Center -->
+    <string name="fab_center_title">✨ Centro de Creación y Comunidad</string>
+    <string name="fab_center_sub">Elegí una opción para crear, personalizar o importar</string>
+    <string name="fab_create_idol_title">Crear Nueva Carta de Idol</string>
+    <string name="fab_create_idol_desc">Agregá un idol manualmente con fotos y bio</string>
+    <string name="fab_wiki_title">Buscar &amp; Importar en K-Pop Wiki</string>
+    <string name="fab_wiki_desc">Autocompletar perfiles y fotos desde Fandom Wiki</string>
+    <string name="fab_custom_match_title">Armar Partida Personalizada</string>
+    <string name="fab_custom_match_desc">Elegí cartas y grupos específicos para competir</string>
+    <string name="fab_theme_title">Personalizar Tema y Colores</string>
+    <string name="fab_theme_desc">Cambiá la paleta pastel y estética de la app</string>
+    <string name="fab_share_title">Compartir Idols por WhatsApp</string>
+    <string name="fab_share_desc">Exportá tus cartas en paquetes compartibles</string>
+    <string name="fab_import_title">Importar Archivo (.wyb) o Código</string>
+    <string name="fab_import_desc">Cargá cartas recibidas de amigos o WhatsApp</string>
+
+    <!-- Idol Card Form & Details -->
+    <string name="idol_edit_sub_create">Completá los datos o usá el buscador oficial para autocompletar</string>
+    <string name="idol_edit_sub_edit">Modificá datos, fotos o colecciones</string>
+    <string name="btn_wiki_autocomplete">✨ Autocompletar desde K-Pop Wiki</string>
+    <string name="label_stage_name">Nombre Artístico (Stage Name)</string>
+    <string name="label_full_name">Nombre Completo (Romanizado)</string>
+    <string name="label_native_name">Nombre Nativo (Hangul / Kanji)</string>
+    <string name="label_group">Grupo</string>
+    <string name="label_country">País / Origen</string>
+    <string name="label_birth">Fecha de Nacimiento (YYYY-MM-DD)</string>
+    <string name="label_role">Rol / Posición</string>
+    <string name="label_photo_url">URL de Foto / Photocard</string>
+    <string name="label_collections">Colecciones (separadas por coma)</string>
+    <string name="label_bio">Biografía / Datos Curiosos</string>
+    <string name="btn_gallery">📁 Galería</string>
+    <string name="btn_paste_photo">📋 Pegar Copiada</string>
+    <string name="btn_delete_card">🗑️ Eliminar</string>
+    <string name="btn_fancam">🎬 Fancam</string>
+    <string name="btn_view_photo">🔄 Ver Foto</string>
+
+    <!-- Toasts -->
+    <string name="toast_photo_pasted">✨ Imagen pegada del portapapeles</string>
+    <string name="toast_copy_first">Copiá primero una imagen o URL al portapapeles</string>
+    <string name="toast_min_two_idols">Se necesitan al menos 2 idols</string>
+    <string name="toast_profile_updated">✨ Foto de perfil actualizada</string>
+    <string name="toast_saved_idols">✅ Guardados %1$d idols</string>
+    <string name="toast_invalid_wyb_code">No se encontró un código WYB1 válido</string>
+    <string name="toast_invalid_wyb_clipboard">No se encontró un código WYB1 válido en el portapapeles</string>
+
+    <!-- Victory Screen & Sharing -->
+    <string name="badge_supreme_bias">👑 BIAS SUPREMO</string>
+    <string name="badge_winning_bias">👑 BIAS GANADOR • %1$s</string>
+    <string name="label_soloist">Solista</string>
+    <string name="label_years_old">%1$d años</string>
+    <string name="label_years_with_zodiac">%1$d años (%2$s)</string>
+    <string name="podium_1st">🥇 1° Puesto</string>
+    <string name="podium_2nd">🥈 2° Puesto</string>
+    <string name="podium_3rd">🥉 3° Puesto</string>
+    <string name="poster_supreme_bias">👑 MI BIAS SUPREMO 👑</string>
+    <string name="poster_default_title">Torneo K-Pop</string>
+    <string name="share_victory_text">👑 Mi Bias Supremo en \"%1$s\" es %2$s (%3$s)! ✨ Who is your bias? It\'s me!</string>
+    <string name="share_victory_chooser">Compartir Póster de Victoria</string>
+    <string name="game_mode_bracket">Torneo Eliminatoria</string>
+    <string name="game_mode_koth">Rey de la Colina (1v1)</string>
+    <string name="game_mode_round_robin">Liga Todos contra Todos</string>
+    <string name="game_mode_double_elim">Doble Eliminación</string>
+    <string name="share_msg_caption">🔥 Who\'s your Bias — \"%1$s\" (%2$d Idols)\n👉 ¡Tocá el archivo adjunto .wyb para abrir y jugar en Who\'s your Bias!</string>
+    <string name="share_msg_code">👑 *Who\'s your Bias* — *%1$s* (%2$d Idols)\n\n👉 *¿Cómo jugar?* Tocá el link de abajo para abrirlo directo en la app, o copiá este código:\n\n</string>
+
+    <!-- Theme Studio -->
+    <string name="theme_studio_title">🎨 Personalizar Tema y Colores</string>
+    <string name="theme_studio_sub">Elegí un preset pastel o personalizá cada color a tu gusto y guardá tus propios temas.</string>
+    <string name="theme_sample_button">✨ Botón Principal de Muestra</string>
+    <string name="theme_preview_label">Vista previa: %1$s</string>
+    <string name="theme_part_primary">Color Principal (Botones y Acentos)</string>
+    <string name="theme_part_secondary">Color Secundario (Botón + y Badges)</string>
+    <string name="theme_part_background">Color de Fondo de la App</string>
+    <string name="theme_part_surface">Color de Tarjetas y Superficies</string>
+    <string name="theme_part_text">Color de Texto Principal</string>
+    <string name="theme_custom_name">✨ Tema Personalizado</string>
+    <string name="theme_presets_header">✨ Temas Predefinidos (Presets)</string>
+    <string name="theme_custom_tag">Mío</string>
+    <string name="theme_picker_header">🎨 Modificar Cada Parte con Color Picker</string>
+    <string name="theme_btn_save_preset">💾 Guardar Preset</string>
+    <string name="theme_preset_name_hint">Nombre de tu tema (ej: Mi Rosa Pastel)</string>
+    <string name="theme_save_dialog_title">💾 Guardar mi Preset de Colores</string>
+    <string name="theme_btn_apply">✅ Aplicar Tema</string>
+    <string name="theme_hue_hint">🌈 Deslizá el dedo por el arcoíris o ajustá el brillo:</string>
+    <string name="theme_swatches_hint">🌸 Paleta Rápida Pastel &amp; K-Pop:</string>
+    <string name="theme_applied_toast">🎨 Tema aplicado: %1$s</string>
+    <string name="theme_saved_toast">✨ Preset guardado en tu lista</string>
+    <string name="card_back_group">Grupo / Artista</string>
+    <string name="card_back_native">Nombre Nativo</string>
+    <string name="card_back_origin_age">Origen y Edad</string>
+    <string name="card_back_mates_format">Compañeros en %1$s</string>
+    <string name="card_back_bio">Descripción</string>
+    <string name="btn_pick_bias_format">✓ Elegir a %1$s</string>
+    <string name="color_red">Rojo (R)</string>
+    <string name="color_green">Verde (G)</string>
+    <string name="color_blue">Azul (B)</string>
+    <string name="theme_default_name">🌸 Mi Tema Pastel</string>
+    <string name="title_photocard_gacha">🃏  Photocard Gacha</string>
+    <string name="badge_new">NUEVO</string>
+    <string name="update_installer_error">No se pudo iniciar el instalador: %1$s</string>
+    <string name="toast_youtube_error">No se pudo abrir YouTube</string>
 </resources>

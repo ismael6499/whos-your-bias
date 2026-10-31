@@ -34,19 +34,13 @@
             android:windowSoftInputMode="adjustPan"
             android:configChanges="orientation|screenSize|keyboardHidden">
 
-            <!-- Deep Link & Clickable Link in WhatsApp -->
+            <!-- Deep Link: wiyb:// and wyb:// schemes (opens directly with Who's Your Bias) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="wyb" android:host="import" />
-            </intent-filter>
-
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="whosyourbias.nitsutech.com" />
+                <data android:scheme="wiyb" />
+                <data android:scheme="wyb" />
             </intent-filter>
 
             <!-- Open .wyb file tapped in WhatsApp or File Manager -->

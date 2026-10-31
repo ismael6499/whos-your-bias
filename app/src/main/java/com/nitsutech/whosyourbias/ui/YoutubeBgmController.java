@@ -228,7 +228,7 @@ public class YoutubeBgmController {
                     "    v.muted = " + isMuted + ";" +
                     "    v.play().catch(function(e){ console.error('Play error: ' + e); });" +
                     "  }" +
-                    "  var b = document.querySelector('.ytp-large-play-button') || document.querySelector('.ytp-play-button');" +
+                    "  var b = document.querySelector('.ytp-large-play-button');" +
                     "  if (b) b.click();" +
                     "  var style = document.createElement('style');" +
                     "  style.innerHTML = 'header, ytm-header-bar, .pivot-bar, .related-items, ytm-item-section-renderer, #comments, ytm-comments-entry-point-header-renderer { display: none !important; } .player-container, #player-container-id, video { width: 100vw !important; height: 100vh !important; object-fit: contain !important; } body { background: black !important; margin: 0 !important; overflow: hidden !important; }';" +
@@ -434,7 +434,7 @@ public class YoutubeBgmController {
             if (isYoutubeUrl(activeStreamUrl) && sharedWebView != null) {
                 int vol = isMuted ? 0 : getActiveVolumeLevel();
                 float fVol = vol / 100f;
-                sharedWebView.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play(); } var b = document.querySelector('.ytp-play-button') || document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
+                sharedWebView.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play().catch(function(e){}); } var b = document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
             }
             return;
         }
@@ -559,7 +559,7 @@ public class YoutubeBgmController {
                     } else {
                         int vol = isMuted ? 0 : getActiveVolumeLevel();
                         float fVol = vol / 100f;
-                        target.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; v.play(); } var b = document.querySelector('.ytp-play-button') || document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
+                        target.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play().catch(function(e){}); } var b = document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
                         isPlaying = true;
                     }
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
@@ -1273,7 +1273,7 @@ public class YoutubeBgmController {
                     // 1. YouTube Videos
                     if (!ytResults.isEmpty()) {
                         TextView tvYtHeader = new TextView(activity);
-                        tvYtHeader.setText("▶️ Videos de YouTube");
+                        tvYtHeader.setText(activity.getString(R.string.bgm_yt_videos_header));
                         tvYtHeader.setTextColor(Color.parseColor("#DC2626"));
                         tvYtHeader.setTextSize(12f);
                         tvYtHeader.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1288,7 +1288,7 @@ public class YoutubeBgmController {
                     // 2. Audio Previews
                     if (!itunesResults.isEmpty()) {
                         TextView tvAudioHeader = new TextView(activity);
-                        tvAudioHeader.setText("🎧 Audio Studio Previews");
+                        tvAudioHeader.setText(activity.getString(R.string.bgm_audio_previews_header));
                         tvAudioHeader.setTextColor(Color.parseColor("#6B7280"));
                         tvAudioHeader.setTextSize(12f);
                         tvAudioHeader.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1496,7 +1496,7 @@ public class YoutubeBgmController {
                 } else {
                     int vol = isMuted ? 0 : getActiveVolumeLevel();
                     float fVol = vol / 100f;
-                    sharedWebView.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play(); } var b = document.querySelector('.ytp-play-button') || document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
+                    sharedWebView.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play().catch(function(e){}); } var b = document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
                 }
             } else if (!isPlaying) {
                 setVideoVisible(false);

@@ -417,7 +417,7 @@ public class AppUpdateManager {
             installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             activity.startActivity(installIntent);
         } catch (Exception e) {
-            Toast.makeText(activity, "No se pudo iniciar el instalador: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(activity, activity.getString(R.string.update_installer_error, e.getMessage()), Toast.LENGTH_LONG).show();
         }
     }
 

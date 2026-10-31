@@ -322,19 +322,17 @@ public class MatchActivity extends AppCompatActivity {
 
         bottomInfo.addView(nameCol);
 
-        // Dedicated Pick Pill Button on bottom right: full text on first duel, minimalist thereafter
+        // Dedicated Pick Pill Button on bottom right: always retain clear label and wide touch target
         TextView tvPickBadge = new TextView(this);
-        if (duelCount == 0) {
-            tvPickBadge.setText("⚡ " + getString(R.string.btn_pick_this_bias));
-        } else {
-            tvPickBadge.setText("⚡");
-        }
+        tvPickBadge.setText(getString(R.string.btn_pick_bias_action));
         tvPickBadge.setGravity(Gravity.CENTER);
         tvPickBadge.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         tvPickBadge.setTextSize(13f);
         tvPickBadge.setTypeface(Typeface.DEFAULT_BOLD);
         tvPickBadge.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
-        tvPickBadge.setPadding(dp(18), dp(10), dp(18), dp(10));
+        tvPickBadge.setPadding(dp(16), dp(10), dp(16), dp(10));
+        tvPickBadge.setMinimumWidth(dp(88));
+        tvPickBadge.setMinimumHeight(dp(44));
         bottomInfo.addView(tvPickBadge);
 
         frontInner.addView(bottomInfo);
@@ -366,7 +364,7 @@ public class MatchActivity extends AppCompatActivity {
         backTopRow.addView(tvBackTitle);
 
         TextView btnFancam = new TextView(this);
-        btnFancam.setText("🎬 Fancam");
+        btnFancam.setText(getString(R.string.btn_fancam));
         btnFancam.setGravity(Gravity.CENTER);
         btnFancam.setTextColor(theme.getButtonTextColor(theme.secondaryColor));
         btnFancam.setTextSize(11f);
@@ -384,12 +382,12 @@ public class MatchActivity extends AppCompatActivity {
         backDetails.setOrientation(LinearLayout.VERTICAL);
         backDetails.setPadding(0, dp(8), 0, dp(8));
 
-        addCleanInfoRow(backDetails, "Grupo / Artista", card.isSoloist() ? "Solista" : card.getGroupName());
+        addCleanInfoRow(backDetails, getString(R.string.card_back_group), card.isSoloist() ? getString(R.string.label_soloist) : card.getGroupName());
         if (card.getNativeName() != null && !card.getNativeName().isEmpty()) {
-            addCleanInfoRow(backDetails, "Nombre Nativo", card.getNativeName());
+            addCleanInfoRow(backDetails, getString(R.string.card_back_native), card.getNativeName());
         }
-        addCleanInfoRow(backDetails, "Origen y Edad", card.getCountryWithFlag() + " • " + card.getCalculatedAge() + " años (" + card.getZodiacSign() + ")");
-        addCleanInfoRow(backDetails, "Posición / Rol", card.getRole());
+        addCleanInfoRow(backDetails, getString(R.string.card_back_origin_age), card.getCountryWithFlag() + " • " + getString(R.string.label_years_with_zodiac, card.getCalculatedAge(), card.getZodiacSign()));
+        addCleanInfoRow(backDetails, getString(R.string.label_role), card.getRole());
 
         List<IdolCard> groupMates = repo.getFellowGroupMembers(card);
         if (!groupMates.isEmpty()) {
@@ -398,10 +396,10 @@ public class MatchActivity extends AppCompatActivity {
                 if (i > 0) matesSb.append(", ");
                 matesSb.append(groupMates.get(i).getStageName());
             }
-            addCleanInfoRow(backDetails, "Compañeros en " + card.getGroupName(), matesSb.toString());
+            addCleanInfoRow(backDetails, getString(R.string.card_back_mates_format, card.getGroupName()), matesSb.toString());
         }
 
-        addCleanInfoRow(backDetails, "Descripción", card.getBio());
+        addCleanInfoRow(backDetails, getString(R.string.card_back_bio), card.getBio());
         backScroll.addView(backDetails);
         backInner.addView(backScroll);
 
@@ -409,7 +407,7 @@ public class MatchActivity extends AppCompatActivity {
         backActions.setOrientation(LinearLayout.HORIZONTAL);
 
         TextView btnFlipBack = new TextView(this);
-        btnFlipBack.setText("🔄 Ver Foto");
+        btnFlipBack.setText(getString(R.string.btn_view_photo));
         btnFlipBack.setTextColor(Color.parseColor("#111827"));
         btnFlipBack.setTypeface(Typeface.DEFAULT_BOLD);
         btnFlipBack.setGravity(Gravity.CENTER);
@@ -422,7 +420,7 @@ public class MatchActivity extends AppCompatActivity {
         backActions.addView(btnFlipBack);
 
         TextView btnPickBack = new TextView(this);
-        btnPickBack.setText("✓ Elegir a " + card.getStageName());
+        btnPickBack.setText(getString(R.string.btn_pick_bias_format, card.getStageName()));
         btnPickBack.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         btnPickBack.setTypeface(Typeface.DEFAULT_BOLD);
         btnPickBack.setGravity(Gravity.CENTER);
@@ -443,6 +441,8 @@ public class MatchActivity extends AppCompatActivity {
         View.OnClickListener pickAction = v -> onCardPicked(wrapper, isTopSlot);
         tvPickBadge.setOnClickListener(pickAction);
         btnPickBack.setOnClickListener(pickAction);
+        nameCol.setOnClickListener(pickAction);
+        tvStageName.setOnClickListener(pickAction);
 
         // Slide finger on card rotates the card in 3D to see info.
         // A simple tap on the front card chooses that card as the winning pick!
@@ -556,7 +556,7 @@ public class MatchActivity extends AppCompatActivity {
         }
         victoryContentBox.removeAllViews();
         progressBar.setProgress(100);
-        tvRoundBadge.setText("👑 BIAS SUPREMO");
+        tvRoundBadge.setText(getString(R.string.badge_supreme_bias));
 
         IdolCard champ = engine.getChampion();
         if (champ == null) {
@@ -604,7 +604,7 @@ public class MatchActivity extends AppCompatActivity {
         champInner.addView(photoCard);
 
         TextView tvCrownTag = new TextView(this);
-        tvCrownTag.setText("👑 BIAS GANADOR • " + (champ.isSoloist() ? "SOLISTA" : champ.getGroupName().toUpperCase()));
+        tvCrownTag.setText(getString(R.string.badge_winning_bias, (champ.isSoloist() ? getString(R.string.label_soloist).toUpperCase() : champ.getGroupName().toUpperCase())));
         tvCrownTag.setGravity(Gravity.CENTER);
         tvCrownTag.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         tvCrownTag.setTextSize(11.5f);
@@ -622,7 +622,7 @@ public class MatchActivity extends AppCompatActivity {
         champInner.addView(tvChampName);
 
         TextView tvChampMeta = new TextView(this);
-        tvChampMeta.setText(champ.getFullName() + " • " + champ.getCountryWithFlag() + " • " + champ.getCalculatedAge() + " años");
+        tvChampMeta.setText(champ.getFullName() + " • " + champ.getCountryWithFlag() + " • " + getString(R.string.label_years_old, champ.getCalculatedAge()));
         tvChampMeta.setTextColor(theme.getMutedTextColor());
         tvChampMeta.setTextSize(13f);
         tvChampMeta.setGravity(Gravity.CENTER);
@@ -685,10 +685,10 @@ public class MatchActivity extends AppCompatActivity {
         tvPodTitle.setPadding(0, 0, 0, dp(6));
         podiumBox.addView(tvPodTitle);
 
-        addCleanInfoRow(podiumBox, "🥇 1° Puesto", champ.getStageName() + " (" + champ.getGroupName() + ")");
+        addCleanInfoRow(podiumBox, getString(R.string.podium_1st), champ.getStageName() + " (" + champ.getGroupName() + ")");
         if (engine.getRunnerUp() != null) {
             IdolCard ru = engine.getRunnerUp();
-            addCleanInfoRow(podiumBox, "🥈 2° Puesto", ru.getStageName() + " (" + ru.getGroupName() + ")");
+            addCleanInfoRow(podiumBox, getString(R.string.podium_2nd), ru.getStageName() + " (" + ru.getGroupName() + ")");
         }
         if (!engine.getSemiFinalists().isEmpty()) {
             StringBuilder sfSb = new StringBuilder();
@@ -697,7 +697,7 @@ public class MatchActivity extends AppCompatActivity {
                 IdolCard sf = engine.getSemiFinalists().get(i);
                 sfSb.append(sf.getStageName()).append(" (").append(sf.getGroupName()).append(")");
             }
-            addCleanInfoRow(podiumBox, "🥉 3° Puesto", sfSb.toString());
+            addCleanInfoRow(podiumBox, getString(R.string.podium_3rd), sfSb.toString());
         }
         victoryContentBox.addView(podiumBox);
     }
@@ -724,7 +724,7 @@ public class MatchActivity extends AppCompatActivity {
             Uri uri = Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(query.trim()));
             startActivity(new Intent(Intent.ACTION_VIEW, uri));
         } catch (Exception e) {
-            Toast.makeText(this, "Could not open YouTube", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.toast_youtube_error), Toast.LENGTH_SHORT).show();
         }
     }
 

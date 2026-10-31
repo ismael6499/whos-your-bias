@@ -425,14 +425,14 @@ public class MainActivity extends AppCompatActivity {
         gachaStrip.setLayoutParams(gsLp);
 
         TextView tvGachaIcon = new TextView(this);
-        tvGachaIcon.setText("🃏  Photocard Gacha");
+        tvGachaIcon.setText(getString(R.string.title_photocard_gacha));
         tvGachaIcon.setTextColor(theme.textColor);
         tvGachaIcon.setTypeface(Typeface.DEFAULT_BOLD);
         tvGachaIcon.setTextSize(13.5f);
         gachaStrip.addView(tvGachaIcon);
 
         TextView tvNewBadge = new TextView(this);
-        tvNewBadge.setText("NUEVO");
+        tvNewBadge.setText(getString(R.string.badge_new));
         tvNewBadge.setTextColor(theme.getButtonTextColor(theme.secondaryColor));
         tvNewBadge.setTextSize(9.5f);
         tvNewBadge.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1760,7 +1760,7 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog[] ref = new AlertDialog[1];
 
         TextView tvTitle = new TextView(this);
-        tvTitle.setText("🌐 Buscador K-Pop Wiki Oficial");
+        tvTitle.setText(getString(R.string.wiki_search_title));
         tvTitle.setTextColor(theme.textColor);
         tvTitle.setTextSize(17f);
         tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
@@ -1768,13 +1768,13 @@ public class MainActivity extends AppCompatActivity {
         root.addView(tvTitle);
 
         TextView tvSub = new TextView(this);
-        tvSub.setText("Ingresá el nombre de un idol o grupo (ej: Wonhee, Karina, NEXZ, MEOVV, NewJeans):");
+        tvSub.setText(getString(R.string.wiki_search_sub));
         tvSub.setTextColor(theme.getMutedTextColor());
         tvSub.setTextSize(12f);
         tvSub.setPadding(0, 0, 0, dp(12));
         root.addView(tvSub);
 
-        EditText etSearch = addFormInput(root, "Buscar en K-Pop Wiki...", "");
+        EditText etSearch = addFormInput(root, getString(R.string.wiki_search_hint), "");
 
         LinearLayout resultsBox = new LinearLayout(this);
         resultsBox.setOrientation(LinearLayout.VERTICAL);
@@ -1802,7 +1802,7 @@ public class MainActivity extends AppCompatActivity {
                     progress.setVisibility(View.GONE);
                     if (results.isEmpty()) {
                         TextView tvEmpty = new TextView(MainActivity.this);
-                        tvEmpty.setText("No se encontraron resultados para ese término.");
+                        tvEmpty.setText(getString(R.string.wiki_search_empty));
                         tvEmpty.setTextColor(Color.parseColor("#9CA3AF"));
                         tvEmpty.setPadding(0, dp(14), 0, 0);
                         resultsBox.addView(tvEmpty);
@@ -1855,7 +1855,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         TextView btnSearch = new TextView(this);
-        btnSearch.setText("🔍 Buscar en Wiki");
+        btnSearch.setText(getString(R.string.btn_search_wiki));
         btnSearch.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         btnSearch.setTextSize(13f);
         btnSearch.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1899,7 +1899,7 @@ public class MainActivity extends AppCompatActivity {
         root.addView(handle);
 
         TextView tvTitle = new TextView(this);
-        tvTitle.setText("✨ Centro de Creación y Comunidad");
+        tvTitle.setText(getString(R.string.fab_center_title));
         tvTitle.setTextColor(theme.textColor);
         tvTitle.setTextSize(18f);
         tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
@@ -1907,28 +1907,28 @@ public class MainActivity extends AppCompatActivity {
         root.addView(tvTitle);
 
         TextView tvSub = new TextView(this);
-        tvSub.setText("Elegí una opción para crear, personalizar o importar");
+        tvSub.setText(getString(R.string.fab_center_sub));
         tvSub.setTextColor(theme.getMutedTextColor());
         tvSub.setTextSize(12f);
         tvSub.setPadding(0, 0, 0, dp(16));
         root.addView(tvSub);
 
-        root.addView(buildPlusActionCard("🃏", "Crear Nueva Carta de Idol", "Agregá un idol manualmente con fotos y bio", "#FFF0F5", () -> {
+        root.addView(buildPlusActionCard("🃏", getString(R.string.fab_create_idol_title), getString(R.string.fab_create_idol_desc), "#FFF0F5", () -> {
             if (ref[0] != null) ref[0].dismiss();
             showCreateOrEditIdolDialog(null, this::refreshCurrentTab);
         }));
 
-        root.addView(buildPlusActionCard("🌐", "Buscar & Importar en K-Pop Wiki", "Autocompletar perfiles y fotos desde Fandom Wiki", "#EFF6FF", () -> {
+        root.addView(buildPlusActionCard("🌐", getString(R.string.fab_wiki_title), getString(R.string.fab_wiki_desc), "#EFF6FF", () -> {
             if (ref[0] != null) ref[0].dismiss();
             showWikiSearchAndImportDialog();
         }));
 
-        root.addView(buildPlusActionCard("🎯", "Armar Partida Personalizada", "Elegí cartas y grupos específicos para competir", "#FFFBEB", () -> {
+        root.addView(buildPlusActionCard("🎯", getString(R.string.fab_custom_match_title), getString(R.string.fab_custom_match_desc), "#FFFBEB", () -> {
             if (ref[0] != null) ref[0].dismiss();
             showVibraryStyleCustomMatchBuilder();
         }));
 
-        root.addView(buildPlusActionCard("🎨", "Personalizar Tema y Colores", "Cambiá la paleta pastel y estética de la app", "#F3E8FF", () -> {
+        root.addView(buildPlusActionCard("🎨", getString(R.string.fab_theme_title), getString(R.string.fab_theme_desc), "#F3E8FF", () -> {
             if (ref[0] != null) ref[0].dismiss();
             ThemeManager.showThemeStudioDialog(this, () -> {
                 applyThemeToShell();
@@ -1936,12 +1936,12 @@ public class MainActivity extends AppCompatActivity {
             });
         }));
 
-        root.addView(buildPlusActionCard("📤", "Compartir Idols por WhatsApp", "Exportá tus cartas en paquetes compartibles", "#ECFDF5", () -> {
+        root.addView(buildPlusActionCard("📤", getString(R.string.fab_share_title), getString(R.string.fab_share_desc), "#ECFDF5", () -> {
             if (ref[0] != null) ref[0].dismiss();
             showVibraryStyleShareIdolsDialog();
         }));
 
-        root.addView(buildPlusActionCard("📥", "Importar Archivo (.wyb) o Código", "Cargá cartas recibidas de amigos o WhatsApp", "#F1F5F9", () -> {
+        root.addView(buildPlusActionCard("📥", getString(R.string.fab_import_title), getString(R.string.fab_import_desc), "#F1F5F9", () -> {
             if (ref[0] != null) ref[0].dismiss();
             showImportHubDialog();
         }));
@@ -1966,7 +1966,7 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog[] ref = new AlertDialog[1];
 
         TextView tvTitle = new TextView(this);
-        tvTitle.setText("⚡ Configurar Partida Aleatoria CPU");
+        tvTitle.setText(getString(R.string.cpu_dialog_title));
         tvTitle.setTextColor(Color.parseColor("#111827"));
         tvTitle.setTextSize(18f);
         tvTitle.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1986,7 +1986,7 @@ public class MainActivity extends AppCompatActivity {
 
         addSmallLabel(root, getString(R.string.label_filter_deck));
         List<String> filterOptions = new ArrayList<>();
-        filterOptions.add("All Idols (" + repo.getAllIdols().size() + ")");
+        filterOptions.add(getString(R.string.filter_all_idols, repo.getAllIdols().size()));
         for (String col : repo.getAllCollections()) filterOptions.add("📁 " + col);
         for (String grp : repo.getAllGroups()) filterOptions.add("✦ " + grp);
         Spinner spFilter = createStyledSpinner(filterOptions.toArray(new String[0]));
@@ -2022,7 +2022,7 @@ public class MainActivity extends AppCompatActivity {
         root.addView(countRow);
 
         TextView btnStart = new TextView(this);
-        btnStart.setText("🚀  Iniciar Partida");
+        btnStart.setText(getString(R.string.btn_start_match));
         btnStart.setTextColor(Color.parseColor("#111827"));
         btnStart.setTypeface(Typeface.DEFAULT_BOLD);
         btnStart.setTextSize(14f);
@@ -2961,7 +2961,7 @@ public class MainActivity extends AppCompatActivity {
         form.addView(tvTitle);
 
         TextView tvSub = new TextView(this);
-        tvSub.setText(isEditing ? "Modificá datos, fotos o colecciones" : "Completá los datos o usá el buscador oficial para autocompletar");
+        tvSub.setText(getString(isEditing ? R.string.idol_edit_sub_edit : R.string.idol_edit_sub_create));
         tvSub.setTextColor(theme.getMutedTextColor());
         tvSub.setTextSize(12f);
         tvSub.setPadding(0, 0, 0, dp(12));
@@ -2970,7 +2970,7 @@ public class MainActivity extends AppCompatActivity {
         // Quick Autocomplete from K-Pop Wiki Pill Button
         if (!isEditing) {
             TextView btnWikiAuto = new TextView(this);
-            btnWikiAuto.setText("✨ Autocompletar desde K-Pop Wiki");
+            btnWikiAuto.setText(getString(R.string.btn_wiki_autocomplete));
             btnWikiAuto.setTextColor(Color.parseColor("#2563EB"));
             btnWikiAuto.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#EFF6FF"), 16));
             btnWikiAuto.setTextSize(12.5f);
@@ -3005,16 +3005,16 @@ public class MainActivity extends AppCompatActivity {
         prevCard.addView(ivPreview);
         form.addView(prevCard);
 
-        addSmallLabel(form, "Nombre Artístico (Stage Name)");
+        addSmallLabel(form, getString(R.string.label_stage_name));
         EditText etStage = addFormInput(form, getString(R.string.hint_stage_name), card.getStageName());
 
-        addSmallLabel(form, "Nombre Completo (Romanizado)");
+        addSmallLabel(form, getString(R.string.label_full_name));
         EditText etFull = addFormInput(form, getString(R.string.hint_full_name), card.getFullName());
 
-        addSmallLabel(form, "Nombre Nativo (Hangul / Kanji / Nativo)");
+        addSmallLabel(form, getString(R.string.label_native_name));
         EditText etNative = addFormInput(form, "ej: 이원희 • 사카이 모카 / 堺 萌花", card.getNativeName());
 
-        addSmallLabel(form, "Grupo");
+        addSmallLabel(form, getString(R.string.label_group));
         EditText etGroup = addFormInput(form, getString(R.string.hint_group_name), card.isSoloist() ? "" : card.getGroupName());
 
         CheckBox cbSoloist = new CheckBox(this);
@@ -3026,16 +3026,16 @@ public class MainActivity extends AppCompatActivity {
         cbSoloist.setLayoutParams(cbLp);
         form.addView(cbSoloist);
 
-        addSmallLabel(form, "País / Origen");
+        addSmallLabel(form, getString(R.string.label_country));
         EditText etCountry = addFormInput(form, getString(R.string.hint_country), card.getCountry());
 
-        addSmallLabel(form, "Fecha de Nacimiento (YYYY-MM-DD)");
+        addSmallLabel(form, getString(R.string.label_birth));
         EditText etBirth = addFormInput(form, getString(R.string.hint_birth_date), card.getBirthDate());
 
-        addSmallLabel(form, "Rol / Posición");
+        addSmallLabel(form, getString(R.string.label_role));
         EditText etRole = addFormInput(form, getString(R.string.hint_role), card.getRole());
 
-        addSmallLabel(form, "URL de Foto / Photocard");
+        addSmallLabel(form, getString(R.string.label_photo_url));
         EditText etPhoto = addFormInput(form, getString(R.string.hint_photo_url), card.getPhotoUri());
 
         LinearLayout photoBtnsRow = new LinearLayout(this);
@@ -3046,7 +3046,7 @@ public class MainActivity extends AppCompatActivity {
         photoBtnsRow.setLayoutParams(pfLp);
 
         TextView btnPickFile = new TextView(this);
-        btnPickFile.setText("📁 Galería");
+        btnPickFile.setText(getString(R.string.btn_gallery));
         btnPickFile.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         btnPickFile.setTypeface(Typeface.DEFAULT_BOLD);
         btnPickFile.setTextSize(12f);
@@ -3061,12 +3061,12 @@ public class MainActivity extends AppCompatActivity {
             pendingPhotoPreviewView = ivPreview;
             Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
             intent.setType("image/*");
-            startActivityForResult(Intent.createChooser(intent, "Elegir Foto"), REQ_PICK_CARD_PHOTO);
+            startActivityForResult(Intent.createChooser(intent, getString(R.string.btn_gallery)), REQ_PICK_CARD_PHOTO);
         });
         photoBtnsRow.addView(btnPickFile);
 
         TextView btnPastePhoto = new TextView(this);
-        btnPastePhoto.setText("📋 Pegar Copiada");
+        btnPastePhoto.setText(getString(R.string.btn_paste_photo));
         btnPastePhoto.setTextColor(Color.parseColor("#374151"));
         btnPastePhoto.setTypeface(Typeface.DEFAULT_BOLD);
         btnPastePhoto.setTextSize(12f);
@@ -3079,18 +3079,18 @@ public class MainActivity extends AppCompatActivity {
             if (pasted != null && !pasted.isEmpty()) {
                 etPhoto.setText(pasted);
                 CardImageLoader.loadUriIntoImageView(this, pasted, ivPreview, etStage.getText().toString(), Color.parseColor("#FF85A2"));
-                Toast.makeText(this, "✨ Imagen pegada del portapapeles", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.toast_photo_pasted), Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "Copiá primero una imagen o URL al portapapeles", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.toast_copy_first), Toast.LENGTH_SHORT).show();
             }
         });
         photoBtnsRow.addView(btnPastePhoto);
         form.addView(photoBtnsRow);
 
-        addSmallLabel(form, "Colecciones (separadas por coma)");
+        addSmallLabel(form, getString(R.string.label_collections));
         EditText etCols = addFormInput(form, getString(R.string.hint_collections), card.getCollections());
 
-        addSmallLabel(form, "Biografía / Datos Curiosos");
+        addSmallLabel(form, getString(R.string.label_bio));
         EditText etBio = addFormInput(form, getString(R.string.hint_bio), card.getBio());
 
         // Bottom Action Buttons (Rounded Pills)
@@ -3137,7 +3137,7 @@ public class MainActivity extends AppCompatActivity {
 
         if (isEditing) {
             TextView btnDelete = new TextView(this);
-            btnDelete.setText("🗑️ Eliminar");
+            btnDelete.setText(getString(R.string.btn_delete_card));
             btnDelete.setTextColor(Color.parseColor("#DC2626"));
             btnDelete.setTypeface(Typeface.DEFAULT_BOLD);
             btnDelete.setTextSize(12f);
@@ -3297,13 +3297,13 @@ public class MainActivity extends AppCompatActivity {
                     if (ref[0] != null) ref[0].dismiss();
                     showSelectiveImportDialog(payload);
                 } else {
-                    Toast.makeText(this, "No se encontró un código WYB1 válido en el portapapeles", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.toast_invalid_wyb_clipboard), Toast.LENGTH_SHORT).show();
                 }
             });
             root.addView(btnPasteClip);
         }
 
-        EditText etCode = addFormInput(root, "Pegá acá el código WYB1-... o mensaje", clipCode != null ? clipCode : "");
+        EditText etCode = addFormInput(root, getString(R.string.import_paste_clipboard), clipCode != null ? clipCode : "");
         etCode.setMaxLines(3);
         etCode.setLines(3);
         etCode.setGravity(Gravity.TOP | Gravity.START);
@@ -3324,7 +3324,7 @@ public class MainActivity extends AppCompatActivity {
             String raw = etCode.getText().toString().trim();
             ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, raw);
             if (payload == null || payload.cards.isEmpty()) {
-                Toast.makeText(this, "No se encontró un código WYB1 válido", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.toast_invalid_wyb_code), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (ref[0] != null) ref[0].dismiss();
@@ -3337,7 +3337,7 @@ public class MainActivity extends AppCompatActivity {
             String raw = etCode.getText().toString().trim();
             ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, raw);
             if (payload == null || payload.cards.isEmpty()) {
-                Toast.makeText(this, "No se encontró un código WYB1 válido", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.toast_invalid_wyb_code), Toast.LENGTH_SHORT).show();
                 return;
             }
             showSelectiveImportDialog(payload);
@@ -3423,7 +3423,7 @@ public class MainActivity extends AppCompatActivity {
                     row.addView(tvInfo);
 
                     TextView btnEditInc = new TextView(MainActivity.this);
-                    btnEditInc.setText("✏️ Editar");
+                    btnEditInc.setText(getString(R.string.btn_edit_data));
                     btnEditInc.setTextColor(Color.parseColor("#111827"));
                     btnEditInc.setTextSize(11f);
                     btnEditInc.setTypeface(Typeface.DEFAULT_BOLD);
@@ -3450,7 +3450,7 @@ public class MainActivity extends AppCompatActivity {
             }
             if (payload.customMatch != null) repo.saveOrUpdateCustomMatch(payload.customMatch);
             refreshCurrentTab();
-            Toast.makeText(this, "✅ Guardados " + savedCount + " idols", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.toast_saved_idols, savedCount), Toast.LENGTH_SHORT).show();
         });
 
         if (payload.customMatch != null || payload.cards.size() >= 2) {
@@ -3687,7 +3687,7 @@ public class MainActivity extends AppCompatActivity {
             if (savedPath != null && !savedPath.isEmpty()) {
                 repo.setCustomProfileAvatarUri(savedPath);
                 refreshCurrentTab();
-                Toast.makeText(this, "✨ Foto de perfil actualizada", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.toast_profile_updated), Toast.LENGTH_SHORT).show();
             }
         } else if (requestCode == REQ_PICK_WYB_FILE) {
             ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromUri(this, uri);
@@ -3700,15 +3700,15 @@ public class MainActivity extends AppCompatActivity {
     private String getAppVersionName() {
         try {
             android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pInfo.versionName != null ? pInfo.versionName : "1.2.16";
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.18";
         } catch (Exception e) {
-            return "1.2.16";
+            return "1.2.18";
         }
     }
 
     private void launchMatch(String title, String gameMode, List<IdolCard> cards) {
         if (cards == null || cards.size() < 2) {
-            Toast.makeText(this, "Se necesitan al menos 2 idols", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.toast_min_two_idols), Toast.LENGTH_SHORT).show();
             return;
         }
         ArrayList<String> ids = new ArrayList<>();

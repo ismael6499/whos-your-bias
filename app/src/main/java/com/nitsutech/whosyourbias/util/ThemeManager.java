@@ -25,6 +25,7 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.nitsutech.whosyourbias.R;
 import com.nitsutech.whosyourbias.data.BiasRepository;
 
 import org.json.JSONArray;
@@ -233,14 +234,14 @@ public class ThemeManager {
         AlertDialog[] dialogRef = new AlertDialog[1];
 
         TextView tvTitle = new TextView(activity);
-        tvTitle.setText("🎨 Personalizar Tema y Colores");
+        tvTitle.setText(activity.getString(R.string.theme_studio_title));
         tvTitle.setTextColor(Color.parseColor("#111827"));
         tvTitle.setTextSize(19f);
         tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         root.addView(tvTitle);
 
         TextView tvSub = new TextView(activity);
-        tvSub.setText("Elegí un preset pastel o personalizá cada color a tu gusto y guardá tus propios temas.");
+        tvSub.setText(activity.getString(R.string.theme_studio_sub));
         tvSub.setTextColor(Color.parseColor("#6B7280"));
         tvSub.setTextSize(12.5f);
         tvSub.setPadding(0, dp(activity, 4), 0, dp(activity, 12));
@@ -260,7 +261,7 @@ public class ThemeManager {
         previewCard.addView(pvHeader);
 
         final TextView pvButton = new TextView(activity);
-        pvButton.setText("✨ Botón Principal de Muestra");
+        pvButton.setText(activity.getString(R.string.theme_sample_button));
         pvButton.setGravity(Gravity.CENTER);
         pvButton.setTypeface(Typeface.DEFAULT_BOLD);
         pvButton.setTextSize(12.5f);
@@ -281,7 +282,7 @@ public class ThemeManager {
                 GradientDrawable pvBg = createCardDrawable(activity, working.surfaceColor, working.primaryColor, 18);
                 previewCard.setBackground(pvBg);
                 previewCard.setPadding(dp(activity, 14), dp(activity, 12), dp(activity, 14), dp(activity, 12));
-                pvHeader.setText("Vista previa: " + working.name);
+                pvHeader.setText(activity.getString(R.string.theme_preview_label, working.name));
                 pvHeader.setTextColor(working.textColor);
 
                 pvButton.setBackground(createPillDrawable(activity, working.primaryColor, 16));
@@ -289,29 +290,29 @@ public class ThemeManager {
                 pvButton.setTextColor(working.getButtonTextColor(working.primaryColor));
 
                 partsContainer.removeAllViews();
-                addPartColorRow(activity, partsContainer, "Color Principal (Botones y Acentos)", working.primaryColor, newColor -> {
+                addPartColorRow(activity, partsContainer, activity.getString(R.string.theme_part_primary), working.primaryColor, newColor -> {
                     working.primaryColor = newColor;
-                    working.name = "✨ Tema Personalizado";
+                    working.name = activity.getString(R.string.theme_custom_name);
                     run();
                 });
-                addPartColorRow(activity, partsContainer, "Color Secundario (Botón + y Badges)", working.secondaryColor, newColor -> {
+                addPartColorRow(activity, partsContainer, activity.getString(R.string.theme_part_secondary), working.secondaryColor, newColor -> {
                     working.secondaryColor = newColor;
-                    working.name = "✨ Tema Personalizado";
+                    working.name = activity.getString(R.string.theme_custom_name);
                     run();
                 });
-                addPartColorRow(activity, partsContainer, "Color de Fondo de la App", working.backgroundColor, newColor -> {
+                addPartColorRow(activity, partsContainer, activity.getString(R.string.theme_part_background), working.backgroundColor, newColor -> {
                     working.backgroundColor = newColor;
-                    working.name = "✨ Tema Personalizado";
+                    working.name = activity.getString(R.string.theme_custom_name);
                     run();
                 });
-                addPartColorRow(activity, partsContainer, "Color de Tarjetas y Superficies", working.surfaceColor, newColor -> {
+                addPartColorRow(activity, partsContainer, activity.getString(R.string.theme_part_surface), working.surfaceColor, newColor -> {
                     working.surfaceColor = newColor;
-                    working.name = "✨ Tema Personalizado";
+                    working.name = activity.getString(R.string.theme_custom_name);
                     run();
                 });
-                addPartColorRow(activity, partsContainer, "Color de Texto Principal", working.textColor, newColor -> {
+                addPartColorRow(activity, partsContainer, activity.getString(R.string.theme_part_text), working.textColor, newColor -> {
                     working.textColor = newColor;
-                    working.name = "✨ Tema Personalizado";
+                    working.name = activity.getString(R.string.theme_custom_name);
                     run();
                 });
             }
@@ -319,7 +320,7 @@ public class ThemeManager {
 
         // 2. Built-in Presets Section
         TextView tvPresetsHeader = new TextView(activity);
-        tvPresetsHeader.setText("✨ Temas Predefinidos (Presets)");
+        tvPresetsHeader.setText(activity.getString(R.string.theme_presets_header));
         tvPresetsHeader.setTextColor(Color.parseColor("#111827"));
         tvPresetsHeader.setTextSize(14f);
         tvPresetsHeader.setTypeface(Typeface.DEFAULT_BOLD);
@@ -355,7 +356,7 @@ public class ThemeManager {
                     row.addView(makeColorDot(activity, p.backgroundColor));
 
                     TextView tvPName = new TextView(activity);
-                    tvPName.setText(p.name + (p.isCustomUserPreset ? " (Mío)" : ""));
+                    tvPName.setText(p.name + (p.isCustomUserPreset ? " (" + activity.getString(R.string.theme_custom_tag) + ")" : ""));
                     tvPName.setTextColor(p.textColor);
                     tvPName.setTextSize(13f);
                     tvPName.setTypeface(Typeface.DEFAULT_BOLD);
@@ -393,7 +394,7 @@ public class ThemeManager {
 
         // 3. Individual Part Customization Section
         TextView tvCustomHeader = new TextView(activity);
-        tvCustomHeader.setText("🎨 Modificar Cada Parte con Color Picker");
+        tvCustomHeader.setText(activity.getString(R.string.theme_picker_header));
         tvCustomHeader.setTextColor(Color.parseColor("#111827"));
         tvCustomHeader.setTextSize(14f);
         tvCustomHeader.setTypeface(Typeface.DEFAULT_BOLD);
@@ -412,7 +413,7 @@ public class ThemeManager {
         actionsRow.setLayoutParams(actLp);
 
         TextView btnSavePreset = new TextView(activity);
-        btnSavePreset.setText("💾 Guardar Preset");
+        btnSavePreset.setText(activity.getString(R.string.theme_btn_save_preset));
         btnSavePreset.setTextColor(Color.parseColor("#111827"));
         btnSavePreset.setTypeface(Typeface.DEFAULT_BOLD);
         btnSavePreset.setGravity(Gravity.CENTER);
@@ -424,14 +425,14 @@ public class ThemeManager {
         btnSavePreset.setLayoutParams(spLp);
         btnSavePreset.setOnClickListener(v -> {
             EditText etName = new EditText(activity);
-            etName.setHint("Nombre de tu tema (ej: Mi Rosa Pastel)");
+            etName.setHint(activity.getString(R.string.theme_preset_name_hint));
             etName.setText(working.name);
             new AlertDialog.Builder(activity)
-                    .setTitle("💾 Guardar mi Preset de Colores")
+                    .setTitle(activity.getString(R.string.theme_save_dialog_title))
                     .setView(etName)
-                    .setPositiveButton("Guardar", (d, w) -> {
+                    .setPositiveButton(activity.getString(R.string.btn_save), (d, w) -> {
                         String n = etName.getText().toString().trim();
-                        if (n.isEmpty()) n = "🌸 Mi Tema Pastel";
+                        if (n.isEmpty()) n = activity.getString(R.string.theme_default_name);
                         AppTheme saved = new AppTheme(
                                 "user_" + System.currentTimeMillis(),
                                 n,
@@ -447,15 +448,15 @@ public class ThemeManager {
                         working.name = saved.name;
                         rebuildPresetsList.run();
                         refreshPreviewAndParts.run();
-                        Toast.makeText(activity, "✨ Preset guardado en tu lista", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(activity, activity.getString(R.string.theme_saved_toast), Toast.LENGTH_SHORT).show();
                     })
-                    .setNegativeButton("Cancelar", null)
+                    .setNegativeButton(activity.getString(R.string.btn_cancel), null)
                     .show();
         });
         actionsRow.addView(btnSavePreset);
 
         TextView btnApply = new TextView(activity);
-        btnApply.setText("✅ Aplicar Tema");
+        btnApply.setText(activity.getString(R.string.theme_btn_apply));
         btnApply.setTextColor(Color.parseColor("#111827"));
         btnApply.setTypeface(Typeface.DEFAULT_BOLD);
         btnApply.setGravity(Gravity.CENTER);
@@ -469,7 +470,7 @@ public class ThemeManager {
             saveActiveTheme(activity, working);
             if (dialogRef[0] != null) dialogRef[0].dismiss();
             if (onThemeApplied != null) onThemeApplied.run();
-            Toast.makeText(activity, "🎨 Tema aplicado: " + working.name, Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, activity.getString(R.string.theme_applied_toast, working.name), Toast.LENGTH_SHORT).show();
         });
         actionsRow.addView(btnApply);
 
@@ -562,7 +563,7 @@ public class ThemeManager {
 
         // Interactive Rainbow Hue Touch Bar
         TextView tvHueHint = new TextView(activity);
-        tvHueHint.setText("🌈 Deslizá el dedo por el arcoíris o ajustá el brillo:");
+        tvHueHint.setText(activity.getString(R.string.theme_hue_hint));
         tvHueHint.setTextColor(Color.parseColor("#6B7280"));
         tvHueHint.setTextSize(12f);
         tvHueHint.setPadding(0, dp(activity, 10), 0, dp(activity, 6));
@@ -622,19 +623,19 @@ public class ThemeManager {
         root.addView(hueStrip);
 
         // RGB Sliders for fine tuning
-        addRgbSliderRow(activity, root, "Rojo (R)", sbR, () -> {
+        addRgbSliderRow(activity, root, activity.getString(R.string.color_red), sbR, () -> {
             if (!updatingHex[0]) {
                 chosenColor[0] = Color.rgb(sbR.getProgress(), sbG.getProgress(), sbB.getProgress());
                 syncUiFromColor.run();
             }
         });
-        addRgbSliderRow(activity, root, "Verde (G)", sbG, () -> {
+        addRgbSliderRow(activity, root, activity.getString(R.string.color_green), sbG, () -> {
             if (!updatingHex[0]) {
                 chosenColor[0] = Color.rgb(sbR.getProgress(), sbG.getProgress(), sbB.getProgress());
                 syncUiFromColor.run();
             }
         });
-        addRgbSliderRow(activity, root, "Azul (B)", sbB, () -> {
+        addRgbSliderRow(activity, root, activity.getString(R.string.color_blue), sbB, () -> {
             if (!updatingHex[0]) {
                 chosenColor[0] = Color.rgb(sbR.getProgress(), sbG.getProgress(), sbB.getProgress());
                 syncUiFromColor.run();
@@ -666,7 +667,7 @@ public class ThemeManager {
 
         // Pastel Swatch Grid
         TextView tvSwatches = new TextView(activity);
-        tvSwatches.setText("🌸 Paleta Rápida Pastel & K-Pop:");
+        tvSwatches.setText(activity.getString(R.string.theme_swatches_hint));
         tvSwatches.setTextColor(Color.parseColor("#6B7280"));
         tvSwatches.setTextSize(12f);
         tvSwatches.setPadding(0, dp(activity, 8), 0, dp(activity, 6));

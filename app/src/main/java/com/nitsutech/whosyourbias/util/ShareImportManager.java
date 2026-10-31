@@ -20,6 +20,7 @@ import android.widget.Toast;
 
 import androidx.core.content.FileProvider;
 
+import com.nitsutech.whosyourbias.R;
 import com.nitsutech.whosyourbias.data.BiasRepository;
 import com.nitsutech.whosyourbias.data.CustomMatch;
 import com.nitsutech.whosyourbias.data.IdolCard;
@@ -153,17 +154,32 @@ public class ShareImportManager {
     }
 
     /**
-     * Reads a .wyb file URI (from WhatsApp attachment or file manager) into a SharedPayload.
+     * Reads a .wyb file URI (from WhatsApp attachment or file manager) into a SharedPayload,
+     * or parses deep link schemes like wiyb://import?code=WYB1-... or wyb://...
      */
     public static SharedPayload decodeFromUri(Context context, Uri uri) {
         if (uri == null) return null;
         try {
-            // Check if it's a deep link with ?code=WYB1-...
-            String codeParam = uri.getQueryParameter("code");
-            if (codeParam != null && !codeParam.isEmpty()) {
-                return decodeFromTextOrCode(context, codeParam);
+            // 1. Check if the full URI string itself contains a valid WYB1-... code (e.g. wiyb://import?code=... or wiyb://WYB1-...)
+            String uriString = uri.toString();
+            SharedPayload fromUri = decodeFromTextOrCode(context, uriString);
+            if (fromUri != null && !fromUri.cards.isEmpty()) {
+                return fromUri;
             }
 
+            // 2. Check if it's a deep link with ?code=WYB1-... or ?c=WYB1-...
+            String codeParam = uri.getQueryParameter("code");
+            if (codeParam == null || codeParam.isEmpty()) {
+                codeParam = uri.getQueryParameter("c");
+            }
+            if (codeParam != null && !codeParam.isEmpty()) {
+                SharedPayload payload = decodeFromTextOrCode(context, codeParam);
+                if (payload != null && !payload.cards.isEmpty()) {
+                    return payload;
+                }
+            }
+
+            // 3. Fall back to reading as a file stream (.wyb)
             try (InputStream is = context.getContentResolver().openInputStream(uri)) {
                 if (is == null) return null;
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -231,8 +247,7 @@ public class ShareImportManager {
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("application/octet-stream");
             intent.putExtra(Intent.EXTRA_STREAM, uri);
-            String caption = "🔥 Who's your Bias — \"" + title + "\" (" + (cards != null ? cards.size() : 0) + " Idols)\n"
-                    + "👉 Tap the attached .wyb file to open and play in Who's your Bias!";
+            String caption = activity.getString(R.string.share_msg_caption, title, (cards != null ? cards.size() : 0));
             intent.putExtra(Intent.EXTRA_TEXT, caption);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             activity.startActivity(Intent.createChooser(intent, "Share .wyb File"));
@@ -248,22 +263,24 @@ public class ShareImportManager {
         try {
             JSONObject json = createPayloadJson(title, match, cards, false);
             String code = encodeToCode(json);
-            String message = "👑 *Who's your Bias* — *" + title + "* (" + (cards != null ? cards.size() : 0) + " Idols)\n\n"
-                    + "👉 *¿Cómo jugar?* Copiá este mensaje y abrí la app Who's your Bias para importar automáticamente.\n\n"
-                    + "📥 *Descargá el APK de la app / Download APK:*\nhttps://is.gd/whosyourbias\n\n"
-                    + "📋 *Código para importar / Import Code:*\n" + code;
+            String deepLink = "wiyb://import?code=" + code;
+
+            String message = activity.getString(R.string.share_msg_code, title, (cards != null ? cards.size() : 0))
+                    + "🔗 *App Link (Abrir en Who\'s your Bias):*\n" + deepLink + "\n\n"
+                    + "📋 *Code / Código:*\n" + code + "\n\n"
+                    + "📥 *Download App / Descargar APK:*\nhttps://is.gd/whosyourbias";
 
             ClipboardManager cb = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
             if (cb != null) {
-                cb.setPrimaryClip(ClipData.newPlainText("Who's your Bias Code", code));
+                cb.setPrimaryClip(ClipData.newPlainText("Who's your Bias Code", deepLink));
             }
 
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("text/plain");
             intent.putExtra(Intent.EXTRA_TEXT, message);
-            activity.startActivity(Intent.createChooser(intent, "Share via WhatsApp"));
+            activity.startActivity(Intent.createChooser(intent, activity.getString(R.string.action_share_whatsapp)));
         } catch (Exception e) {
-            Toast.makeText(activity, "Error creating share code: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -312,10 +329,10 @@ public class ShareImportManager {
 
             text.setColor(theme.textColor);
             text.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
-            drawFittedCenteredText(canvas, "👑 MI BIAS SUPREMO 👑", w / 2f, 182f, text, 48f, w - 140f);
+            drawFittedCenteredText(canvas, activity.getString(R.string.poster_supreme_bias), w / 2f, 182f, text, 48f, w - 140f);
 
-            String friendlyMode = formatFriendlyGameMode(gameMode);
-            String cleanTourneyTitle = (tournamentTitle != null ? tournamentTitle.trim() : "Torneo K-Pop");
+            String friendlyMode = formatFriendlyGameMode(activity, gameMode);
+            String cleanTourneyTitle = (tournamentTitle != null ? tournamentTitle.trim() : activity.getString(R.string.poster_default_title));
             text.setColor(theme.getMutedTextColor());
             text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
             drawFittedCenteredText(canvas, cleanTourneyTitle + "  •  " + friendlyMode, w / 2f, 232f, text, 28f, w - 150f);
@@ -350,15 +367,15 @@ public class ShareImportManager {
 
             text.setColor(theme.primaryColor);
             text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-            String grpLine = (champion.isSoloist() ? "Solista" : champion.getGroupName()) + "  •  " + champion.getCountryWithFlag();
+            String grpLine = (champion.isSoloist() ? activity.getString(R.string.label_soloist) : champion.getGroupName()) + "  •  " + champion.getCountryWithFlag();
             drawFittedCenteredText(canvas, grpLine, w / 2f, 1062f, text, 38f, w - 140f);
 
             text.setColor(theme.getMutedTextColor());
             text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-            String bioLine = champion.getFullName() + " • " + champion.getCalculatedAge() + " años (" + champion.getZodiacSign() + ")";
+            String bioLine = champion.getFullName() + " • " + activity.getString(R.string.label_years_with_zodiac, champion.getCalculatedAge(), champion.getZodiacSign());
             drawFittedCenteredText(canvas, bioLine, w / 2f, 1112f, text, 29f, w - 140f);
 
-            // 4. Clean Podium Box (1° Puesto, 2° Puesto, 3° Puesto)
+            // 4. Clean Podium Box
             RectF podRect = new RectF(78, 1152, w - 78, 1412);
             Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             boxPaint.setColor(isDark ? Color.parseColor("#241E33") : Color.WHITE);
@@ -372,15 +389,15 @@ public class ShareImportManager {
 
             text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
             text.setColor(theme.textColor);
-            String firstStr = "🥇 1° Puesto: " + champion.getStageName() + " (" + champion.getGroupName() + ")";
+            String firstStr = activity.getString(R.string.podium_1st) + ": " + champion.getStageName() + " (" + champion.getGroupName() + ")";
             drawFittedCenteredText(canvas, firstStr, w / 2f, 1214f, text, 31f, w - 200f);
 
             String rUp = runnerUp != null ? runnerUp.getStageName() + " (" + runnerUp.getGroupName() + ")" : "—";
             text.setColor(theme.textColor);
-            drawFittedCenteredText(canvas, "🥈 2° Puesto: " + rUp, w / 2f, 1272f, text, 30f, w - 200f);
+            drawFittedCenteredText(canvas, activity.getString(R.string.podium_2nd) + ": " + rUp, w / 2f, 1272f, text, 30f, w - 200f);
 
             if (semiFinalists != null && !semiFinalists.isEmpty()) {
-                StringBuilder sb = new StringBuilder("🥉 3° Puesto: ");
+                StringBuilder sb = new StringBuilder(activity.getString(R.string.podium_3rd)).append(": ");
                 for (int i = 0; i < semiFinalists.size(); i++) {
                     if (i > 0) sb.append(" • ");
                     IdolCard sf = semiFinalists.get(i);
@@ -402,25 +419,25 @@ public class ShareImportManager {
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("image/jpeg");
             intent.putExtra(Intent.EXTRA_STREAM, uri);
-            intent.putExtra(Intent.EXTRA_TEXT, "👑 Mi Bias Supremo en \"" + cleanTourneyTitle + "\" es " + champion.getStageName() + " (" + champion.getGroupName() + ")! ✨ Who is your bias? It's me!");
+            intent.putExtra(Intent.EXTRA_TEXT, activity.getString(R.string.share_victory_text, cleanTourneyTitle, champion.getStageName(), champion.getGroupName()));
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            activity.startActivity(Intent.createChooser(intent, "Compartir Póster de Victoria"));
+            activity.startActivity(Intent.createChooser(intent, activity.getString(R.string.share_victory_chooser)));
         } catch (Exception e) {
-            Toast.makeText(activity, "Error compartiendo póster: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
-    private static String formatFriendlyGameMode(String mode) {
-        if (mode == null) return "Torneo";
+    private static String formatFriendlyGameMode(Context context, String mode) {
+        if (mode == null) return context.getString(R.string.poster_default_title);
         switch (mode) {
             case "KING_OF_THE_HILL":
-                return "Rey de la Colina (1v1)";
+                return context.getString(R.string.game_mode_koth);
             case "ROUND_ROBIN":
-                return "Liga Todos contra Todos";
+                return context.getString(R.string.game_mode_round_robin);
             case "DOUBLE_ELIMINATION":
-                return "Doble Eliminación";
+                return context.getString(R.string.game_mode_double_elim);
             default:
-                return "Torneo Eliminatoria";
+                return context.getString(R.string.game_mode_bracket);
         }
     }
 
