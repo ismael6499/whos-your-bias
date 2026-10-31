@@ -54,6 +54,65 @@
 
 ---
 
+## In-App Auto-Update Architecture (Direct APK Distribution via GitHub Releases)
+This architecture allows any non-Play Store Android app to self-update cleanly with in-app download progress and direct installation.
+
+### 1. Requirements in `AndroidManifest.xml`:
+```xml
+<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+<application ...>
+    <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="${applicationId}.fileprovider"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/file_paths" />
+    </provider>
+</application>
+```
+File paths configuration (`res/xml/file_paths.xml`):
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path name="cache_apks" path="updates/" />
+    <external-cache-path name="ext_cache_apks" path="updates/" />
+</paths>
+```
+
+### 2. Update Check Workflow (`AppUpdateManager.java`):
+- **Endpoint:** Queries `https://api.github.com/repos/<owner>/<repo>/releases/latest` in a background thread executor.
+- **Comparison:** Compares current version from `packageInfo.versionName` against `tag_name` (e.g. `1.2.19` vs `v1.2.19`).
+- **Assets:** Searches release assets for files ending with `.apk` (preferring release or matching app name) and reads `browser_download_url` and size.
+
+### 3. Smooth Permission Handling (Android 8.0+ / API 26+):
+- Check `activity.getPackageManager().canRequestPackageInstalls()`.
+- If false, cache the downloaded file path in `pendingApkFile` and direct user to:
+  ```java
+  Intent permIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+          Uri.parse("package:" + activity.getPackageName()));
+  activity.startActivity(permIntent);
+  ```
+- In `MainActivity.onResume()`, call:
+  ```java
+  AppUpdateManager.resumePendingInstallIfAllowed(this);
+  ```
+  If permission was granted while in Settings, it immediately launches package installation without re-downloading.
+
+### 4. Direct APK Installation via FileProvider:
+```java
+Uri apkUri = FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", apkFile);
+Intent installIntent = new Intent(Intent.ACTION_VIEW);
+installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+activity.startActivity(installIntent);
+```
+
+---
+
 ## Git Workflow & History Backdating
 1. Commits must be made outside Argentine working hours (after 18:00 or before 09:00 on weekdays, or on weekends).
 2. Use sequential non-round minute/second offsets for realistic history representation:
