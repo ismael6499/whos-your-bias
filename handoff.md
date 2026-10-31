@@ -174,3 +174,16 @@
     - Added `syncState()` method called in `MainActivity.onResume()` to seamlessly continue YouTube or iTunes BGM when exiting challenges.
     - Embedded hybrid iframe with `autoplay=1&playsinline=1` and `window.onYouTubeIframeAPIReady` for instant reliable playback and controls.
   - Bumped version to `v1.2.11` (versionCode 14). Installed via ADB and deployed to `Mobile Drop` and `Downloads`.
+
+### 15. Fix YouTube Error 152-4 (Referer Injection) & Dedicated Top Drag Handle (v1.2.12)
+- **Requirement**:
+  - Fix YouTube Error 152-4 ("This video is unavailable. Error code: 152 - 4"): Caused by loading embed iframe through in-memory `loadDataWithBaseURL` which lacked a valid HTTP `Referer` header required by YouTube for official music videos.
+  - Fix Draggable Floating Mini Player: The WebView was intercepting all touch events, preventing `CardView.onTouchEvent` from firing.
+- **Status**: `[x] Done`
+- **Implementation**:
+  - `YoutubeBgmController.java`:
+    - Replaced `loadDataWithBaseURL` with `webView.loadUrl(embedUrl, headers)` passing explicit `Referer: https://www.youtube.com/` and `Origin: https://www.youtube.com`, satisfying YouTube's embed origin verification and eliminating Error 152-4.
+    - Attached `OnTouchListener` directly to the non-WebView drag handle bar (`miniPlayerDragBar`, `matchMiniPlayerDragBar`), giving users an instant, responsive drag experience to move the floating card anywhere on screen.
+    - Injected direct `<video>` play, volume, and `.ytp-play-button` click scripts in `onPageFinished` and `togglePlayPause`.
+  - Layout XMLs (`activity_main.xml`, `activity_match.xml`): Added dedicated top drag bar `[⠿ Drag           ✕]` above the WebView in the floating card.
+  - Bumped version to `v1.2.12` (versionCode 15). Installed via ADB and deployed to `Mobile Drop` and `Downloads`.

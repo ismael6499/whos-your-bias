@@ -57,8 +57,10 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -226,7 +228,18 @@ public class YoutubeBgmController {
                 public void onPageFinished(WebView view, String url) {
                     super.onPageFinished(view, url);
                     int vol = isMuted ? 0 : getActiveVolumeLevel();
-                    view.evaluateJavascript("if (typeof bgmSetVol === 'function') bgmSetVol(" + vol + ");", null);
+                    float fVol = vol / 100f;
+                    view.evaluateJavascript(
+                        "(function() {" +
+                        "  var v = document.querySelector('video');" +
+                        "  if (v) {" +
+                        "    v.volume = " + fVol + ";" +
+                        "    v.muted = " + isMuted + ";" +
+                        "    v.play().catch(function(e){ console.error('Play error: ' + e); });" +
+                        "  }" +
+                        "  var b = document.querySelector('.ytp-large-play-button') || document.querySelector('.ytp-play-button');" +
+                        "  if (b) b.click();" +
+                        "})();", null);
                 }
             });
         }
@@ -237,24 +250,28 @@ public class YoutubeBgmController {
             if (btnClose != null) {
                 btnClose.setOnClickListener(v -> setVideoVisible(false));
             }
-            videoContainer.setOnTouchListener(new View.OnTouchListener() {
-                float dX, dY;
-                @Override
-                public boolean onTouch(View view, MotionEvent event) {
-                    switch (event.getActionMasked()) {
-                        case MotionEvent.ACTION_DOWN:
-                            dX = view.getX() - event.getRawX();
-                            dY = view.getY() - event.getRawY();
-                            return false;
-                        case MotionEvent.ACTION_MOVE:
-                            view.setX(event.getRawX() + dX);
-                            view.setY(event.getRawY() + dY);
-                            return true;
-                        default:
-                            return false;
+            View dragBar = activity.findViewById(R.id.miniPlayerDragBar);
+            if (dragBar == null) dragBar = activity.findViewById(R.id.matchMiniPlayerDragBar);
+            if (dragBar != null) {
+                dragBar.setOnTouchListener(new View.OnTouchListener() {
+                    float dX, dY;
+                    @Override
+                    public boolean onTouch(View view, MotionEvent event) {
+                        switch (event.getActionMasked()) {
+                            case MotionEvent.ACTION_DOWN:
+                                dX = videoContainer.getX() - event.getRawX();
+                                dY = videoContainer.getY() - event.getRawY();
+                                return true;
+                            case MotionEvent.ACTION_MOVE:
+                                videoContainer.setX(event.getRawX() + dX);
+                                videoContainer.setY(event.getRawY() + dY);
+                                return true;
+                            default:
+                                return false;
+                        }
                     }
-                }
-            });
+                });
+            }
         }
         if (btnVideoToggle != null) {
             btnVideoToggle.setOnClickListener(v -> setVideoVisible(!isVideoExpanded));
@@ -334,9 +351,11 @@ public class YoutubeBgmController {
             String vid = extractYoutubeId(streamUrl);
             if (webView != null) {
                 if (autoPlay) {
-                    int vol = isMuted ? 0 : getActiveVolumeLevel();
-                    String html = buildYoutubeEmbedHtml(vid, vol, true);
-                    webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
+                    Map<String, String> headers = new HashMap<>();
+                    headers.put("Referer", "https://www.youtube.com/");
+                    headers.put("Origin", "https://www.youtube.com");
+                    String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&playsinline=1&enablejsapi=1&rel=0";
+                    webView.loadUrl(embedUrl, headers);
                     isPlaying = true;
                     isPrepared = true;
                     setVideoVisible(true);
@@ -399,19 +418,22 @@ public class YoutubeBgmController {
         if (isYoutubeUrl(activeStreamUrl)) {
             if (webView != null) {
                 if (isPlaying) {
-                    webView.evaluateJavascript("if (typeof bgmPause === 'function') bgmPause();", null);
+                    webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.pause(); })();", null);
                     isPlaying = false;
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
                 } else {
                     if (!isPrepared) {
                         String vid = extractYoutubeId(activeStreamUrl);
-                        int vol = isMuted ? 0 : getActiveVolumeLevel();
-                        String html = buildYoutubeEmbedHtml(vid, vol, true);
-                        webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
+                        Map<String, String> headers = new HashMap<>();
+                        headers.put("Referer", "https://www.youtube.com/");
+                        headers.put("Origin", "https://www.youtube.com");
+                        String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&playsinline=1&enablejsapi=1&rel=0";
+                        webView.loadUrl(embedUrl, headers);
                         isPrepared = true;
                     } else {
                         int vol = isMuted ? 0 : getActiveVolumeLevel();
-                        webView.evaluateJavascript("if (typeof bgmSetVol === 'function') bgmSetVol(" + vol + "); if (typeof bgmPlay === 'function') bgmPlay();", null);
+                        float fVol = vol / 100f;
+                        webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; v.play(); } var b = document.querySelector('.ytp-play-button') || document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
                     }
                     isPlaying = true;
                     setVideoVisible(true);
@@ -452,11 +474,7 @@ public class YoutubeBgmController {
         isMuted = !isMuted;
         if (isYoutubeUrl(activeStreamUrl)) {
             if (webView != null) {
-                if (isMuted) {
-                    webView.evaluateJavascript("if (typeof bgmMute === 'function') bgmMute();", null);
-                } else {
-                    webView.evaluateJavascript("if (typeof bgmUnmute === 'function') bgmUnmute(); if (typeof bgmSetVol === 'function') bgmSetVol(" + getActiveVolumeLevel() + ");", null);
-                }
+                webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.muted = " + isMuted + "; })();", null);
             }
         } else if (sharedPlayer != null) {
             int vol = isMuted ? 0 : getActiveVolumeLevel();
@@ -498,7 +516,7 @@ public class YoutubeBgmController {
             } catch (Exception ignored) {}
         }
         if (isYoutubeUrl(activeStreamUrl) && webView != null) {
-            webView.evaluateJavascript("if (typeof bgmSetVol === 'function') bgmSetVol(" + (isMuted ? 0 : volumePercent) + ");", null);
+            webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.volume = " + f + "; })();", null);
         }
     }
 
@@ -1335,9 +1353,11 @@ public class YoutubeBgmController {
                 String currentUrl = webView.getUrl();
                 if (currentUrl == null || currentUrl.equals("about:blank")) {
                     String vid = extractYoutubeId(activeStreamUrl);
-                    int vol = isMuted ? 0 : getActiveVolumeLevel();
-                    String html = buildYoutubeEmbedHtml(vid, vol, true);
-                    webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
+                    Map<String, String> headers = new HashMap<>();
+                    headers.put("Referer", "https://www.youtube.com/");
+                    headers.put("Origin", "https://www.youtube.com");
+                    String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&playsinline=1&enablejsapi=1&rel=0";
+                    webView.loadUrl(embedUrl, headers);
                     setVideoVisible(true);
                 }
             } else if (!isPlaying) {

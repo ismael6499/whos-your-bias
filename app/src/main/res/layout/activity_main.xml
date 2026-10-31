@@ -239,39 +239,59 @@
     <!-- Foreground Floating YouTube Mini Player Card (16:9 PiP) -->
     <androidx.cardview.widget.CardView
         android:id="@+id/bgmVideoContainer"
-        android:layout_width="168dp"
-        android:layout_height="96dp"
+        android:layout_width="180dp"
+        android:layout_height="124dp"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="14dp"
         android:layout_marginBottom="72dp"
         app:cardCornerRadius="14dp"
-        app:cardElevation="14dp"
-        app:cardBackgroundColor="#000000"
+        app:cardElevation="16dp"
+        app:cardBackgroundColor="#111827"
         android:visibility="gone">
 
-        <FrameLayout
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- Top Drag Handle Bar -->
+            <LinearLayout
+                android:id="@+id/miniPlayerDragBar"
+                android:layout_width="match_parent"
+                android:layout_height="26dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#1E293B"
+                android:paddingStart="8dp"
+                android:paddingEnd="4dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="⠿ Drag"
+                    android:textColor="#94A3B8"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold" />
+
+                <!-- Close Floating Mini Player Button -->
+                <TextView
+                    android:id="@+id/btnMiniPlayerClose"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:gravity="center"
+                    android:text="✕"
+                    android:textColor="#FFFFFF"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_btn_primary" />
+            </LinearLayout>
 
             <WebView
                 android:id="@+id/bgmWebView"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
-
-            <!-- Close Floating Mini Player Button -->
-            <TextView
-                android:id="@+id/btnMiniPlayerClose"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="top|end"
-                android:layout_margin="4dp"
-                android:gravity="center"
-                android:text="✕"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:background="@drawable/bg_btn_primary" />
-        </FrameLayout>
+        </LinearLayout>
     </androidx.cardview.widget.CardView>
 
 </FrameLayout>
