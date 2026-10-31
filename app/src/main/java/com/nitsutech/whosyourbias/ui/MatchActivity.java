@@ -51,6 +51,7 @@ public class MatchActivity extends AppCompatActivity {
 
     private TextView tvTournamentTitle;
     private TextView tvRoundBadge;
+    private TextView btnUndoMatch;
     private ProgressBar progressBar;
     private View arenaDuelContainer;
     private FrameLayout cardSlotTop;
@@ -85,6 +86,21 @@ public class MatchActivity extends AppCompatActivity {
         confettiOverlay = findViewById(R.id.confettiOverlay);
 
         findViewById(R.id.btnExitMatch).setOnClickListener(v -> finish());
+        btnUndoMatch = findViewById(R.id.btnUndoMatch);
+        if (btnUndoMatch != null) {
+            btnUndoMatch.setOnClickListener(v -> {
+                if (engine != null && engine.canUndo()) {
+                    boolean undone = engine.undoLastPick();
+                    if (undone) {
+                        isAnimatingPick = false;
+                        arenaDuelContainer.setVisibility(View.VISIBLE);
+                        victoryScrollContainer.setVisibility(View.GONE);
+                        renderCurrentDuel();
+                        Toast.makeText(this, R.string.match_undone_toast, Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
 
         WebView bgmWeb = findViewById(R.id.matchBgmWebView);
         View bgmVidBox = findViewById(R.id.matchBgmVideoContainer);
@@ -129,6 +145,13 @@ public class MatchActivity extends AppCompatActivity {
         isAnimatingPick = false;
         arenaDuelContainer.setVisibility(View.VISIBLE);
         victoryScrollContainer.setVisibility(View.GONE);
+        if (confettiOverlay != null) {
+            confettiOverlay.stopConfetti();
+        }
+
+        if (btnUndoMatch != null) {
+            btnUndoMatch.setVisibility(engine.canUndo() ? View.VISIBLE : View.GONE);
+        }
 
         tvRoundBadge.setText(engine.getCurrentRoundTitle());
         progressBar.setProgress(engine.getProgressPercent());
@@ -417,43 +440,49 @@ public class MatchActivity extends AppCompatActivity {
         btnFlipInfo.setOnClickListener(v -> flipCard3D(wrapper, frontCard, backCard));
         btnFlipBack.setOnClickListener(v -> flipCard3D(wrapper, backCard, frontCard));
 
-        // Slide / Swipe finger on card rotates the card in 3D to see info, and sliding/swiping again rotates back to photo!
-        attachSlideOrTapToFlipGesture(frontInner, () -> flipCard3D(wrapper, frontCard, backCard));
-        attachSlideOrTapToFlipGesture(backCard, () -> flipCard3D(wrapper, backCard, frontCard));
-        attachSlideOrTapToFlipGesture(backInner, () -> flipCard3D(wrapper, backCard, frontCard));
-        attachSlideOrTapToFlipGesture(backScroll, () -> flipCard3D(wrapper, backCard, frontCard));
-        attachSlideOrTapToFlipGesture(backDetails, () -> flipCard3D(wrapper, backCard, frontCard));
-
         View.OnClickListener pickAction = v -> onCardPicked(wrapper, isTopSlot);
         tvPickBadge.setOnClickListener(pickAction);
         btnPickBack.setOnClickListener(pickAction);
 
+        // Slide finger on card rotates the card in 3D to see info.
+        // A simple tap on the front card chooses that card as the winning pick!
+        attachCardGestures(frontInner, () -> flipCard3D(wrapper, frontCard, backCard), () -> onCardPicked(wrapper, isTopSlot));
+        attachCardGestures(backCard, () -> flipCard3D(wrapper, backCard, frontCard), null);
+        attachCardGestures(backInner, () -> flipCard3D(wrapper, backCard, frontCard), null);
+        attachCardGestures(backScroll, () -> flipCard3D(wrapper, backCard, frontCard), null);
+        attachCardGestures(backDetails, () -> flipCard3D(wrapper, backCard, frontCard), null);
+
         return wrapper;
     }
 
-    private void attachSlideOrTapToFlipGesture(View targetView, Runnable onFlip) {
+    private void attachCardGestures(View targetView, Runnable onSlideFlip, Runnable onTapPick) {
         final float[] downXY = new float[2];
-        final boolean[] triggered = new boolean[1];
+        final boolean[] isSlide = new boolean[1];
+        final long[] downTime = new long[1];
         targetView.setOnTouchListener((v, ev) -> {
             switch (ev.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     downXY[0] = ev.getRawX();
                     downXY[1] = ev.getRawY();
-                    triggered[0] = false;
+                    downTime[0] = System.currentTimeMillis();
+                    isSlide[0] = false;
                     return true;
                 case MotionEvent.ACTION_MOVE:
-                    if (!triggered[0]) {
+                    if (!isSlide[0]) {
                         float dx = Math.abs(ev.getRawX() - downXY[0]);
                         float dy = Math.abs(ev.getRawY() - downXY[1]);
-                        if (dx > dp(16) || dy > dp(16)) {
-                            triggered[0] = true;
-                            onFlip.run();
+                        if (dx > dp(20) || dy > dp(20)) {
+                            isSlide[0] = true;
+                            if (onSlideFlip != null) onSlideFlip.run();
                         }
                     }
                     return true;
                 case MotionEvent.ACTION_UP:
-                    if (!triggered[0]) {
-                        onFlip.run();
+                    if (!isSlide[0]) {
+                        long elapsed = System.currentTimeMillis() - downTime[0];
+                        if (elapsed < 600 && onTapPick != null) {
+                            onTapPick.run();
+                        }
                     }
                     return true;
                 case MotionEvent.ACTION_CANCEL:
@@ -522,6 +551,9 @@ public class MatchActivity extends AppCompatActivity {
         ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
         arenaDuelContainer.setVisibility(View.GONE);
         victoryScrollContainer.setVisibility(View.VISIBLE);
+        if (btnUndoMatch != null) {
+            btnUndoMatch.setVisibility(engine.canUndo() ? View.VISIBLE : View.GONE);
+        }
         victoryContentBox.removeAllViews();
         progressBar.setProgress(100);
         tvRoundBadge.setText("👑 BIAS SUPREMO");
@@ -694,6 +726,12 @@ public class MatchActivity extends AppCompatActivity {
         } catch (Exception e) {
             Toast.makeText(this, "Could not open YouTube", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (bgmController != null) bgmController.onAppBackground();
     }
 
     @Override

@@ -23,6 +23,86 @@ public class TournamentEngine implements Serializable {
         }
     }
 
+    public static class Snapshot implements Serializable {
+        final List<MatchHistoryItem> history;
+        final List<IdolCard> currentRoundPool;
+        final List<IdolCard> nextRoundWinners;
+        final List<IdolCard> losersBracketPool;
+        final boolean inLosersBracketPhase;
+        final boolean inGrandFinalPhase;
+        final IdolCard winnersBracketChamp;
+        final int matchIndexInRound;
+        final int roundNumber;
+        final IdolCard reigningKing;
+        final int currentKingStreak;
+        final int maxKingStreak;
+        final IdolCard longestStreakHolder;
+        final int kothQueueIndex;
+        final Map<String, Integer> pointsMap;
+        final int rrIndex;
+        final IdolCard champion;
+        final IdolCard runnerUp;
+        final List<IdolCard> semiFinalists;
+        final boolean finished;
+        final IdolCard currentLeft;
+        final IdolCard currentRight;
+
+        Snapshot(TournamentEngine e) {
+            this.history = new ArrayList<>(e.history);
+            this.currentRoundPool = new ArrayList<>(e.currentRoundPool);
+            this.nextRoundWinners = new ArrayList<>(e.nextRoundWinners);
+            this.losersBracketPool = new ArrayList<>(e.losersBracketPool);
+            this.inLosersBracketPhase = e.inLosersBracketPhase;
+            this.inGrandFinalPhase = e.inGrandFinalPhase;
+            this.winnersBracketChamp = e.winnersBracketChamp;
+            this.matchIndexInRound = e.matchIndexInRound;
+            this.roundNumber = e.roundNumber;
+            this.reigningKing = e.reigningKing;
+            this.currentKingStreak = e.currentKingStreak;
+            this.maxKingStreak = e.maxKingStreak;
+            this.longestStreakHolder = e.longestStreakHolder;
+            this.kothQueueIndex = e.kothQueueIndex;
+            this.pointsMap = new HashMap<>(e.pointsMap);
+            this.rrIndex = e.rrIndex;
+            this.champion = e.champion;
+            this.runnerUp = e.runnerUp;
+            this.semiFinalists = new ArrayList<>(e.semiFinalists);
+            this.finished = e.finished;
+            this.currentLeft = e.currentLeft;
+            this.currentRight = e.currentRight;
+        }
+
+        void restore(TournamentEngine e) {
+            e.history.clear();
+            e.history.addAll(this.history);
+            e.currentRoundPool = new ArrayList<>(this.currentRoundPool);
+            e.nextRoundWinners = new ArrayList<>(this.nextRoundWinners);
+            e.losersBracketPool = new ArrayList<>(this.losersBracketPool);
+            e.inLosersBracketPhase = this.inLosersBracketPhase;
+            e.inGrandFinalPhase = this.inGrandFinalPhase;
+            e.winnersBracketChamp = this.winnersBracketChamp;
+            e.matchIndexInRound = this.matchIndexInRound;
+            e.roundNumber = this.roundNumber;
+            e.reigningKing = this.reigningKing;
+            e.currentKingStreak = this.currentKingStreak;
+            e.maxKingStreak = this.maxKingStreak;
+            e.longestStreakHolder = this.longestStreakHolder;
+            e.kothQueueIndex = this.kothQueueIndex;
+            e.pointsMap.clear();
+            e.pointsMap.putAll(this.pointsMap);
+            e.rrIndex = this.rrIndex;
+            e.champion = this.champion;
+            e.runnerUp = this.runnerUp;
+            e.semiFinalists.clear();
+            e.semiFinalists.addAll(this.semiFinalists);
+            e.finished = this.finished;
+            e.currentLeft = this.currentLeft;
+            e.currentRight = this.currentRight;
+        }
+    }
+
+    private final List<Snapshot> snapshots = new ArrayList<>();
+
     private final String gameMode; // BRACKET, KING_OF_THE_HILL, ROUND_ROBIN, DOUBLE_ELIMINATION
     private final String tournamentTitle;
     private final List<IdolCard> initialRoster;
@@ -128,8 +208,21 @@ public class TournamentEngine implements Serializable {
         }
     }
 
+    public boolean canUndo() {
+        return !snapshots.isEmpty();
+    }
+
+    public boolean undoLastPick() {
+        if (snapshots.isEmpty()) return false;
+        Snapshot s = snapshots.remove(snapshots.size() - 1);
+        s.restore(this);
+        return true;
+    }
+
     public void pickWinner(boolean pickedLeft) {
         if (finished || currentLeft == null || currentRight == null) return;
+
+        snapshots.add(new Snapshot(this));
 
         IdolCard winner = pickedLeft ? currentLeft : currentRight;
         IdolCard loser = pickedLeft ? currentRight : currentLeft;

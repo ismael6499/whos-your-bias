@@ -24,6 +24,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.ConsoleMessage;
+import android.webkit.CookieManager;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -108,39 +109,71 @@ public class YoutubeBgmController {
     private static boolean isPlaying = false;
     private static boolean isMuted = false;
     private static WeakReference<YoutubeBgmController> activeControllerRef;
+    private static WebView activePlayingWebView = null;
+    private static String currentLoadedVideoId = null;
     private boolean isVideoExpanded = false;
+
+    private WebView getTargetWebView() {
+        if (activePlayingWebView != null) return activePlayingWebView;
+        return this.webView;
+    }
 
     private static String buildYoutubeEmbedHtml(String videoId, int initialVolume, boolean autoPlay) {
         return "<!DOCTYPE html>\n" +
                 "<html>\n" +
                 "<head>\n" +
-                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>\n" +
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>\n" +
+                "<script>\n" +
+                "try {\n" +
+                "  Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });\n" +
+                "  Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });\n" +
+                "  ['visibilitychange', 'webkitvisibilitychange', 'blur'].forEach(function(ev) {\n" +
+                "    window.addEventListener(ev, function(e) { e.stopImmediatePropagation(); }, true);\n" +
+                "    document.addEventListener(ev, function(e) { e.stopImmediatePropagation(); }, true);\n" +
+                "  });\n" +
+                "} catch(e){}\n" +
+                "</script>\n" +
                 "<style>\n" +
                 "  * { margin:0; padding:0; box-sizing:border-box; }\n" +
                 "  html, body { width:100%; height:100%; background:#000000; overflow:hidden; }\n" +
-                "  iframe { width:100%; height:100%; border:none; position:absolute; top:0; left:0; }\n" +
+                "  #player { width:100% !important; height:100% !important; position:absolute; top:0; left:0; border:none; }\n" +
                 "</style>\n" +
                 "</head>\n" +
                 "<body>\n" +
-                "<iframe id='ytplayer' src='https://www.youtube.com/embed/" + videoId + "?autoplay=1&playsinline=1&enablejsapi=1&origin=https://www.youtube.com' allow='autoplay; encrypted-media; picture-in-picture' allowfullscreen></iframe>\n" +
-                "<script src='https://www.youtube.com/iframe_api'></script>\n" +
+                "<div id='player'></div>\n" +
                 "<script>\n" +
+                "var tag = document.createElement('script');\n" +
+                "tag.src = 'https://www.youtube.com/iframe_api';\n" +
+                "var firstScriptTag = document.getElementsByTagName('script')[0];\n" +
+                "firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);\n" +
                 "var player;\n" +
-                "window.onYouTubeIframeAPIReady = function() {\n" +
-                "  console.log('onYouTubeIframeAPIReady called for: " + videoId + "');\n" +
-                "  player = new YT.Player('ytplayer', {\n" +
+                "function onYouTubeIframeAPIReady() {\n" +
+                "  player = new YT.Player('player', {\n" +
+                "    height: '100%',\n" +
+                "    width: '100%',\n" +
+                "    videoId: '" + videoId + "',\n" +
+                "    playerVars: {\n" +
+                "      'autoplay': " + (autoPlay ? "1" : "0") + ",\n" +
+                "      'playsinline': 1,\n" +
+                "      'controls': 1,\n" +
+                "      'rel': 0,\n" +
+                "      'fs': 0,\n" +
+                "      'origin': 'https://com.nitsutech.whosyourbias'\n" +
+                "    },\n" +
                 "    events: {\n" +
                 "      'onReady': function(e) {\n" +
-                "        console.log('YT Player onReady!');\n" +
                 "        try { e.target.setVolume(" + initialVolume + "); } catch(x){}\n" +
                 (autoPlay ? "        try { e.target.playVideo(); } catch(x){}\n" : "") +
                 "      },\n" +
                 "      'onError': function(e) {\n" +
                 "        console.error('YT Player onError: ' + e.data);\n" +
+                "        if (e.data == 150 || e.data == 152 || e.data == 101) {\n" +
+                "          window.location.replace('https://m.youtube.com/watch?v=" + videoId + "');\n" +
+                "        }\n" +
                 "      }\n" +
                 "    }\n" +
                 "  });\n" +
-                "};\n" +
+                "}\n" +
                 "window.bgmPlay = function() { if (player && player.playVideo) player.playVideo(); };\n" +
                 "window.bgmPause = function() { if (player && player.pauseVideo) player.pauseVideo(); };\n" +
                 "window.bgmSetVol = function(v) { if (player && player.setVolume) player.setVolume(v); };\n" +
@@ -149,6 +182,23 @@ public class YoutubeBgmController {
                 "</script>\n" +
                 "</body>\n" +
                 "</html>";
+    }
+
+    private void loadYoutubeVideo(String videoId, boolean autoPlay) {
+        WebView target = (webView != null) ? webView : activePlayingWebView;
+        if (target == null) return;
+        activePlayingWebView = target;
+        currentLoadedVideoId = videoId;
+        int vol = isMuted ? 0 : getActiveVolumeLevel();
+        String html = buildYoutubeEmbedHtml(videoId, vol, autoPlay);
+        target.loadDataWithBaseURL("https://com.nitsutech.whosyourbias", html, "text/html", "UTF-8", null);
+        isPlaying = autoPlay;
+        isPrepared = true;
+        setVideoVisible(false); // User requirement: always start minimized!
+        if (autoPlay) {
+            showOrUpdateMusicNotification(activity.getApplicationContext());
+        }
+        updateButtonsUi();
     }
 
     public void setVideoVisible(boolean show) {
@@ -201,9 +251,15 @@ public class YoutubeBgmController {
         activeControllerRef = new WeakReference<>(this);
 
         if (this.webView != null) {
+            CookieManager cookieManager = CookieManager.getInstance();
+            cookieManager.setAcceptCookie(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                cookieManager.setAcceptThirdPartyCookies(this.webView, true);
+            }
             WebSettings ws = this.webView.getSettings();
             ws.setJavaScriptEnabled(true);
             ws.setDomStorageEnabled(true);
+            ws.setDatabaseEnabled(true);
             ws.setMediaPlaybackRequiresUserGesture(false);
             ws.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
             ws.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
@@ -239,6 +295,9 @@ public class YoutubeBgmController {
                         "  }" +
                         "  var b = document.querySelector('.ytp-large-play-button') || document.querySelector('.ytp-play-button');" +
                         "  if (b) b.click();" +
+                        "  var style = document.createElement('style');" +
+                        "  style.innerHTML = 'header, ytm-header-bar, .pivot-bar, .related-items, ytm-item-section-renderer, #comments, ytm-comments-entry-point-header-renderer { display: none !important; } .player-container, #player-container-id, video { width: 100vw !important; height: 100vh !important; object-fit: contain !important; } body { background: black !important; margin: 0 !important; overflow: hidden !important; }';" +
+                        "  document.head.appendChild(style);" +
                         "})();", null);
                 }
             });
@@ -253,19 +312,66 @@ public class YoutubeBgmController {
             View dragBar = activity.findViewById(R.id.miniPlayerDragBar);
             if (dragBar == null) dragBar = activity.findViewById(R.id.matchMiniPlayerDragBar);
             if (dragBar != null) {
+                dragBar.setClickable(true);
                 dragBar.setOnTouchListener(new View.OnTouchListener() {
-                    float dX, dY;
+                    float initialX, initialY;
+                    float initialTouchX, initialTouchY;
+                    boolean isDragging = false;
+
                     @Override
                     public boolean onTouch(View view, MotionEvent event) {
                         switch (event.getActionMasked()) {
                             case MotionEvent.ACTION_DOWN:
-                                dX = videoContainer.getX() - event.getRawX();
-                                dY = videoContainer.getY() - event.getRawY();
+                                if (view.getParent() != null) {
+                                    view.getParent().requestDisallowInterceptTouchEvent(true);
+                                }
+                                if (videoContainer.getParent() != null) {
+                                    videoContainer.getParent().requestDisallowInterceptTouchEvent(true);
+                                }
+                                initialX = videoContainer.getX();
+                                initialY = videoContainer.getY();
+                                initialTouchX = event.getRawX();
+                                initialTouchY = event.getRawY();
+                                isDragging = true;
                                 return true;
+
                             case MotionEvent.ACTION_MOVE:
-                                videoContainer.setX(event.getRawX() + dX);
-                                videoContainer.setY(event.getRawY() + dY);
+                                if (!isDragging) return false;
+                                if (view.getParent() != null) {
+                                    view.getParent().requestDisallowInterceptTouchEvent(true);
+                                }
+                                if (videoContainer.getParent() != null) {
+                                    videoContainer.getParent().requestDisallowInterceptTouchEvent(true);
+                                }
+                                float deltaX = event.getRawX() - initialTouchX;
+                                float deltaY = event.getRawY() - initialTouchY;
+
+                                float targetX = initialX + deltaX;
+                                float targetY = initialY + deltaY;
+
+                                View parentView = (View) videoContainer.getParent();
+                                if (parentView != null) {
+                                    int maxX = Math.max(0, parentView.getWidth() - videoContainer.getWidth());
+                                    int maxY = Math.max(0, parentView.getHeight() - videoContainer.getHeight());
+                                    targetX = Math.max(0, Math.min(targetX, maxX));
+                                    targetY = Math.max(0, Math.min(targetY, maxY));
+                                }
+
+                                videoContainer.setX(targetX);
+                                videoContainer.setY(targetY);
                                 return true;
+
+                            case MotionEvent.ACTION_UP:
+                            case MotionEvent.ACTION_CANCEL:
+                                isDragging = false;
+                                if (view.getParent() != null) {
+                                    view.getParent().requestDisallowInterceptTouchEvent(false);
+                                }
+                                if (videoContainer.getParent() != null) {
+                                    videoContainer.getParent().requestDisallowInterceptTouchEvent(false);
+                                }
+                                return true;
+
                             default:
                                 return false;
                         }
@@ -297,6 +403,11 @@ public class YoutubeBgmController {
         }
         if (this.tvNowPlaying != null) {
             this.tvNowPlaying.setOnClickListener(v -> showSongSelectorDialog());
+        }
+
+        if (isPlaying) {
+            updateButtonsUi();
+            return;
         }
 
         if (sharedPlayer != null && isPrepared && savedUrl.equals(activeStreamUrl)) {
@@ -351,15 +462,7 @@ public class YoutubeBgmController {
             String vid = extractYoutubeId(streamUrl);
             if (webView != null) {
                 if (autoPlay) {
-                    Map<String, String> headers = new HashMap<>();
-                    headers.put("Referer", "https://www.youtube.com/");
-                    headers.put("Origin", "https://www.youtube.com");
-                    String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&playsinline=1&enablejsapi=1&rel=0";
-                    webView.loadUrl(embedUrl, headers);
-                    isPlaying = true;
-                    isPrepared = true;
-                    setVideoVisible(true);
-                    showOrUpdateMusicNotification(activity.getApplicationContext());
+                    loadYoutubeVideo(vid, true);
                 } else {
                     webView.loadUrl("about:blank");
                     isPlaying = false;
@@ -416,27 +519,22 @@ public class YoutubeBgmController {
 
     public void togglePlayPause() {
         if (isYoutubeUrl(activeStreamUrl)) {
-            if (webView != null) {
+            WebView target = getTargetWebView();
+            if (target != null) {
                 if (isPlaying) {
-                    webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.pause(); })();", null);
+                    target.evaluateJavascript("(function(){ if (window.bgmPause) window.bgmPause(); var v = document.querySelector('video'); if (v) v.pause(); })();", null);
                     isPlaying = false;
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
                 } else {
-                    if (!isPrepared) {
-                        String vid = extractYoutubeId(activeStreamUrl);
-                        Map<String, String> headers = new HashMap<>();
-                        headers.put("Referer", "https://www.youtube.com/");
-                        headers.put("Origin", "https://www.youtube.com");
-                        String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&playsinline=1&enablejsapi=1&rel=0";
-                        webView.loadUrl(embedUrl, headers);
-                        isPrepared = true;
+                    String vid = extractYoutubeId(activeStreamUrl);
+                    if (!isPrepared || currentLoadedVideoId == null || !currentLoadedVideoId.equals(vid)) {
+                        loadYoutubeVideo(vid, true);
                     } else {
                         int vol = isMuted ? 0 : getActiveVolumeLevel();
                         float fVol = vol / 100f;
-                        webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; v.play(); } var b = document.querySelector('.ytp-play-button') || document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
+                        target.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; v.play(); } var b = document.querySelector('.ytp-play-button') || document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
+                        isPlaying = true;
                     }
-                    isPlaying = true;
-                    setVideoVisible(true);
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
                 }
             }
@@ -473,8 +571,9 @@ public class YoutubeBgmController {
     public void toggleMute() {
         isMuted = !isMuted;
         if (isYoutubeUrl(activeStreamUrl)) {
-            if (webView != null) {
-                webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.muted = " + isMuted + "; })();", null);
+            WebView target = getTargetWebView();
+            if (target != null) {
+                target.evaluateJavascript("(function(){ if (window.bgmMute && window.bgmUnmute) { if (" + isMuted + ") window.bgmMute(); else window.bgmUnmute(); } var v = document.querySelector('video'); if (v) v.muted = " + isMuted + "; })();", null);
             }
         } else if (sharedPlayer != null) {
             int vol = isMuted ? 0 : getActiveVolumeLevel();
@@ -515,8 +614,11 @@ public class YoutubeBgmController {
                 sharedPlayer.setVolume(f, f);
             } catch (Exception ignored) {}
         }
-        if (isYoutubeUrl(activeStreamUrl) && webView != null) {
-            webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.volume = " + f + "; })();", null);
+        if (isYoutubeUrl(activeStreamUrl)) {
+            WebView target = getTargetWebView();
+            if (target != null) {
+                target.evaluateJavascript("(function(){ if (window.bgmSetVol) window.bgmSetVol(" + (isMuted ? 0 : volumePercent) + "); var v = document.querySelector('video'); if (v) v.volume = " + f + "; })();", null);
+            }
         }
     }
 
@@ -1348,25 +1450,32 @@ public class YoutubeBgmController {
         activeControllerRef = new WeakReference<>(this);
         updateButtonsUi();
         if (isYoutubeUrl(activeStreamUrl)) {
-            if (btnVideoToggle != null) btnVideoToggle.setVisibility(View.VISIBLE);
-            if (isPlaying && webView != null) {
-                String currentUrl = webView.getUrl();
-                if (currentUrl == null || currentUrl.equals("about:blank")) {
-                    String vid = extractYoutubeId(activeStreamUrl);
-                    Map<String, String> headers = new HashMap<>();
-                    headers.put("Referer", "https://www.youtube.com/");
-                    headers.put("Origin", "https://www.youtube.com");
-                    String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&playsinline=1&enablejsapi=1&rel=0";
-                    webView.loadUrl(embedUrl, headers);
-                    setVideoVisible(true);
+            if (btnVideoToggle != null) {
+                btnVideoToggle.setVisibility(View.VISIBLE);
+                btnVideoToggle.setText(isVideoExpanded ? "✕" : "📺");
+            }
+            WebView target = getTargetWebView();
+            if (isPlaying && target != null) {
+                String vid = extractYoutubeId(activeStreamUrl);
+                if (!vid.equals(currentLoadedVideoId)) {
+                    loadYoutubeVideo(vid, true);
+                } else {
+                    int vol = isMuted ? 0 : getActiveVolumeLevel();
+                    float fVol = vol / 100f;
+                    target.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; v.play(); } })();", null);
                 }
             } else if (!isPlaying) {
                 setVideoVisible(false);
             }
         } else {
+            currentLoadedVideoId = null;
             if (btnVideoToggle != null) btnVideoToggle.setVisibility(View.GONE);
             setVideoVisible(false);
         }
+    }
+
+    public void onAppBackground() {
+        // Keep playing audio in background seamlessly!
     }
 
     public void destroy() {

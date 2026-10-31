@@ -201,12 +201,48 @@ public class MainActivity extends AppCompatActivity {
         handleIncomingIntent(intent);
     }
 
+    private String lastImportedClip = "";
+
+    private void checkClipboardForWybCode() {
+        try {
+            ClipboardManager cb = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cb != null && cb.hasPrimaryClip() && cb.getPrimaryClip() != null && cb.getPrimaryClip().getItemCount() > 0) {
+                CharSequence text = cb.getPrimaryClip().getItemAt(0).getText();
+                if (text != null) {
+                    String str = text.toString().trim();
+                    if (str.contains("WYB1-") && !str.equals(lastImportedClip)) {
+                        lastImportedClip = str;
+                        ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, str);
+                        if (payload != null && !payload.cards.isEmpty()) {
+                            new AlertDialog.Builder(this)
+                                    .setTitle("📥 " + getString(R.string.import_preview_title))
+                                    .setMessage(getString(R.string.import_detected_banner) + "\n\n• " + payload.packTitle + " (" + payload.cards.size() + " Idols)")
+                                    .setPositiveButton(getString(R.string.import_btn_action), (d, w) -> showSelectiveImportDialog(payload))
+                                    .setNegativeButton(getString(R.string.btn_cancel), null)
+                                    .show();
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
         applyThemeToShell();
         if (bgmController != null) bgmController.syncState();
         refreshCurrentTab();
+        AppUpdateManager.resumePendingInstallIfAllowed(this);
+        checkClipboardForWybCode();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (bgmController != null) {
+            bgmController.onAppBackground();
+        }
     }
 
     private void switchTab(int index) {
@@ -259,7 +295,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 1. Clean Pill Search Bar (Moshicam / Vibrary style)
         TextView searchBarPill = new TextView(this);
-        searchBarPill.setText("🔍  Buscar idols, grupos o colecciones...");
+        searchBarPill.setText("🔍  " + getString(R.string.search_arena_hint));
         searchBarPill.setTextColor(theme.getMutedTextColor());
         searchBarPill.setTextSize(13.5f);
         searchBarPill.setGravity(Gravity.CENTER_VERTICAL);
@@ -300,7 +336,7 @@ public class MainActivity extends AppCompatActivity {
         heroLeft.addView(tvHeroBadge);
 
         TextView tvHeroTitle = new TextView(this);
-        tvHeroTitle.setText("Elegí tu Bias\nSupremo 1 vs 1");
+        tvHeroTitle.setText(getString(R.string.hero_title));
         tvHeroTitle.setTextColor(theme.textColor);
         tvHeroTitle.setTextSize(20f);
         tvHeroTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
@@ -309,14 +345,14 @@ public class MainActivity extends AppCompatActivity {
 
         List<IdolCard> allIdols = repo.getAllIdols();
         TextView tvHeroSub = new TextView(this);
-        tvHeroSub.setText(allIdols.size() + " idols y " + repo.getAllGroups().size() + " grupos listos para jugar");
+        tvHeroSub.setText(getString(R.string.hero_subtitle, allIdols.size(), repo.getAllGroups().size()));
         tvHeroSub.setTextColor(theme.getMutedTextColor());
         tvHeroSub.setTextSize(12f);
         tvHeroSub.setPadding(0, 0, 0, dp(12));
         heroLeft.addView(tvHeroSub);
 
         TextView btnHeroPlay = new TextView(this);
-        btnHeroPlay.setText("▶  Jugar Torneo");
+        btnHeroPlay.setText(getString(R.string.hero_btn_play));
         btnHeroPlay.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         btnHeroPlay.setTypeface(Typeface.DEFAULT_BOLD);
         btnHeroPlay.setTextSize(13f);
@@ -361,11 +397,11 @@ public class MainActivity extends AppCompatActivity {
         trLp.setMargins(0, 0, 0, dp(16));
         tilesRow.setLayoutParams(trLp);
 
-        tilesRow.addView(buildMoshiActionTile("⚡", "Partida CPU", "#FFF0F5", "#F43F5E", null, this::showQuickMatchSetupSheet));
+        tilesRow.addView(buildMoshiActionTile("⚡", getString(R.string.tile_cpu_match), "#FFF0F5", "#F43F5E", null, this::showQuickMatchSetupSheet));
         View spacer1 = new View(this);
         spacer1.setLayoutParams(new LinearLayout.LayoutParams(dp(10), 1));
         tilesRow.addView(spacer1);
-        tilesRow.addView(buildMoshiActionTile("🎯", "Crear Partida", "#FFFBEB", "#D97706", null, this::showVibraryStyleCustomMatchBuilder));
+        tilesRow.addView(buildMoshiActionTile("🎯", getString(R.string.tile_create_match), "#FFFBEB", "#D97706", null, this::showVibraryStyleCustomMatchBuilder));
         View spacer2 = new View(this);
         spacer2.setLayoutParams(new LinearLayout.LayoutParams(dp(10), 1));
         tilesRow.addView(spacer2);
@@ -411,17 +447,35 @@ public class MainActivity extends AppCompatActivity {
 
         TextView tvGachaRight = new TextView(this);
         SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
-        long lastGacha = wybPrefs.getLong("last_gacha_open_time", 0);
         long gachaCooldown = 3 * 60 * 1000L; // Free gacha every 3 minutes!
-        long gachaRem = (lastGacha + gachaCooldown) - System.currentTimeMillis();
-        if (gachaRem > 0) {
-            long gm = gachaRem / (60 * 1000L);
-            long gs = (gachaRem % (60 * 1000L)) / 1000L;
-            String timeStr = String.format(Locale.ROOT, "%02dm %02ds", gm, gs);
-            tvGachaRight.setText(getString(R.string.gacha_cooldown_strip, timeStr));
-        } else {
-            tvGachaRight.setText(getString(R.string.gacha_open_ready));
-        }
+        Runnable updateGachaTimer = new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) return;
+                long lastGacha = wybPrefs.getLong("last_gacha_open_time", 0);
+                long gachaRem = (lastGacha + gachaCooldown) - System.currentTimeMillis();
+                if (gachaRem > 0) {
+                    long gm = gachaRem / (60 * 1000L);
+                    long gs = (gachaRem % (60 * 1000L)) / 1000L;
+                    String timeStr = String.format(Locale.ROOT, "%02dm %02ds", gm, gs);
+                    tvGachaRight.setText(getString(R.string.gacha_cooldown_strip, timeStr));
+                    tvGachaRight.postDelayed(this, 1000L);
+                } else {
+                    tvGachaRight.setText(getString(R.string.gacha_open_ready));
+                }
+            }
+        };
+        tvGachaRight.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View v) {
+                tvGachaRight.post(updateGachaTimer);
+            }
+            @Override
+            public void onViewDetachedFromWindow(View v) {
+                tvGachaRight.removeCallbacks(updateGachaTimer);
+            }
+        });
+        updateGachaTimer.run();
         tvGachaRight.setTextColor(theme.primaryColor);
         tvGachaRight.setTypeface(Typeface.DEFAULT_BOLD);
         tvGachaRight.setTextSize(12.5f);
@@ -453,7 +507,7 @@ public class MainActivity extends AppCompatActivity {
         root.addView(matchesScroll);
 
         // 6. Section: Batallas por Compañía & Posición (Rotating daily with daySeed)
-        addSectionHeaderRow(root, "Batallas Especiales", "Ver grupos", () -> switchTab(2));
+        addSectionHeaderRow(root, getString(R.string.special_battles_title), getString(R.string.special_battles_view_groups), () -> switchTab(2));
 
         HorizontalScrollView specialScroll = new HorizontalScrollView(this);
         specialScroll.setHorizontalScrollBarEnabled(false);
@@ -606,7 +660,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Pill badge on top-left (Moshicam style)
         TextView tvTag = new TextView(this);
-        tvTag.setText("✨ " + cm.getCardIds().size() + " Cartas");
+        tvTag.setText(getString(R.string.deck_cards_badge, cm.getCardIds().size()));
         tvTag.setTextColor(theme.getButtonTextColor(theme.secondaryColor));
         tvTag.setTextSize(10f);
         tvTag.setTypeface(Typeface.DEFAULT_BOLD);
@@ -642,7 +696,7 @@ public class MainActivity extends AppCompatActivity {
         actRow.setPadding(0, dp(4), 0, 0);
 
         TextView tvSub = new TextView(this);
-        tvSub.setText("▶ Jugar");
+        tvSub.setText(getString(R.string.deck_play));
         tvSub.setTextColor(theme.primaryColor);
         tvSub.setTextSize(11.5f);
         tvSub.setTypeface(Typeface.DEFAULT_BOLD);
@@ -796,7 +850,7 @@ public class MainActivity extends AppCompatActivity {
             tabItem.setPadding(dp(10), dp(4), dp(10), dp(4));
 
             TextView tvTab = new TextView(this);
-            tvTab.setText("ALL".equals(ch) ? "Todo" : ("Favorites".equals(ch) ? "Favoritos" : ch));
+            tvTab.setText("ALL".equalsIgnoreCase(ch) ? getString(R.string.filter_all) : ("Favorites".equalsIgnoreCase(ch) ? getString(R.string.filter_favorites) : ch));
             tvTab.setTextColor(active ? theme.textColor : theme.getMutedTextColor());
             tvTab.setTypeface(null, active ? Typeface.BOLD : Typeface.NORMAL);
             tvTab.setTextSize(13.5f);
@@ -1476,8 +1530,9 @@ public class MainActivity extends AppCompatActivity {
         parLp2.topMargin = dp(8);
         profActRow2.setLayoutParams(parLp2);
 
+        String appVer = getAppVersionName();
         TextView btnCheckUpd = new TextView(this);
-        btnCheckUpd.setText(getString(R.string.btn_check_updates));
+        btnCheckUpd.setText(getString(R.string.btn_check_updates) + " (v" + appVer + ")");
         btnCheckUpd.setTextColor(theme.textColor);
         btnCheckUpd.setTextSize(11.5f);
         btnCheckUpd.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1520,6 +1575,15 @@ public class MainActivity extends AppCompatActivity {
         btnShareMyIdols.setLayoutParams(smLp);
         btnShareMyIdols.setOnClickListener(v -> showVibraryStyleShareIdolsDialog());
         profileHeader.addView(btnShareMyIdols);
+
+        TextView tvAppVerBadge = new TextView(this);
+        tvAppVerBadge.setText("Who's your Bias v" + appVer);
+        tvAppVerBadge.setTextColor(theme.getMutedTextColor());
+        tvAppVerBadge.setTextSize(11.5f);
+        tvAppVerBadge.setTypeface(Typeface.DEFAULT_BOLD);
+        tvAppVerBadge.setGravity(Gravity.CENTER);
+        tvAppVerBadge.setPadding(0, dp(10), 0, dp(2));
+        profileHeader.addView(tvAppVerBadge);
 
         root.addView(profileHeader);
 
@@ -3173,19 +3237,21 @@ public class MainActivity extends AppCompatActivity {
 
     private void showImportHubDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("📥 Importar Archivo (.wyb) o Código");
+        builder.setTitle(getString(R.string.btn_import_whatsapp));
 
+        ScrollView scroll = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(18);
         root.setPadding(pad, pad, pad, pad);
         ThemeManager.AppTheme themeHub = ThemeManager.getActiveTheme(this);
         root.setBackground(ThemeManager.createCardDrawable(this, themeHub.surfaceColor, themeHub.cardBorderColor, 24));
+        scroll.addView(root);
 
         AlertDialog[] ref = new AlertDialog[1];
 
         TextView btnPickWyb = new TextView(this);
-        btnPickWyb.setText("📂 Elegir archivo .wyb de tus Archivos");
+        btnPickWyb.setText("📂 " + getString(R.string.btn_import_file));
         btnPickWyb.setTextColor(themeHub.getButtonTextColor(themeHub.primaryColor));
         btnPickWyb.setTypeface(Typeface.DEFAULT_BOLD);
         btnPickWyb.setGravity(Gravity.CENTER);
@@ -3203,18 +3269,71 @@ public class MainActivity extends AppCompatActivity {
         });
         root.addView(btnPickWyb);
 
-        EditText etCode = addFormInput(root, "O pegá acá el mensaje de WhatsApp / código WYB1-...", "");
-
         ClipboardManager cb = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        String clipCode = null;
         if (cb != null && cb.hasPrimaryClip() && cb.getPrimaryClip() != null && cb.getPrimaryClip().getItemCount() > 0) {
             CharSequence clipText = cb.getPrimaryClip().getItemAt(0).getText();
             if (clipText != null && clipText.toString().contains("WYB1-")) {
-                etCode.setText(clipText.toString());
+                clipCode = clipText.toString();
             }
         }
 
-        builder.setView(root);
-        builder.setPositiveButton("Ver Vista Previa", (d, w) -> {
+        if (clipCode != null) {
+            final String finalClip = clipCode;
+            TextView btnPasteClip = new TextView(this);
+            btnPasteClip.setText(getString(R.string.import_paste_clipboard));
+            btnPasteClip.setTextColor(themeHub.getButtonTextColor(themeHub.secondaryColor));
+            btnPasteClip.setBackground(ThemeManager.createPillDrawable(this, themeHub.secondaryColor, 20));
+            btnPasteClip.setTypeface(Typeface.DEFAULT_BOLD);
+            btnPasteClip.setGravity(Gravity.CENTER);
+            btnPasteClip.setPadding(dp(14), dp(12), dp(14), dp(12));
+            LinearLayout.LayoutParams pcLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            pcLp.setMargins(0, 0, 0, dp(12));
+            btnPasteClip.setLayoutParams(pcLp);
+            btnPasteClip.setOnClickListener(v -> {
+                ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, finalClip);
+                if (payload != null && !payload.cards.isEmpty()) {
+                    if (ref[0] != null) ref[0].dismiss();
+                    showSelectiveImportDialog(payload);
+                } else {
+                    Toast.makeText(this, "No se encontró un código WYB1 válido en el portapapeles", Toast.LENGTH_SHORT).show();
+                }
+            });
+            root.addView(btnPasteClip);
+        }
+
+        EditText etCode = addFormInput(root, "Pegá acá el código WYB1-... o mensaje", clipCode != null ? clipCode : "");
+        etCode.setMaxLines(3);
+        etCode.setLines(3);
+        etCode.setGravity(Gravity.TOP | Gravity.START);
+        etCode.setVerticalScrollBarEnabled(true);
+
+        TextView btnDoImport = new TextView(this);
+        btnDoImport.setText(getString(R.string.import_btn_action));
+        btnDoImport.setTextColor(themeHub.getButtonTextColor(themeHub.primaryColor));
+        btnDoImport.setBackground(ThemeManager.createPillDrawable(this, themeHub.primaryColor, 20));
+        btnDoImport.setTypeface(Typeface.DEFAULT_BOLD);
+        btnDoImport.setGravity(Gravity.CENTER);
+        btnDoImport.setPadding(dp(14), dp(13), dp(14), dp(13));
+        LinearLayout.LayoutParams diLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        diLp.setMargins(0, dp(4), 0, dp(6));
+        btnDoImport.setLayoutParams(diLp);
+        btnDoImport.setOnClickListener(v -> {
+            String raw = etCode.getText().toString().trim();
+            ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, raw);
+            if (payload == null || payload.cards.isEmpty()) {
+                Toast.makeText(this, "No se encontró un código WYB1 válido", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (ref[0] != null) ref[0].dismiss();
+            showSelectiveImportDialog(payload);
+        });
+        root.addView(btnDoImport);
+
+        builder.setView(scroll);
+        builder.setPositiveButton(getString(R.string.import_btn_action), (d, w) -> {
             String raw = etCode.getText().toString().trim();
             ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, raw);
             if (payload == null || payload.cards.isEmpty()) {
@@ -3578,6 +3697,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private String getAppVersionName() {
+        try {
+            android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.13";
+        } catch (Exception e) {
+            return "1.2.13";
+        }
+    }
+
     private void launchMatch(String title, String gameMode, List<IdolCard> cards) {
         if (cards == null || cards.size() < 2) {
             Toast.makeText(this, "Se necesitan al menos 2 idols", Toast.LENGTH_SHORT).show();
@@ -3599,7 +3727,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onComplete() {
                 if (!isFinishing()) {
-                    if (bgmController != null) bgmController.pause();
                     startActivity(intent);
                 }
             }

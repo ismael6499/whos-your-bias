@@ -42,7 +42,7 @@
     <string name="empty_custom_matches">No custom matches yet. Create one to challenge a friend!</string>
     <string name="hint_match_custom_title">Match title (e.g. Dream Battle, K-Pop Queens)</string>
     <string name="title_custom_match_default">Custom Match</string>
-    <string name="tap_or_slide_hint">Slide or tap card to flip 3D info</string>
+    <string name="tap_or_slide_hint">Slide for 3D Info</string>
     <string name="action_share_whatsapp">Share via WhatsApp</string>
     <string name="action_select_idols_share">Select Idols to share</string>
 
@@ -206,4 +206,25 @@
     <string name="lang_system">🌐 System Default</string>
     <string name="lang_english">🇺🇸 English</string>
     <string name="lang_spanish">🇪🇸 Español</string>
+
+    <!-- Arena & Match Localization -->
+    <string name="search_arena_hint">Search idols, groups or collections…</string>
+    <string name="hero_title">Choose your Supreme\nBias 1 vs 1</string>
+    <string name="hero_subtitle">%1$d idols and %2$d groups ready to play</string>
+    <string name="hero_btn_play">▶ Play Tournament</string>
+    <string name="tile_cpu_match">CPU Match</string>
+    <string name="tile_create_match">Create Match</string>
+    <string name="deck_play">▶ Play</string>
+    <string name="deck_cards_badge">%1$d Cards</string>
+    <string name="special_battles_title">Special Battles</string>
+    <string name="special_battles_view_groups">View groups</string>
+    <string name="filter_all">All</string>
+    <string name="filter_favorites">Favorites</string>
+    <string name="match_undo">↩</string>
+    <string name="match_undone_toast">Previous pick restored</string>
+    <string name="menu_play_match">Play Match</string>
+    <string name="import_paste_clipboard">📋 Paste &amp; Import from Clipboard</string>
+    <string name="import_btn_action">📥 Import Code</string>
+    <string name="btn_import_file">Pick .wyb File from Device</string>
+    <string name="import_detected_banner">📥 WYB1 code detected in clipboard. Would you like to preview and import it?</string>
 </resources>

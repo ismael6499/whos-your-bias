@@ -53,6 +53,18 @@ public class AppUpdateManager {
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
     private static boolean checkedThisSession = false;
+    private static File pendingApkFile = null;
+
+    public static void resumePendingInstallIfAllowed(Activity activity) {
+        if (activity == null || pendingApkFile == null || !pendingApkFile.exists()) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (activity.getPackageManager().canRequestPackageInstalls()) {
+                File f = pendingApkFile;
+                pendingApkFile = null;
+                triggerApkInstall(activity, f);
+            }
+        }
+    }
 
     public static void checkOnAppLaunch(Activity activity) {
         if (checkedThisSession) return;
@@ -244,7 +256,7 @@ public class AppUpdateManager {
         btnUpdate.setLayoutParams(uLp);
         btnUpdate.setOnClickListener(v -> {
             if (ref[0] != null) ref[0].dismiss();
-            downloadAndInstallApk(activity, tag, apkUrl);
+            downloadAndInstallApk(activity, tag, apkUrl, apkSize);
         });
         box.addView(btnUpdate);
 
@@ -270,7 +282,7 @@ public class AppUpdateManager {
         ref[0].show();
     }
 
-    private static void downloadAndInstallApk(Activity activity, String tag, String apkUrl) {
+    private static void downloadAndInstallApk(Activity activity, String tag, String apkUrl, long expectedSize) {
         ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(activity);
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
         builder.setCancelable(false);
@@ -339,6 +351,9 @@ public class AppUpdateManager {
                 }
 
                 int totalBytes = conn.getContentLength();
+                if (totalBytes <= 0 && expectedSize > 0) {
+                    totalBytes = (int) expectedSize;
+                }
                 try (InputStream is = conn.getInputStream();
                      FileOutputStream fos = new FileOutputStream(apkFile)) {
                     byte[] buffer = new byte[16384];
@@ -387,10 +402,12 @@ public class AppUpdateManager {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!activity.getPackageManager().canRequestPackageInstalls()) {
+                    pendingApkFile = apkFile;
                     Toast.makeText(activity, activity.getString(R.string.update_install_perm_toast), Toast.LENGTH_LONG).show();
                     Intent permIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                             Uri.parse("package:" + activity.getPackageName()));
                     activity.startActivity(permIntent);
+                    return;
                 }
             }
             Uri apkUri = FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", apkFile);

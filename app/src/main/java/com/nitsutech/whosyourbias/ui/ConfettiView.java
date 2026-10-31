@@ -61,6 +61,12 @@ public class ConfettiView extends View {
         invalidate();
     }
 
+    public void stopConfetti() {
+        active = false;
+        particles.clear();
+        invalidate();
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);

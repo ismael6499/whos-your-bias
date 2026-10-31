@@ -35,6 +35,19 @@
                 android:textStyle="bold"
                 android:background="@drawable/bg_chip_tag" />
 
+            <TextView
+                android:id="@+id/btnUndoMatch"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:gravity="center"
+                android:text="↩"
+                android:textColor="#111827"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_chip_tag"
+                android:visibility="gone" />
+
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -255,33 +268,39 @@
             <LinearLayout
                 android:id="@+id/matchMiniPlayerDragBar"
                 android:layout_width="match_parent"
-                android:layout_height="26dp"
+                android:layout_height="30dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="#1E293B"
-                android:paddingStart="8dp"
-                android:paddingEnd="4dp">
+                android:paddingStart="10dp"
+                android:paddingEnd="6dp"
+                android:clickable="true"
+                android:focusable="false">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="⠿ Drag"
+                    android:text="⠿ Drag / Mover"
                     android:textColor="#94A3B8"
-                    android:textSize="10.5sp"
-                    android:textStyle="bold" />
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:clickable="false"
+                    android:focusable="false" />
 
                 <!-- Close Floating Mini Player Button -->
                 <TextView
                     android:id="@+id/btnMatchMiniPlayerClose"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:gravity="center"
                     android:text="✕"
                     android:textColor="#FFFFFF"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
-                    android:background="@drawable/bg_btn_primary" />
+                    android:background="@drawable/bg_btn_primary"
+                    android:clickable="true"
+                    android:focusable="false" />
             </LinearLayout>
 
             <WebView

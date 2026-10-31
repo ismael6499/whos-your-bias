@@ -248,10 +248,10 @@ public class ShareImportManager {
         try {
             JSONObject json = createPayloadJson(title, match, cards, false);
             String code = encodeToCode(json);
-            String deepLink = "https://whosyourbias.nitsutech.com/open?code=" + code;
             String message = "👑 *Who's your Bias* — *" + title + "* (" + (cards != null ? cards.size() : 0) + " Idols)\n\n"
-                    + "📲 Tap link to open directly in app:\n" + deepLink + "\n\n"
-                    + "📋 Or copy this message and tap 'Import' in the app:\n" + code;
+                    + "📋 *Código para importar / Import Code:*\n" + code + "\n\n"
+                    + "👉 *Instrucciones:* Copiá este mensaje y abrí la app Who's your Bias para importar automáticamente.\n\n"
+                    + "📥 *Descargá el APK de la app / Download APK:*\nhttps://is.gd/whosyourbias";
 
             ClipboardManager cb = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
             if (cb != null) {

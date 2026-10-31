@@ -42,7 +42,7 @@
     <string name="empty_custom_matches">Todavía no armaste partidas personalizadas. ¡Creá una para desafiar a un amigo!</string>
     <string name="hint_match_custom_title">Nombre de la partida (ej: Duelo Supremo, Reinas K-Pop)</string>
     <string name="title_custom_match_default">Partida Personalizada</string>
-    <string name="tap_or_slide_hint">Deslizá o tocá la carta para girar en 3D</string>
+    <string name="tap_or_slide_hint">Deslizá para Info 3D</string>
     <string name="action_share_whatsapp">Compartir por WhatsApp</string>
     <string name="action_select_idols_share">Elegir Idols para compartir</string>
 
@@ -206,4 +206,25 @@
     <string name="lang_system">🌐 Idioma del Sistema</string>
     <string name="lang_english">🇺🇸 English</string>
     <string name="lang_spanish">🇪🇸 Español</string>
+
+    <!-- Arena & Match Localization -->
+    <string name="search_arena_hint">Buscar idols, grupos o colecciones…</string>
+    <string name="hero_title">Elegí tu Bias\nSupremo 1 vs 1</string>
+    <string name="hero_subtitle">%1$d idols y %2$d grupos listos para jugar</string>
+    <string name="hero_btn_play">▶ Jugar Torneo</string>
+    <string name="tile_cpu_match">Partida CPU</string>
+    <string name="tile_create_match">Crear Partida</string>
+    <string name="deck_play">▶ Jugar</string>
+    <string name="deck_cards_badge">%1$d Cartas</string>
+    <string name="special_battles_title">Batallas Especiales</string>
+    <string name="special_battles_view_groups">Ver grupos</string>
+    <string name="filter_all">Todo</string>
+    <string name="filter_favorites">Favoritos</string>
+    <string name="match_undo">↩</string>
+    <string name="match_undone_toast">Elección anterior restaurada</string>
+    <string name="menu_play_match">Jugar Partida</string>
+    <string name="import_paste_clipboard">📋 Pegar e Importar del Portapapeles</string>
+    <string name="import_btn_action">📥 Importar Código</string>
+    <string name="btn_import_file">Elegir archivo .wyb del dispositivo</string>
+    <string name="import_detected_banner">📥 Código WYB1 detectado en portapapeles. ¿Deseas abrir la vista previa de importación?</string>
 </resources>
