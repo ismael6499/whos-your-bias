@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/matchRootFrame"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -105,15 +106,22 @@
                     android:text="🔊"
                     android:textColor="#111827"
                     android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/btnMatchBgmVideo"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_marginStart="3dp"
+                    android:gravity="center"
+                    android:text="📺"
+                    android:textColor="#111827"
+                    android:textSize="11sp"
+                    android:background="@drawable/bg_btn_gold"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <TextView
                 android:id="@+id/btnLightstickCheer"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
-            <TextView
-                android:id="@+id/btnMatchBgmVideo"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:visibility="gone" />
@@ -135,34 +143,18 @@
             android:progressTint="#FFC700"
             android:progressBackgroundTint="#F3F4F6" />
 
-        <FrameLayout
+        <!-- SPACIOUS 1v1 DUEL ARENA -->
+        <LinearLayout
+            android:id="@+id/arenaDuelContainer"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1">
-
-            <FrameLayout
-                android:id="@+id/matchBgmVideoContainer"
-                android:layout_width="match_parent"
-                android:layout_height="220dp"
-                android:layout_gravity="top"
-                android:visibility="visible">
-                <WebView
-                    android:id="@+id/matchBgmWebView"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </FrameLayout>
-
-            <!-- SPACIOUS 1v1 DUEL ARENA -->
-            <LinearLayout
-                android:id="@+id/arenaDuelContainer"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:background="#FFFFFF"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:paddingTop="10dp"
-                android:paddingBottom="14dp">
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="14dp">
 
             <!-- CARD 1 (TOP CONTENDER) -->
             <FrameLayout
@@ -215,8 +207,6 @@
 
         </LinearLayout>
 
-        </FrameLayout>
-
         <!-- VICTORY CORONATION VIEW -->
         <ScrollView
             android:id="@+id/victoryScrollContainer"
@@ -242,5 +232,43 @@
         android:layout_height="match_parent"
         android:clickable="false"
         android:focusable="false" />
+
+    <!-- Foreground Floating YouTube Mini Player Card (16:9 PiP) in Match -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/matchBgmVideoContainer"
+        android:layout_width="168dp"
+        android:layout_height="96dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="18dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="14dp"
+        app:cardBackgroundColor="#000000"
+        android:visibility="gone">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <WebView
+                android:id="@+id/matchBgmWebView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <!-- Close Floating Mini Player Button -->
+            <TextView
+                android:id="@+id/btnMatchMiniPlayerClose"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="4dp"
+                android:gravity="center"
+                android:text="✕"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_btn_primary" />
+        </FrameLayout>
+    </androidx.cardview.widget.CardView>
 
 </FrameLayout>

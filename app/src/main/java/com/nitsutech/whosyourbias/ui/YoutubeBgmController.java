@@ -20,6 +20,7 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.ConsoleMessage;
@@ -111,73 +112,50 @@ public class YoutubeBgmController {
         return "<!DOCTYPE html>\n" +
                 "<html>\n" +
                 "<head>\n" +
-                "<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>\n" +
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>\n" +
                 "<style>\n" +
                 "  * { margin:0; padding:0; box-sizing:border-box; }\n" +
-                "  html, body { width:100%; height:100%; background:#000; overflow:hidden; }\n" +
-                "  #player { width:100%; height:100%; position:absolute; top:0; left:0; }\n" +
+                "  html, body { width:100%; height:100%; background:#000000; overflow:hidden; }\n" +
+                "  iframe { width:100%; height:100%; border:none; position:absolute; top:0; left:0; }\n" +
                 "</style>\n" +
                 "</head>\n" +
                 "<body>\n" +
-                "<div id='player'></div>\n" +
+                "<iframe id='ytplayer' src='https://www.youtube.com/embed/" + videoId + "?autoplay=1&playsinline=1&enablejsapi=1&origin=https://www.youtube.com' allow='autoplay; encrypted-media; picture-in-picture' allowfullscreen></iframe>\n" +
+                "<script src='https://www.youtube.com/iframe_api'></script>\n" +
                 "<script>\n" +
-                "  var tag = document.createElement('script');\n" +
-                "  tag.src = 'https://www.youtube.com/iframe_api';\n" +
-                "  var firstScriptTag = document.getElementsByTagName('script')[0];\n" +
-                "  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);\n" +
-                "  var player;\n" +
-                "  function onYouTubeIframeAPIReady() {\n" +
-                "    player = new YT.Player('player', {\n" +
-                "      height: '100%',\n" +
-                "      width: '100%',\n" +
-                "      videoId: '" + videoId + "',\n" +
-                "      playerVars: {\n" +
-                "        'autoplay': " + (autoPlay ? 1 : 0) + ",\n" +
-                "        'playsinline': 1,\n" +
-                "        'controls': 1,\n" +
-                "        'loop': 1,\n" +
-                "        'playlist': '" + videoId + "',\n" +
-                "        'origin': 'https://www.youtube.com',\n" +
-                "        'enablejsapi': 1,\n" +
-                "        'rel': 0,\n" +
-                "        'modestbranding': 1\n" +
+                "var player;\n" +
+                "window.onYouTubeIframeAPIReady = function() {\n" +
+                "  console.log('onYouTubeIframeAPIReady called for: " + videoId + "');\n" +
+                "  player = new YT.Player('ytplayer', {\n" +
+                "    events: {\n" +
+                "      'onReady': function(e) {\n" +
+                "        console.log('YT Player onReady!');\n" +
+                "        try { e.target.setVolume(" + initialVolume + "); } catch(x){}\n" +
+                (autoPlay ? "        try { e.target.playVideo(); } catch(x){}\n" : "") +
                 "      },\n" +
-                "      events: {\n" +
-                "        'onReady': onPlayerReady,\n" +
-                "        'onStateChange': onPlayerStateChange,\n" +
-                "        'onError': onPlayerError\n" +
+                "      'onError': function(e) {\n" +
+                "        console.error('YT Player onError: ' + e.data);\n" +
                 "      }\n" +
-                "    });\n" +
-                "  }\n" +
-                "  function onPlayerReady(e) {\n" +
-                "    e.target.setVolume(" + initialVolume + ");\n" +
-                (autoPlay ? "    e.target.playVideo();\n" : "") +
-                "  }\n" +
-                "  function onPlayerStateChange(e) {\n" +
-                "    if (e.data === YT.PlayerState.ENDED) {\n" +
-                "      if (player && player.playVideo) player.playVideo();\n" +
                 "    }\n" +
-                "  }\n" +
-                "  function onPlayerError(e) { console.log('YT error: ' + e.data); }\n" +
-                "  function bgmPlay() { if (player && player.playVideo) player.playVideo(); }\n" +
-                "  function bgmPause() { if (player && player.pauseVideo) player.pauseVideo(); }\n" +
-                "  function bgmSetVol(v) { if (player && player.setVolume) player.setVolume(v); }\n" +
-                "  function bgmMute() { if (player && player.mute) player.mute(); }\n" +
-                "  function bgmUnmute() { if (player && player.unMute) player.unMute(); }\n" +
+                "  });\n" +
+                "};\n" +
+                "window.bgmPlay = function() { if (player && player.playVideo) player.playVideo(); };\n" +
+                "window.bgmPause = function() { if (player && player.pauseVideo) player.pauseVideo(); };\n" +
+                "window.bgmSetVol = function(v) { if (player && player.setVolume) player.setVolume(v); };\n" +
+                "window.bgmMute = function() { if (player && player.mute) player.mute(); };\n" +
+                "window.bgmUnmute = function() { if (player && player.unMute) player.unMute(); };\n" +
                 "</script>\n" +
                 "</body>\n" +
                 "</html>";
     }
 
-    private void setVideoVisible(boolean show) {
+    public void setVideoVisible(boolean show) {
         isVideoExpanded = show;
+        if (videoContainer != null) {
+            videoContainer.setVisibility(show ? View.VISIBLE : View.GONE);
+        }
         if (btnVideoToggle != null) {
             btnVideoToggle.setText(show ? "✕" : "📺");
-        }
-        View content = activity.findViewById(R.id.mainContentContainer);
-        if (content == null) content = activity.findViewById(R.id.arenaDuelContainer);
-        if (content != null) {
-            content.setTranslationY(show ? dp(220) : 0f);
         }
     }
 
@@ -235,7 +213,7 @@ public class YoutubeBgmController {
                 }
                 @Override
                 public boolean onConsoleMessage(ConsoleMessage cm) {
-                    Log.d("YoutubeBgm", cm.message() + " -- Line " + cm.lineNumber());
+                    Log.e("YoutubeBgm", "JS: " + cm.message() + " -- Line " + cm.lineNumber());
                     return true;
                 }
             });
@@ -254,16 +232,31 @@ public class YoutubeBgmController {
         }
 
         if (videoContainer != null) {
-            ViewGroup.LayoutParams lp = videoContainer.getLayoutParams();
-            if (lp != null) {
-                lp.height = dp(220);
-                lp.width = ViewGroup.LayoutParams.MATCH_PARENT;
-                videoContainer.setLayoutParams(lp);
+            View btnClose = activity.findViewById(R.id.btnMiniPlayerClose);
+            if (btnClose == null) btnClose = activity.findViewById(R.id.btnMatchMiniPlayerClose);
+            if (btnClose != null) {
+                btnClose.setOnClickListener(v -> setVideoVisible(false));
             }
-            videoContainer.setVisibility(View.VISIBLE);
+            videoContainer.setOnTouchListener(new View.OnTouchListener() {
+                float dX, dY;
+                @Override
+                public boolean onTouch(View view, MotionEvent event) {
+                    switch (event.getActionMasked()) {
+                        case MotionEvent.ACTION_DOWN:
+                            dX = view.getX() - event.getRawX();
+                            dY = view.getY() - event.getRawY();
+                            return false;
+                        case MotionEvent.ACTION_MOVE:
+                            view.setX(event.getRawX() + dX);
+                            view.setY(event.getRawY() + dY);
+                            return true;
+                        default:
+                            return false;
+                    }
+                }
+            });
         }
         if (btnVideoToggle != null) {
-            btnVideoToggle.setVisibility(View.GONE);
             btnVideoToggle.setOnClickListener(v -> setVideoVisible(!isVideoExpanded));
         }
 
@@ -292,7 +285,7 @@ public class YoutubeBgmController {
         if (sharedPlayer != null && isPrepared && savedUrl.equals(activeStreamUrl)) {
             updateButtonsUi();
             if (isMatch && !isPlaying) {
-                float vol = isMuted ? 0f : 0.85f;
+                float vol = isMuted ? 0f : (getActiveVolumeLevel() / 100f);
                 sharedPlayer.setVolume(vol, vol);
                 sharedPlayer.start();
                 isPlaying = true;
@@ -346,10 +339,12 @@ public class YoutubeBgmController {
                     webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
                     isPlaying = true;
                     isPrepared = true;
+                    setVideoVisible(true);
                     showOrUpdateMusicNotification(activity.getApplicationContext());
                 } else {
                     webView.loadUrl("about:blank");
                     isPlaying = false;
+                    setVideoVisible(false);
                 }
             }
             updateButtonsUi();
@@ -360,9 +355,7 @@ public class YoutubeBgmController {
         if (webView != null) {
             webView.loadUrl("about:blank");
         }
-        if (videoContainer != null) {
-            videoContainer.setVisibility(View.GONE);
-        }
+        setVideoVisible(false);
 
         try {
             if (sharedPlayer == null) {
@@ -376,9 +369,7 @@ public class YoutubeBgmController {
                     .build());
             sharedPlayer.setDataSource(streamUrl);
             sharedPlayer.setLooping(true);
-            boolean isMatch = (activity instanceof MatchActivity);
-            float baseVol = isMatch ? 0.85f : 0.20f;
-            float vol = isMuted ? 0f : baseVol;
+            float vol = isMuted ? 0f : (getActiveVolumeLevel() / 100f);
             sharedPlayer.setVolume(vol, vol);
             sharedPlayer.setOnPreparedListener(mp -> {
                 isPrepared = true;
@@ -423,6 +414,7 @@ public class YoutubeBgmController {
                         webView.evaluateJavascript("if (typeof bgmSetVol === 'function') bgmSetVol(" + vol + "); if (typeof bgmPlay === 'function') bgmPlay();", null);
                     }
                     isPlaying = true;
+                    setVideoVisible(true);
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
                 }
             }
@@ -444,9 +436,7 @@ public class YoutubeBgmController {
                 isPlaying = false;
                 prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
             } else {
-                boolean isMatch = (activity instanceof MatchActivity);
-                float baseVol = isMatch ? 0.85f : 0.20f;
-                float vol = isMuted ? 0f : baseVol;
+                float vol = isMuted ? 0f : (getActiveVolumeLevel() / 100f);
                 sharedPlayer.setVolume(vol, vol);
                 sharedPlayer.start();
                 isPlaying = true;
@@ -489,9 +479,7 @@ public class YoutubeBgmController {
     }
 
     public int getActiveVolumeLevel() {
-        boolean isMatch = (activity instanceof MatchActivity);
-        int defaultVol = isMatch ? 85 : 25;
-        return prefs.getInt(PREF_BGM_VOLUME, defaultVol);
+        return prefs.getInt(PREF_BGM_VOLUME, 70);
     }
 
     public void setCustomVolumePercent(int val) {
@@ -1338,10 +1326,31 @@ public class YoutubeBgmController {
         updateButtonsUi();
     }
 
-    public void destroy() {
-        if (activity instanceof MatchActivity) {
-            pause();
+    public void syncState() {
+        activeControllerRef = new WeakReference<>(this);
+        updateButtonsUi();
+        if (isYoutubeUrl(activeStreamUrl)) {
+            if (btnVideoToggle != null) btnVideoToggle.setVisibility(View.VISIBLE);
+            if (isPlaying && webView != null) {
+                String currentUrl = webView.getUrl();
+                if (currentUrl == null || currentUrl.equals("about:blank")) {
+                    String vid = extractYoutubeId(activeStreamUrl);
+                    int vol = isMuted ? 0 : getActiveVolumeLevel();
+                    String html = buildYoutubeEmbedHtml(vid, vol, true);
+                    webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
+                    setVideoVisible(true);
+                }
+            } else if (!isPlaying) {
+                setVideoVisible(false);
+            }
+        } else {
+            if (btnVideoToggle != null) btnVideoToggle.setVisibility(View.GONE);
+            setVideoVisible(false);
         }
+    }
+
+    public void destroy() {
+        // Do not pause when transitioning between MatchActivity and MainActivity!
     }
 
     private int dp(int val) {

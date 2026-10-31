@@ -205,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         applyThemeToShell();
-        if (bgmController != null) bgmController.updateButtonsUi();
+        if (bgmController != null) bgmController.syncState();
         refreshCurrentTab();
     }
 

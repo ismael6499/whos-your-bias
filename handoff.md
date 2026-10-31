@@ -158,3 +158,19 @@
     - Implemented `bgmPlay()`, `bgmPause()`, `bgmSetVol()`, `bgmMute()`, and `bgmUnmute()` bridge methods.
     - Set video container to standard 220dp height situated behind the main content views, eliminating WebView layout collapsing and ensuring continuous background audio.
   - Bumped version to `v1.2.10` (versionCode 13). Installed via ADB and deployed to `Mobile Drop` and `Downloads`.
+
+### 14. Floating Draggable Mini YouTube Video Player & Cross-Activity Seamless BGM (v1.2.11)
+- **Requirement**:
+  - Fix YouTube audio: Previously, hiding the WebView behind opaque views caused Chromium's occlusion culling and background throttling to pause audio playback.
+  - Implement a visible foreground **floating mini video frame (PiP)** so the video plays actively in real time, preventing Android/Chromium throttling and letting the user enjoy the music video while playing or browsing.
+  - Fix BGM sync when leaving challenges: When exiting `MatchActivity`, music no longer pauses abruptly or desyncs; BGM transitions seamlessly back to `MainActivity` with synchronized `▶`/`⏸` buttons.
+  - Set default volume strictly to **70%** (eliminating 85%/25%/20% overrides) and strictly respect the user's slider setting across challenges and menus.
+- **Status**: `[x] Done`
+- **Implementation**:
+  - `activity_main.xml` & `activity_match.xml`: Added elevated foreground `CardView` (`bgmVideoContainer`, `matchBgmVideoContainer`) with rounded corners, 16:9 ratio, and close button `✕`.
+  - `YoutubeBgmController.java`:
+    - Added touch drag support (`OnTouchListener`) allowing user to freely drag the floating mini video card anywhere on screen.
+    - Set default volume to 70% in `getActiveVolumeLevel()` and replaced all hardcoded 85%/25%/20% volume levels with `getActiveVolumeLevel() / 100f`.
+    - Added `syncState()` method called in `MainActivity.onResume()` to seamlessly continue YouTube or iTunes BGM when exiting challenges.
+    - Embedded hybrid iframe with `autoplay=1&playsinline=1` and `window.onYouTubeIframeAPIReady` for instant reliable playback and controls.
+  - Bumped version to `v1.2.11` (versionCode 14). Installed via ADB and deployed to `Mobile Drop` and `Downloads`.
