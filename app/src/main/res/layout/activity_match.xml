@@ -124,17 +124,6 @@
                 android:visibility="gone" />
         </LinearLayout>
 
-        <FrameLayout
-            android:id="@+id/matchBgmVideoContainer"
-            android:layout_width="1dp"
-            android:layout_height="1dp"
-            android:visibility="visible">
-            <WebView
-                android:id="@+id/matchBgmWebView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-        </FrameLayout>
-
         <!-- Golden Match Progress Bar -->
         <ProgressBar
             android:id="@+id/matchProgressBar"
@@ -146,17 +135,34 @@
             android:progressTint="#FFC700"
             android:progressBackgroundTint="#F3F4F6" />
 
-        <!-- SPACIOUS 1v1 DUEL ARENA -->
-        <LinearLayout
-            android:id="@+id/arenaDuelContainer"
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="10dp"
-            android:paddingBottom="14dp">
+            android:layout_weight="1">
+
+            <FrameLayout
+                android:id="@+id/matchBgmVideoContainer"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:layout_gravity="top"
+                android:visibility="visible">
+                <WebView
+                    android:id="@+id/matchBgmWebView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+
+            <!-- SPACIOUS 1v1 DUEL ARENA -->
+            <LinearLayout
+                android:id="@+id/arenaDuelContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="14dp">
 
             <!-- CARD 1 (TOP CONTENDER) -->
             <FrameLayout
@@ -208,6 +214,8 @@
                 android:layout_weight="1" />
 
         </LinearLayout>
+
+        </FrameLayout>
 
         <!-- VICTORY CORONATION VIEW -->
         <ScrollView

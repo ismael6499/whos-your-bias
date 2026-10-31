@@ -128,23 +128,29 @@
     </LinearLayout>
 
     <FrameLayout
-        android:id="@+id/bgmVideoContainer"
-        android:layout_width="1dp"
-        android:layout_height="1dp"
-        android:visibility="visible">
-        <WebView
-            android:id="@+id/bgmWebView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-    </FrameLayout>
-
-    <!-- Main Dynamic Content Container -->
-    <FrameLayout
-        android:id="@+id/mainContentContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="#FFFFFF" />
+        android:layout_weight="1">
+
+        <FrameLayout
+            android:id="@+id/bgmVideoContainer"
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:layout_gravity="top"
+            android:visibility="visible">
+            <WebView
+                android:id="@+id/bgmWebView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </FrameLayout>
+
+        <!-- Main Dynamic Content Container on top -->
+        <FrameLayout
+            android:id="@+id/mainContentContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#FFFFFF" />
+    </FrameLayout>
 
     <View
         android:layout_width="match_parent"
@@ -168,7 +174,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="🏟️\nArena"
+            android:text="@string/nav_tab_arena"
             android:textColor="#111827"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
@@ -181,7 +187,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="🎴\nIdols"
+            android:text="@string/nav_tab_idols"
             android:textColor="#9CA3AF"
             android:fontFamily="sans-serif-medium"
             android:textSize="11.5sp"
@@ -213,7 +219,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="✦\nArtistas"
+            android:text="@string/nav_tab_artists"
             android:textColor="#9CA3AF"
             android:fontFamily="sans-serif-medium"
             android:textSize="11.5sp"
@@ -225,7 +231,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="👤\nMi página"
+            android:text="@string/nav_tab_profile"
             android:textColor="#9CA3AF"
             android:fontFamily="sans-serif-medium"
             android:textSize="11.5sp"

@@ -45,6 +45,7 @@ import com.nitsutech.whosyourbias.data.IdolCard;
 import com.nitsutech.whosyourbias.util.AppUpdateManager;
 import com.nitsutech.whosyourbias.util.CardImageLoader;
 import com.nitsutech.whosyourbias.util.KpopWikiImporter;
+import com.nitsutech.whosyourbias.util.LocaleManager;
 import com.nitsutech.whosyourbias.util.ShareImportManager;
 import com.nitsutech.whosyourbias.util.ThemeManager;
 
@@ -80,6 +81,11 @@ public class MainActivity extends AppCompatActivity {
     private ImageView pendingPhotoPreviewView;
     private IdolCard pendingPhotocardTargetIdol;
     private Runnable pendingPhotocardRefreshCallback;
+
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(LocaleManager.applyLocale(newBase));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -1143,7 +1149,7 @@ public class MainActivity extends AppCompatActivity {
         headerRow.addView(tvGroupTitle);
 
         TextView btnPlayPill = new TextView(this);
-        btnPlayPill.setText("▶ Jugar (" + members.size() + ")");
+        btnPlayPill.setText(getString(R.string.btn_play_group_count, members.size()));
         btnPlayPill.setTextColor(theme.textColor);
         btnPlayPill.setTextSize(11.5f);
         btnPlayPill.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1411,50 +1417,64 @@ public class MainActivity extends AppCompatActivity {
         profileHeader.addView(avatarOuter);
 
         TextView tvMyBiasLabel = new TextView(this);
-        tvMyBiasLabel.setText(topBias != null ? "👑 Mi Bias #1: " + topBias.getStageName() + " (" + topBias.getGroupName() + ")" : "Mi página");
+        tvMyBiasLabel.setText(topBias != null
+                ? getString(R.string.profile_my_bias_label, topBias.getStageName(), topBias.getGroupName())
+                : getString(R.string.nav_tab_profile));
         tvMyBiasLabel.setTextColor(theme.textColor);
         tvMyBiasLabel.setTextSize(16f);
         tvMyBiasLabel.setTypeface(Typeface.DEFAULT_BOLD);
         tvMyBiasLabel.setGravity(Gravity.CENTER);
         profileHeader.addView(tvMyBiasLabel);
 
-        // Row of Profile Actions: [📋 Cambiar/Pegar Foto] + [🎨 Colores de la App]
-        LinearLayout profActRow = new LinearLayout(this);
-        profActRow.setOrientation(LinearLayout.HORIZONTAL);
-        profActRow.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams parLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        parLp.topMargin = dp(8);
-        profActRow.setLayoutParams(parLp);
+        // Row 1 of Profile Actions: [📋 Change Photo] + [🎨 Theme Studio]
+        LinearLayout profActRow1 = new LinearLayout(this);
+        profActRow1.setOrientation(LinearLayout.HORIZONTAL);
+        profActRow1.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams parLp1 = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        parLp1.topMargin = dp(8);
+        profActRow1.setLayoutParams(parLp1);
 
         TextView btnChangeAvatar = new TextView(this);
-        btnChangeAvatar.setText("📋 Pegar / Cambiar Foto");
+        btnChangeAvatar.setText(getString(R.string.btn_change_avatar));
         btnChangeAvatar.setTextColor(theme.textColor);
         btnChangeAvatar.setTextSize(11.5f);
         btnChangeAvatar.setTypeface(Typeface.DEFAULT_BOLD);
         btnChangeAvatar.setGravity(Gravity.CENTER);
         btnChangeAvatar.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.primaryColor, 16));
-        btnChangeAvatar.setPadding(dp(12), dp(7), dp(12), dp(7));
-        LinearLayout.LayoutParams bcaLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        bcaLp.rightMargin = dp(8);
+        btnChangeAvatar.setPadding(dp(10), dp(8), dp(10), dp(8));
+        LinearLayout.LayoutParams bcaLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        bcaLp.rightMargin = dp(6);
         btnChangeAvatar.setLayoutParams(bcaLp);
         btnChangeAvatar.setOnClickListener(v -> showChangeUserProfilePhotoDialog());
-        profActRow.addView(btnChangeAvatar);
+        profActRow1.addView(btnChangeAvatar);
 
         TextView btnThemeColors = new TextView(this);
-        btnThemeColors.setText("🎨 Personalizar Colores");
+        btnThemeColors.setText(getString(R.string.btn_customize_theme));
         btnThemeColors.setTextColor(theme.textColor);
         btnThemeColors.setTextSize(11.5f);
         btnThemeColors.setTypeface(Typeface.DEFAULT_BOLD);
         btnThemeColors.setGravity(Gravity.CENTER);
         btnThemeColors.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.secondaryColor, 16));
-        btnThemeColors.setPadding(dp(12), dp(7), dp(12), dp(7));
+        btnThemeColors.setPadding(dp(10), dp(8), dp(10), dp(8));
+        LinearLayout.LayoutParams btcLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        btcLp.leftMargin = dp(6);
+        btnThemeColors.setLayoutParams(btcLp);
         btnThemeColors.setOnClickListener(v -> ThemeManager.showThemeStudioDialog(this, () -> {
             applyThemeToShell();
             refreshCurrentTab();
         }));
-        profActRow.addView(btnThemeColors);
+        profActRow1.addView(btnThemeColors);
+        profileHeader.addView(profActRow1);
+
+        // Row 2 of Profile Actions: [🔄 Check for Updates] + [🌐 Language]
+        LinearLayout profActRow2 = new LinearLayout(this);
+        profActRow2.setOrientation(LinearLayout.HORIZONTAL);
+        profActRow2.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams parLp2 = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        parLp2.topMargin = dp(8);
+        profActRow2.setLayoutParams(parLp2);
 
         TextView btnCheckUpd = new TextView(this);
         btnCheckUpd.setText(getString(R.string.btn_check_updates));
@@ -1463,19 +1483,31 @@ public class MainActivity extends AppCompatActivity {
         btnCheckUpd.setTypeface(Typeface.DEFAULT_BOLD);
         btnCheckUpd.setGravity(Gravity.CENTER);
         btnCheckUpd.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 16));
-        btnCheckUpd.setPadding(dp(10), dp(7), dp(10), dp(7));
-        LinearLayout.LayoutParams bcuLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        bcuLp.leftMargin = dp(6);
+        btnCheckUpd.setPadding(dp(10), dp(8), dp(10), dp(8));
+        LinearLayout.LayoutParams bcuLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        bcuLp.rightMargin = dp(6);
         btnCheckUpd.setLayoutParams(bcuLp);
         btnCheckUpd.setOnClickListener(v -> AppUpdateManager.checkForUpdates(this, true));
-        profActRow.addView(btnCheckUpd);
+        profActRow2.addView(btnCheckUpd);
 
-        profileHeader.addView(profActRow);
+        TextView btnLang = new TextView(this);
+        btnLang.setText(getString(R.string.btn_select_language));
+        btnLang.setTextColor(theme.textColor);
+        btnLang.setTextSize(11.5f);
+        btnLang.setTypeface(Typeface.DEFAULT_BOLD);
+        btnLang.setGravity(Gravity.CENTER);
+        btnLang.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 16));
+        btnLang.setPadding(dp(10), dp(8), dp(10), dp(8));
+        LinearLayout.LayoutParams blLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        blLp.leftMargin = dp(6);
+        btnLang.setLayoutParams(blLp);
+        btnLang.setOnClickListener(v -> LocaleManager.showLanguageDialog(this, () -> recreate()));
+        profActRow2.addView(btnLang);
+        profileHeader.addView(profActRow2);
 
         // Quick Share Idols Pill Button
         TextView btnShareMyIdols = new TextView(this);
-        btnShareMyIdols.setText("📤 Compartir mis Idols por WhatsApp");
+        btnShareMyIdols.setText(getString(R.string.btn_share_idols_whatsapp));
         btnShareMyIdols.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         btnShareMyIdols.setTextSize(12f);
         btnShareMyIdols.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1483,7 +1515,7 @@ public class MainActivity extends AppCompatActivity {
         btnShareMyIdols.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 18));
         btnShareMyIdols.setPadding(dp(16), dp(9), dp(16), dp(9));
         LinearLayout.LayoutParams smLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         smLp.topMargin = dp(10);
         btnShareMyIdols.setLayoutParams(smLp);
         btnShareMyIdols.setOnClickListener(v -> showVibraryStyleShareIdolsDialog());
@@ -1497,7 +1529,7 @@ public class MainActivity extends AppCompatActivity {
         tabHeader.setPadding(0, 0, 0, dp(12));
 
         TextView tvSubTab = new TextView(this);
-        tvSubTab.setText("Mi artista (Favoritos y Ganadores)");
+        tvSubTab.setText(getString(R.string.profile_my_artists_header));
         tvSubTab.setTextColor(theme.textColor);
         tvSubTab.setTextSize(15f);
         tvSubTab.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1537,29 +1569,29 @@ public class MainActivity extends AppCompatActivity {
 
     private void showChangeUserProfilePhotoDialog() {
         new AlertDialog.Builder(this)
-                .setTitle("📷 Foto de Perfil en Mi Página")
+                .setTitle(getString(R.string.dialog_change_avatar_title))
                 .setItems(new String[]{
-                        "📋 Pegar Imagen o Link copiado al Portapapeles",
-                        "📁 Elegir Foto de la Galería",
-                        "👑 Usar automáticamente la foto de mi Bias #1"
+                        getString(R.string.dialog_avatar_option_paste),
+                        getString(R.string.dialog_avatar_option_gallery),
+                        getString(R.string.dialog_avatar_option_top_bias)
                 }, (d, which) -> {
                     if (which == 0) {
                         String pasted = pasteImageOrUrlFromClipboard();
                         if (pasted != null && !pasted.isEmpty()) {
                             repo.setCustomProfileAvatarUri(pasted);
                             refreshCurrentTab();
-                            Toast.makeText(this, "✨ Foto de perfil pegada del portapapeles", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, "✨ " + getString(R.string.btn_change_avatar), Toast.LENGTH_SHORT).show();
                         } else {
-                            Toast.makeText(this, "Copiá primero una imagen o link de imagen al portapapeles", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, getString(R.string.dialog_avatar_option_paste), Toast.LENGTH_SHORT).show();
                         }
                     } else if (which == 1) {
                         Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
                         pick.setType("image/*");
-                        startActivityForResult(Intent.createChooser(pick, "Elegir Foto de Perfil"), REQ_PICK_USER_AVATAR);
+                        startActivityForResult(Intent.createChooser(pick, getString(R.string.dialog_change_avatar_title)), REQ_PICK_USER_AVATAR);
                     } else if (which == 2) {
                         repo.setCustomProfileAvatarUri("");
                         refreshCurrentTab();
-                        Toast.makeText(this, "👑 Usando la foto de tu Bias #1", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.toast_avatar_using_top_bias), Toast.LENGTH_SHORT).show();
                     }
                 })
                 .show();

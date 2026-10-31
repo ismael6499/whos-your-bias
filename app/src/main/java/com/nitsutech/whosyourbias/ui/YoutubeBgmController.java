@@ -105,6 +105,81 @@ public class YoutubeBgmController {
     private static boolean isPlaying = false;
     private static boolean isMuted = false;
     private static WeakReference<YoutubeBgmController> activeControllerRef;
+    private boolean isVideoExpanded = false;
+
+    private static String buildYoutubeEmbedHtml(String videoId, int initialVolume, boolean autoPlay) {
+        return "<!DOCTYPE html>\n" +
+                "<html>\n" +
+                "<head>\n" +
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>\n" +
+                "<style>\n" +
+                "  * { margin:0; padding:0; box-sizing:border-box; }\n" +
+                "  html, body { width:100%; height:100%; background:#000; overflow:hidden; }\n" +
+                "  #player { width:100%; height:100%; position:absolute; top:0; left:0; }\n" +
+                "</style>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "<div id='player'></div>\n" +
+                "<script>\n" +
+                "  var tag = document.createElement('script');\n" +
+                "  tag.src = 'https://www.youtube.com/iframe_api';\n" +
+                "  var firstScriptTag = document.getElementsByTagName('script')[0];\n" +
+                "  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);\n" +
+                "  var player;\n" +
+                "  function onYouTubeIframeAPIReady() {\n" +
+                "    player = new YT.Player('player', {\n" +
+                "      height: '100%',\n" +
+                "      width: '100%',\n" +
+                "      videoId: '" + videoId + "',\n" +
+                "      playerVars: {\n" +
+                "        'autoplay': " + (autoPlay ? 1 : 0) + ",\n" +
+                "        'playsinline': 1,\n" +
+                "        'controls': 1,\n" +
+                "        'loop': 1,\n" +
+                "        'playlist': '" + videoId + "',\n" +
+                "        'origin': 'https://www.youtube.com',\n" +
+                "        'enablejsapi': 1,\n" +
+                "        'rel': 0,\n" +
+                "        'modestbranding': 1\n" +
+                "      },\n" +
+                "      events: {\n" +
+                "        'onReady': onPlayerReady,\n" +
+                "        'onStateChange': onPlayerStateChange,\n" +
+                "        'onError': onPlayerError\n" +
+                "      }\n" +
+                "    });\n" +
+                "  }\n" +
+                "  function onPlayerReady(e) {\n" +
+                "    e.target.setVolume(" + initialVolume + ");\n" +
+                (autoPlay ? "    e.target.playVideo();\n" : "") +
+                "  }\n" +
+                "  function onPlayerStateChange(e) {\n" +
+                "    if (e.data === YT.PlayerState.ENDED) {\n" +
+                "      if (player && player.playVideo) player.playVideo();\n" +
+                "    }\n" +
+                "  }\n" +
+                "  function onPlayerError(e) { console.log('YT error: ' + e.data); }\n" +
+                "  function bgmPlay() { if (player && player.playVideo) player.playVideo(); }\n" +
+                "  function bgmPause() { if (player && player.pauseVideo) player.pauseVideo(); }\n" +
+                "  function bgmSetVol(v) { if (player && player.setVolume) player.setVolume(v); }\n" +
+                "  function bgmMute() { if (player && player.mute) player.mute(); }\n" +
+                "  function bgmUnmute() { if (player && player.unMute) player.unMute(); }\n" +
+                "</script>\n" +
+                "</body>\n" +
+                "</html>";
+    }
+
+    private void setVideoVisible(boolean show) {
+        isVideoExpanded = show;
+        if (btnVideoToggle != null) {
+            btnVideoToggle.setText(show ? "✕" : "📺");
+        }
+        View content = activity.findViewById(R.id.mainContentContainer);
+        if (content == null) content = activity.findViewById(R.id.arenaDuelContainer);
+        if (content != null) {
+            content.setTranslationY(show ? dp(220) : 0f);
+        }
+    }
 
     private static final ExecutorService searchExecutor = Executors.newSingleThreadExecutor();
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -173,16 +248,7 @@ public class YoutubeBgmController {
                 public void onPageFinished(WebView view, String url) {
                     super.onPageFinished(view, url);
                     int vol = isMuted ? 0 : getActiveVolumeLevel();
-                    float fVol = vol / 100f;
-                    view.evaluateJavascript(
-                        "(function() {" +
-                        "  var v = document.querySelector('video');" +
-                        "  if (v) {" +
-                        "    v.volume = " + fVol + ";" +
-                        "    v.muted = " + isMuted + ";" +
-                        "    v.play().catch(function(e){ console.log('play error: ' + e); });" +
-                        "  }" +
-                        "})();", null);
+                    view.evaluateJavascript("if (typeof bgmSetVol === 'function') bgmSetVol(" + vol + ");", null);
                 }
             });
         }
@@ -190,26 +256,15 @@ public class YoutubeBgmController {
         if (videoContainer != null) {
             ViewGroup.LayoutParams lp = videoContainer.getLayoutParams();
             if (lp != null) {
-                lp.height = dp(1);
-                lp.width = dp(1);
+                lp.height = dp(220);
+                lp.width = ViewGroup.LayoutParams.MATCH_PARENT;
                 videoContainer.setLayoutParams(lp);
             }
             videoContainer.setVisibility(View.VISIBLE);
         }
         if (btnVideoToggle != null) {
             btnVideoToggle.setVisibility(View.GONE);
-            btnVideoToggle.setOnClickListener(v -> {
-                if (videoContainer != null) {
-                    ViewGroup.LayoutParams lp = videoContainer.getLayoutParams();
-                    boolean isExpanded = lp != null && lp.height > dp(10);
-                    if (lp != null) {
-                        lp.height = isExpanded ? dp(1) : dp(220);
-                        lp.width = isExpanded ? dp(1) : ViewGroup.LayoutParams.MATCH_PARENT;
-                        videoContainer.setLayoutParams(lp);
-                    }
-                    btnVideoToggle.setText(isExpanded ? "📺" : "✕");
-                }
-            });
+            btnVideoToggle.setOnClickListener(v -> setVideoVisible(!isVideoExpanded));
         }
 
         String savedUrl = prefs.getString(PREF_BGM_URL, PRESETS[0][1]);
@@ -286,8 +341,9 @@ public class YoutubeBgmController {
             String vid = extractYoutubeId(streamUrl);
             if (webView != null) {
                 if (autoPlay) {
-                    String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&enablejsapi=1&playsinline=1&loop=1&playlist=" + vid;
-                    webView.loadUrl(embedUrl);
+                    int vol = isMuted ? 0 : getActiveVolumeLevel();
+                    String html = buildYoutubeEmbedHtml(vid, vol, true);
+                    webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
                     isPlaying = true;
                     isPrepared = true;
                     showOrUpdateMusicNotification(activity.getApplicationContext());
@@ -352,19 +408,19 @@ public class YoutubeBgmController {
         if (isYoutubeUrl(activeStreamUrl)) {
             if (webView != null) {
                 if (isPlaying) {
-                    webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.pause(); })();", null);
+                    webView.evaluateJavascript("if (typeof bgmPause === 'function') bgmPause();", null);
                     isPlaying = false;
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
                 } else {
                     if (!isPrepared) {
                         String vid = extractYoutubeId(activeStreamUrl);
-                        String embedUrl = "https://www.youtube.com/embed/" + vid + "?autoplay=1&enablejsapi=1&playsinline=1&loop=1&playlist=" + vid;
-                        webView.loadUrl(embedUrl);
+                        int vol = isMuted ? 0 : getActiveVolumeLevel();
+                        String html = buildYoutubeEmbedHtml(vid, vol, true);
+                        webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
                         isPrepared = true;
                     } else {
                         int vol = isMuted ? 0 : getActiveVolumeLevel();
-                        float fVol = vol / 100f;
-                        webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; v.play(); } })();", null);
+                        webView.evaluateJavascript("if (typeof bgmSetVol === 'function') bgmSetVol(" + vol + "); if (typeof bgmPlay === 'function') bgmPlay();", null);
                     }
                     isPlaying = true;
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
@@ -406,7 +462,11 @@ public class YoutubeBgmController {
         isMuted = !isMuted;
         if (isYoutubeUrl(activeStreamUrl)) {
             if (webView != null) {
-                webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.muted = " + isMuted + "; })();", null);
+                if (isMuted) {
+                    webView.evaluateJavascript("if (typeof bgmMute === 'function') bgmMute();", null);
+                } else {
+                    webView.evaluateJavascript("if (typeof bgmUnmute === 'function') bgmUnmute(); if (typeof bgmSetVol === 'function') bgmSetVol(" + getActiveVolumeLevel() + ");", null);
+                }
             }
         } else if (sharedPlayer != null) {
             int vol = isMuted ? 0 : getActiveVolumeLevel();
@@ -450,7 +510,7 @@ public class YoutubeBgmController {
             } catch (Exception ignored) {}
         }
         if (isYoutubeUrl(activeStreamUrl) && webView != null) {
-            webView.evaluateJavascript("if(window.setBgmVolume){setBgmVolume(" + (isMuted ? 0 : volumePercent) + ");}", null);
+            webView.evaluateJavascript("if (typeof bgmSetVol === 'function') bgmSetVol(" + (isMuted ? 0 : volumePercent) + ");", null);
         }
     }
 
@@ -514,34 +574,6 @@ public class YoutubeBgmController {
         builder.setView(root);
         builder.setPositiveButton(activity.getString(R.string.btn_understood), null);
         builder.show();
-    }
-
-    private String buildYoutubeIframeHtml(String videoId) {
-        int targetVol = isMuted ? 0 : getActiveVolumeLevel();
-        return "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-                + "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000000;overflow:hidden;}"
-                + "iframe{width:100%;height:100%;border:none;}</style></head><body>"
-                + "<iframe id='ytplayer' src='https://www.youtube.com/embed/" + videoId + "?autoplay=1&enablejsapi=1&playsinline=1&loop=1&playlist=" + videoId + "' allow='autoplay; encrypted-media' allowfullscreen></iframe>"
-                + "<script>"
-                + "var player;"
-                + "function onYouTubeIframeAPIReady() {"
-                + "  player = new YT.Player('ytplayer', {"
-                + "    events: {"
-                + "      'onReady': function(e) {"
-                + "        try { e.target.setVolume(" + targetVol + "); } catch(x){}"
-                + "        try { e.target.playVideo(); } catch(x){}"
-                + "        if(" + isMuted + ") { try { e.target.mute(); } catch(x){} }"
-                + "      }"
-                + "    }"
-                + "  });"
-                + "}"
-                + "window.toggleMuteBgm = function(m) { if(player) { if(m) player.mute(); else player.unMute(); } };"
-                + "window.playBgm = function() { if(player) { try{player.setVolume(" + targetVol + ");}catch(x){} player.playVideo(); } };"
-                + "window.pauseBgm = function() { if(player) player.pauseVideo(); };"
-                + "window.setBgmVolume = function(v) { if(player && player.setVolume) player.setVolume(v); };"
-                + "</script>"
-                + "<script src='https://www.youtube.com/iframe_api'></script>"
-                + "</body></html>";
     }
 
     public static void handleNotificationToggle(Context context) {
@@ -1288,7 +1320,7 @@ public class YoutubeBgmController {
 
     public void pause() {
         if (isYoutubeUrl(activeStreamUrl) && webView != null) {
-            webView.evaluateJavascript("(function(){ var v = document.querySelector('video'); if (v) v.pause(); })();", null);
+            webView.evaluateJavascript("if (typeof bgmPause === 'function') bgmPause();", null);
         } else if (sharedPlayer != null && sharedPlayer.isPlaying()) {
             try {
                 sharedPlayer.pause();

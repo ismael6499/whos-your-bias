@@ -33,6 +33,7 @@ import com.nitsutech.whosyourbias.data.BiasRepository;
 import com.nitsutech.whosyourbias.data.IdolCard;
 import com.nitsutech.whosyourbias.game.TournamentEngine;
 import com.nitsutech.whosyourbias.util.CardImageLoader;
+import com.nitsutech.whosyourbias.util.LocaleManager;
 import com.nitsutech.whosyourbias.util.ShareImportManager;
 import com.nitsutech.whosyourbias.util.ThemeManager;
 
@@ -60,6 +61,11 @@ public class MatchActivity extends AppCompatActivity {
 
     private boolean isAnimatingPick = false;
     private int duelCount = 0;
+
+    @Override
+    protected void attachBaseContext(android.content.Context newBase) {
+        super.attachBaseContext(LocaleManager.applyLocale(newBase));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

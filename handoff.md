@@ -137,3 +137,24 @@
     - Attached `onPageFinished` handler in `WebViewClient` controlling native HTML5 `<video>` element directly (`v.volume = fVol; v.muted = false; v.play();`).
     - Added `🗑️` button to `addYoutubeSongRow` under saved songs and updated `removeCustomSong` to match on video ID as well as full URL.
   - Centralized i18n: Added `bgm_video_removed_toast` in `strings.xml` and `values-es/strings.xml`.
+
+### 13. Language Manager (i18n), Check for Updates UI Polish & Official YouTube Iframe Audio API (v1.2.10)
+- **Requirement**:
+  - Fix "Check for Updates" button on "My Page" which was compressed into a narrow column causing text to break awkwardly into 4 lines (`Check \n for Upd \n ates`).
+  - Follow phone system language by default (English if system is English, Spanish if Spanish) instead of hardcoding Spanish strings.
+  - Allow user to manually select and switch app language in settings/profile (System Default, English, Español).
+  - Fix YouTube audio playback using official YouTube Iframe API and full background viewport (220dp hidden behind main container) so YouTube never throttles or pauses audio.
+- **Status**: `[x] Done`
+- **Implementation**:
+  - `LocaleManager.java`: Created centralized locale controller managing `app_language` (`system`, `en`, `es`), updating `Configuration` with `LocaleList`, and displaying an interactive language selection dialog.
+  - `MainActivity.java` & `MatchActivity.java`: Added `attachBaseContext(LocaleManager.applyLocale(newBase))` for instant localized string loading.
+  - `activity_main.xml`: Replaced hardcoded navigation tab strings (`Artistas`, `Mi página`, `Idols`, `Arena`) with `@string/nav_tab_*` resources.
+  - `MainActivity.java` (Profile Header): Restructured action buttons into two spacious, symmetrical rows:
+    - Row 1: `[📋 Change Photo]` + `[🎨 Theme Studio]`
+    - Row 2: `[🔄 Check for Updates]` + `[🌐 Language]`
+    - Row 3: `[📤 Share My Idols via WhatsApp]`
+  - `YoutubeBgmController.java`:
+    - Switched from direct mobile embed page to official YouTube IFrame JavaScript API (`https://www.youtube.com/iframe_api`) loaded via `loadDataWithBaseURL("https://www.youtube.com", ...)`.
+    - Implemented `bgmPlay()`, `bgmPause()`, `bgmSetVol()`, `bgmMute()`, and `bgmUnmute()` bridge methods.
+    - Set video container to standard 220dp height situated behind the main content views, eliminating WebView layout collapsing and ensuring continuous background audio.
+  - Bumped version to `v1.2.10` (versionCode 13). Installed via ADB and deployed to `Mobile Drop` and `Downloads`.

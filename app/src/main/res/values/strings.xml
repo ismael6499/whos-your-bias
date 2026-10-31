@@ -180,4 +180,30 @@
     <string name="bgm_presets_section">🎵 Recommended K-Pop Hits</string>
     <string name="bgm_video_saved_toast">⭐ Song added to your saved list</string>
     <string name="bgm_video_removed_toast">Song removed from saved list</string>
+
+    <!-- Navigation & Bottom Tabs -->
+    <string name="nav_tab_arena">🏟️\nArena</string>
+    <string name="nav_tab_idols">🎴\nIdols</string>
+    <string name="nav_tab_artists">✦\nArtists</string>
+    <string name="nav_tab_profile">👤\nMy Page</string>
+
+    <!-- Profile & Actions -->
+    <string name="btn_change_avatar">📋 Change Photo</string>
+    <string name="btn_customize_theme">🎨 Theme Studio</string>
+    <string name="btn_select_language">🌐 Language</string>
+    <string name="btn_share_idols_whatsapp">📤 Share My Idols via WhatsApp</string>
+    <string name="profile_my_bias_label">👑 My #1 Bias: %1$s (%2$s)</string>
+    <string name="profile_my_artists_header">My Artists (Favorites &amp; Winners)</string>
+    <string name="btn_play_group_count">▶ Play (%1$d)</string>
+    <string name="dialog_change_avatar_title">📷 Profile Photo</string>
+    <string name="dialog_avatar_option_paste">📋 Paste Image or Link from Clipboard</string>
+    <string name="dialog_avatar_option_gallery">📁 Choose Photo from Gallery</string>
+    <string name="dialog_avatar_option_top_bias">👑 Auto-use My #1 Bias Photo</string>
+    <string name="toast_avatar_using_top_bias">👑 Using your #1 Bias photo</string>
+
+    <!-- Language Selector -->
+    <string name="dialog_language_title">🌐 Select Language</string>
+    <string name="lang_system">🌐 System Default</string>
+    <string name="lang_english">🇺🇸 English</string>
+    <string name="lang_spanish">🇪🇸 Español</string>
 </resources>
