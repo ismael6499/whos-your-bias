@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Who's Your Bias</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #FFF5F7 0%, #FFE4E9 100%);
+            color: #111827;
+            text-align: center;
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            margin: 0;
+        }
+        .card {
+            background: white;
+            border-radius: 28px;
+            padding: 32px 24px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 12px 36px rgba(255, 105, 180, 0.15);
+        }
+        h1 { margin: 0 0 10px; font-size: 26px; }
+        p { color: #4B5563; font-size: 15px; line-height: 1.5; margin: 0 0 24px; }
+        .btn {
+            display: block;
+            background: #FF2E93;
+            color: white;
+            text-decoration: none;
+            padding: 14px 24px;
+            border-radius: 999px;
+            font-weight: bold;
+            font-size: 15px;
+            box-shadow: 0 4px 14px rgba(255, 46, 147, 0.4);
+            margin-bottom: 12px;
+        }
+        .btn-sub {
+            display: block;
+            background: #F3F4F6;
+            color: #374151;
+            text-decoration: none;
+            padding: 12px 20px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+    </style>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code') || urlParams.get('c');
+        if (code) {
+            window.location.href = "wiyb://import?code=" + encodeURIComponent(code);
+        }
+        function manualOpen() {
+            if (code) {
+                window.location.href = "wiyb://import?code=" + encodeURIComponent(code);
+            } else {
+                window.location.href = "wiyb://";
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="card">
+        <div style="font-size: 48px; margin-bottom: 12px;">👑</div>
+        <h1>Who's Your Bias</h1>
+        <p id="statusMsg">Opening Tournament Challenge in Who's Your Bias app...</p>
+        <a href="#" onclick="manualOpen(); return false;" class="btn">🚀 Open in App</a>
+        <a href="https://is.gd/whosyourbias" class="btn-sub">📥 Download APK (Free)</a>
+    </div>
+</body>
+</html>
