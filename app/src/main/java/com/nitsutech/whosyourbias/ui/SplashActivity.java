@@ -9,6 +9,9 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -63,7 +66,9 @@ public class SplashActivity extends AppCompatActivity {
         centerBox.setOrientation(LinearLayout.VERTICAL);
         centerBox.setGravity(Gravity.CENTER);
         FrameLayout.LayoutParams cbLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+        cbLp.leftMargin = dp(24);
+        cbLp.rightMargin = dp(24);
         centerBox.setLayoutParams(cbLp);
 
         // Rounded Squircle Pastel Icon Container
@@ -76,7 +81,7 @@ public class SplashActivity extends AppCompatActivity {
         cardBg.setStroke(dp(3), theme.primaryColor);
         logoCard.setBackground(cardBg);
         LinearLayout.LayoutParams lcLp = new LinearLayout.LayoutParams(dp(120), dp(120));
-        lcLp.bottomMargin = dp(22);
+        lcLp.bottomMargin = dp(20);
         logoCard.setLayoutParams(lcLp);
         logoCard.setElevation(dp(8));
 
@@ -92,11 +97,15 @@ public class SplashActivity extends AppCompatActivity {
         logoCard.setRotation(-18f);
         centerBox.addView(logoCard);
 
-        // App Title
+        // App Title: "Who's your Bias" with "Bias" highlighted in theme color
         TextView tvTitle = new TextView(this);
-        tvTitle.setText("Who's your Bias");
+        SpannableStringBuilder titleSsb = new SpannableStringBuilder("Who's your Bias");
+        titleSsb.setSpan(new ForegroundColorSpan(theme.primaryColor), 11, 15, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        tvTitle.setText(titleSsb);
         tvTitle.setTextColor(theme.textColor);
         tvTitle.setTextSize(28f);
+        tvTitle.setSingleLine(true);
+        tvTitle.setMaxLines(1);
         tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         tvTitle.setGravity(Gravity.CENTER);
         tvTitle.setAlpha(0f);
@@ -109,16 +118,16 @@ public class SplashActivity extends AppCompatActivity {
         lineGd.setColor(theme.primaryColor);
         lineGd.setCornerRadius(dp(4));
         goldUnderline.setBackground(lineGd);
-        LinearLayout.LayoutParams lineLp = new LinearLayout.LayoutParams(dp(68), dp(5));
+        LinearLayout.LayoutParams lineLp = new LinearLayout.LayoutParams(dp(54), dp(4));
         lineLp.topMargin = dp(8);
-        lineLp.bottomMargin = dp(12);
+        lineLp.bottomMargin = dp(10);
         goldUnderline.setLayoutParams(lineLp);
         goldUnderline.setScaleX(0f);
         centerBox.addView(goldUnderline);
 
-        // Lyric Subtitle
+        // Tagline Subtitle: "K-Pop Bias Tournament & Photocards"
         TextView tvSub = new TextView(this);
-        tvSub.setText("“Who is your bias? I am your bias, it's me!”");
+        tvSub.setText(getString(R.string.splash_subtitle));
         tvSub.setTextColor(theme.getMutedTextColor());
         tvSub.setTextSize(13.5f);
         tvSub.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));

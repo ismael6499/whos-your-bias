@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Who\'s your Bias</string>
     <string name="app_subtitle">Who is your bias? I am your bias, it\'s me!</string>
+    <string name="splash_subtitle">Torneo K-Pop &amp; Colección de Photocards</string>
 
     <!-- Navigation Tabs -->
     <string name="nav_arena">Jugar / Arena</string>
