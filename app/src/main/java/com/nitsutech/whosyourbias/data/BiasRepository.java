@@ -71,14 +71,7 @@ public class BiasRepository {
                     idols.add(seed);
                     updatedAny = true;
                 } else {
-                    if ("idol_illit_moka".equals(ex.getId()) && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
-                        ex.setPhotoUri(seed.getPhotoUri());
-                        updatedAny = true;
-                    } else if (("idol_nexz_sogeon".equals(ex.getId()) || "idol_nexz_hyui".equals(ex.getId()))
-                            && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
-                        ex.setPhotoUri(seed.getPhotoUri());
-                        updatedAny = true;
-                    } else if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty()
+                    if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty()
                             || ex.getPhotoUri().startsWith("fandom_pc://")
                             || ex.getPhotoUri().contains("wikimedia.org")
                             || ex.getPhotoUri().contains("I_Got_Your_Back_concept_photo_4"))
