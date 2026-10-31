@@ -43,6 +43,14 @@
                 <data android:scheme="wyb" />
             </intent-filter>
 
+            <!-- Clickable App Link in WhatsApp / Web -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="ismael6499.github.io" android:pathPrefix="/whos-your-bias" />
+            </intent-filter>
+
             <!-- Open .wyb file tapped in WhatsApp or File Manager -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

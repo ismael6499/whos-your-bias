@@ -263,16 +263,16 @@ public class ShareImportManager {
         try {
             JSONObject json = createPayloadJson(title, match, cards, false);
             String code = encodeToCode(json);
-            String deepLink = "wiyb://import?code=" + code;
+            String clickableLink = "https://ismael6499.github.io/whos-your-bias/?code=" + code;
 
             String message = activity.getString(R.string.share_msg_code, title, (cards != null ? cards.size() : 0))
-                    + "🔗 *App Link (Abrir en Who\'s your Bias):*\n" + deepLink + "\n\n"
+                    + "👉 *Tap to Play / Tocá para Jugar:*\n" + clickableLink + "\n\n"
                     + "📋 *Code / Código:*\n" + code + "\n\n"
                     + "📥 *Download App / Descargar APK:*\nhttps://is.gd/whosyourbias";
 
             ClipboardManager cb = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
             if (cb != null) {
-                cb.setPrimaryClip(ClipData.newPlainText("Who's your Bias Code", deepLink));
+                cb.setPrimaryClip(ClipData.newPlainText("Who's your Bias Code", clickableLink));
             }
 
             Intent intent = new Intent(Intent.ACTION_SEND);
