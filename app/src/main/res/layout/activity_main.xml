@@ -51,16 +51,12 @@
                 android:background="#FFC700" />
         </LinearLayout>
 
-        <!-- Theme Customization Button -->
+        <!-- Theme Customization Button (moved to My Page) -->
         <TextView
             android:id="@+id/btnOpenThemeStudio"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
-            android:gravity="center"
-            android:text="🎨"
-            android:textSize="15sp"
-            android:background="@drawable/bg_chip_tag"
-            android:layout_marginEnd="6dp" />
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
 
         <!-- Compact Pill Music Bar (Click title to pick song, Play/Pause, Mute) -->
         <LinearLayout
@@ -293,8 +289,8 @@
                     android:focusable="false" />
             </LinearLayout>
 
-            <WebView
-                android:id="@+id/bgmWebView"
+            <FrameLayout
+                android:id="@+id/bgmWebViewContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
         </LinearLayout>

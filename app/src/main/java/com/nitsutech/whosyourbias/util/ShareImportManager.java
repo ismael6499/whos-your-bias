@@ -249,9 +249,9 @@ public class ShareImportManager {
             JSONObject json = createPayloadJson(title, match, cards, false);
             String code = encodeToCode(json);
             String message = "👑 *Who's your Bias* — *" + title + "* (" + (cards != null ? cards.size() : 0) + " Idols)\n\n"
-                    + "📋 *Código para importar / Import Code:*\n" + code + "\n\n"
-                    + "👉 *Instrucciones:* Copiá este mensaje y abrí la app Who's your Bias para importar automáticamente.\n\n"
-                    + "📥 *Descargá el APK de la app / Download APK:*\nhttps://is.gd/whosyourbias";
+                    + "👉 *¿Cómo jugar?* Copiá este mensaje y abrí la app Who's your Bias para importar automáticamente.\n\n"
+                    + "📥 *Descargá el APK de la app / Download APK:*\nhttps://is.gd/whosyourbias\n\n"
+                    + "📋 *Código para importar / Import Code:*\n" + code;
 
             ClipboardManager cb = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
             if (cb != null) {

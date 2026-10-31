@@ -124,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
             btnCenterPlus.setOnClickListener(v -> showCenterPlusMenuDialog());
         }
 
-        WebView bgmWeb = findViewById(R.id.bgmWebView);
+        FrameLayout bgmWeb = findViewById(R.id.bgmWebViewContainer);
         View bgmVideoContainer = findViewById(R.id.bgmVideoContainer);
         TextView tvBgmTitle = findViewById(R.id.tvBgmTitle);
         TextView btnPlayPause = findViewById(R.id.btnBgmPlayPause);
@@ -3700,9 +3700,9 @@ public class MainActivity extends AppCompatActivity {
     private String getAppVersionName() {
         try {
             android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pInfo.versionName != null ? pInfo.versionName : "1.2.13";
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.14";
         } catch (Exception e) {
-            return "1.2.13";
+            return "1.2.14";
         }
     }
 

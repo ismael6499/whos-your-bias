@@ -303,8 +303,8 @@
                     android:focusable="false" />
             </LinearLayout>
 
-            <WebView
-                android:id="@+id/matchBgmWebView"
+            <FrameLayout
+                android:id="@+id/matchBgmWebViewContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
         </LinearLayout>

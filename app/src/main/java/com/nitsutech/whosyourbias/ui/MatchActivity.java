@@ -102,7 +102,7 @@ public class MatchActivity extends AppCompatActivity {
             });
         }
 
-        WebView bgmWeb = findViewById(R.id.matchBgmWebView);
+        FrameLayout bgmWeb = findViewById(R.id.matchBgmWebViewContainer);
         View bgmVidBox = findViewById(R.id.matchBgmVideoContainer);
         TextView tvBgm = findViewById(R.id.tvMatchBgmTitle);
         TextView btnPlay = findViewById(R.id.btnMatchBgmPlayPause);
@@ -726,6 +726,12 @@ public class MatchActivity extends AppCompatActivity {
         } catch (Exception e) {
             Toast.makeText(this, "Could not open YouTube", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (bgmController != null) bgmController.syncState();
     }
 
     @Override
