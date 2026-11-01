@@ -122,7 +122,7 @@
 
     <!-- Photocard Binder & Zoom Preview -->
     <string name="binder_title_format">📸 %1$s\'s Photocards (%2$d/%3$d)</string>
-    <string name="binder_zoom_hint">🔍 Tap any photocard to view in Full HD with Pinch-to-Zoom</string>
+    <string name="binder_zoom_hint">🔍 Tap to zoom • 👆 Long-press &amp; drag to reorder</string>
     <string name="binder_cover_active">⭐ Cover</string>
     <string name="binder_cover_set">☆ Cover</string>
     <string name="binder_locked">Locked</string>

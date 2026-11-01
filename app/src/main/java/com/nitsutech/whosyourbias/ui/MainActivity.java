@@ -24,6 +24,7 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.view.DragEvent;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -2638,6 +2639,19 @@ public class MainActivity extends AppCompatActivity {
 
         HorizontalScrollView pcScroll = new HorizontalScrollView(this);
         pcScroll.setHorizontalScrollBarEnabled(false);
+        pcScroll.setOnDragListener((v, event) -> {
+            if (event.getAction() == DragEvent.ACTION_DRAG_LOCATION) {
+                float x = event.getX();
+                int width = v.getWidth();
+                int edgeMargin = dp(45);
+                if (x < edgeMargin) {
+                    pcScroll.smoothScrollBy(-dp(20), 0);
+                } else if (x > width - edgeMargin) {
+                    pcScroll.smoothScrollBy(dp(20), 0);
+                }
+            }
+            return true;
+        });
         LinearLayout pcRow = new LinearLayout(this);
         pcRow.setOrientation(LinearLayout.HORIZONTAL);
         pcRow.setPadding(0, 0, 0, dp(10));
@@ -2942,31 +2956,6 @@ public class MainActivity extends AppCompatActivity {
 
             // Tapping the photocard opens the Full-HD Pinch-to-Zoom Preview (does NOT overwrite main cover)
             frame.setOnClickListener(v -> showPhotocardZoomPreviewDialog(card, pcUri, idx + 1, ivMain, rebuildCallback));
-            frame.setOnLongClickListener(v -> {
-                if (card.getPhotocards().size() > 1) {
-                    new AlertDialog.Builder(this)
-                            .setTitle(getString(R.string.dialog_delete_pc_title))
-                            .setMessage(getString(R.string.dialog_delete_pc_msg, card.getStageName()))
-                            .setPositiveButton(getString(R.string.btn_delete_card), (d, w) -> {
-                                boolean removed = card.removePhotocard(pcUri);
-                                if (removed) {
-                                    repo.saveOrUpdateIdol(card);
-                                    if (ivMain != null) {
-                                        CardImageLoader.loadCardImage(this, card, ivMain);
-                                    }
-                                    if (rebuildCallback != null) rebuildCallback.run();
-                                    refreshCurrentTab();
-                                    Toast.makeText(this, getString(R.string.toast_pc_deleted), Toast.LENGTH_SHORT).show();
-                                }
-                            })
-                            .setNegativeButton(getString(R.string.btn_cancel), null)
-                            .show();
-                    return true;
-                } else {
-                    Toast.makeText(this, getString(R.string.toast_cannot_delete_only_pc), Toast.LENGTH_SHORT).show();
-                    return true;
-                }
-            });
         } else {
             frame.setBackgroundColor(Color.parseColor("#1F2937"));
             TextView tvLock = new TextView(this);
@@ -2981,6 +2970,20 @@ public class MainActivity extends AppCompatActivity {
             frame.addView(tvLock);
             frame.setOnClickListener(v -> Toast.makeText(this, getString(R.string.binder_locked_gacha_toast), Toast.LENGTH_SHORT).show());
         }
+
+        // Long press on any photocard starts Drag & Drop to reorder!
+        View.OnLongClickListener startDragListener = v -> {
+            View.DragShadowBuilder shadow = new View.DragShadowBuilder(thumbCard);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                v.startDragAndDrop(null, shadow, idx, 0);
+            } else {
+                v.startDrag(null, shadow, idx, 0);
+            }
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            return true;
+        };
+        frame.setOnLongClickListener(startDragListener);
+        thumbCard.setOnLongClickListener(startDragListener);
 
         thumbCard.addView(frame);
         pcItem.addView(thumbCard);
@@ -3018,64 +3021,43 @@ public class MainActivity extends AppCompatActivity {
             pcItem.addView(tvLockedSub);
         }
 
-        // Reorder buttons (◀ / ▶) to customize photocard positions!
-        if (totalPcs > 1) {
-            LinearLayout reorderRow = new LinearLayout(this);
-            reorderRow.setOrientation(LinearLayout.HORIZONTAL);
-            reorderRow.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams roLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            roLp.topMargin = dp(4);
-            reorderRow.setLayoutParams(roLp);
-
-            TextView btnLeft = new TextView(this);
-            btnLeft.setText("◀");
-            btnLeft.setTextSize(11f);
-            btnLeft.setTextColor(idx > 0 ? Color.parseColor("#374151") : Color.parseColor("#D1D5DB"));
-            btnLeft.setTypeface(Typeface.DEFAULT_BOLD);
-            btnLeft.setGravity(Gravity.CENTER);
-            btnLeft.setBackground(ThemeManager.createPillDrawable(this,
-                    idx > 0 ? Color.parseColor("#E5E7EB") : Color.parseColor("#F9FAFB"), 10));
-            btnLeft.setPadding(dp(8), dp(3), dp(8), dp(3));
-            LinearLayout.LayoutParams bllp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            bllp.rightMargin = dp(2);
-            btnLeft.setLayoutParams(bllp);
-            if (idx > 0) {
-                btnLeft.setOnClickListener(v -> {
-                    card.swapPhotocards(idx, idx - 1);
-                    repo.saveOrUpdateIdol(card);
-                    if (rebuildCallback != null) rebuildCallback.run();
-                    refreshCurrentTab();
-                    Toast.makeText(this, getString(R.string.reorder_pc_moved, idx), Toast.LENGTH_SHORT).show();
-                });
+        // Drop target listener for fluid Drag & Drop reordering
+        pcItem.setOnDragListener((v, event) -> {
+            switch (event.getAction()) {
+                case DragEvent.ACTION_DRAG_STARTED:
+                    return true;
+                case DragEvent.ACTION_DRAG_ENTERED:
+                    thumbCard.animate().scaleX(1.10f).scaleY(1.10f).setDuration(120).start();
+                    thumbCard.setCardElevation(dp(8));
+                    return true;
+                case DragEvent.ACTION_DRAG_EXITED:
+                    thumbCard.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
+                    thumbCard.setCardElevation(dp(isPrimaryCover ? 3 : 1));
+                    return true;
+                case DragEvent.ACTION_DROP:
+                    thumbCard.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
+                    thumbCard.setCardElevation(dp(isPrimaryCover ? 3 : 1));
+                    Object stateObj = event.getLocalState();
+                    if (stateObj instanceof Integer) {
+                        int fromIdx = (Integer) stateObj;
+                        int toIdx = idx;
+                        if (fromIdx != toIdx) {
+                            card.movePhotocard(fromIdx, toIdx);
+                            repo.saveOrUpdateIdol(card);
+                            if (rebuildCallback != null) rebuildCallback.run();
+                            refreshCurrentTab();
+                            Toast.makeText(MainActivity.this, getString(R.string.reorder_pc_moved, toIdx + 1), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    return true;
+                case DragEvent.ACTION_DRAG_ENDED:
+                    thumbCard.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
+                    thumbCard.setCardElevation(dp(isPrimaryCover ? 3 : 1));
+                    return true;
+                default:
+                    return false;
             }
-            reorderRow.addView(btnLeft);
-
-            TextView btnRight = new TextView(this);
-            btnRight.setText("▶");
-            btnRight.setTextSize(11f);
-            btnRight.setTextColor(idx < totalPcs - 1 ? Color.parseColor("#374151") : Color.parseColor("#D1D5DB"));
-            btnRight.setTypeface(Typeface.DEFAULT_BOLD);
-            btnRight.setGravity(Gravity.CENTER);
-            btnRight.setBackground(ThemeManager.createPillDrawable(this,
-                    idx < totalPcs - 1 ? Color.parseColor("#E5E7EB") : Color.parseColor("#F9FAFB"), 10));
-            btnRight.setPadding(dp(8), dp(3), dp(8), dp(3));
-            LinearLayout.LayoutParams brlp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            brlp.leftMargin = dp(2);
-            btnRight.setLayoutParams(brlp);
-            if (idx < totalPcs - 1) {
-                btnRight.setOnClickListener(v -> {
-                    card.swapPhotocards(idx, idx + 1);
-                    repo.saveOrUpdateIdol(card);
-                    if (rebuildCallback != null) rebuildCallback.run();
-                    refreshCurrentTab();
-                    Toast.makeText(this, getString(R.string.reorder_pc_moved, idx + 2), Toast.LENGTH_SHORT).show();
-                });
-            }
-            reorderRow.addView(btnRight);
-
-            pcItem.addView(reorderRow);
-        }
+        });
 
         return pcItem;
     }
@@ -4467,9 +4449,9 @@ public class MainActivity extends AppCompatActivity {
     private String getAppVersionName() {
         try {
             android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pInfo.versionName != null ? pInfo.versionName : "1.2.27";
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.28";
         } catch (Exception e) {
-            return "1.2.27";
+            return "1.2.28";
         }
     }
 
