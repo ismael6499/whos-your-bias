@@ -120,6 +120,9 @@ public class MatchActivity extends AppCompatActivity {
         }
         String title = getIntent().getStringExtra(EXTRA_TITLE);
         String mode = getIntent().getStringExtra(EXTRA_MODE);
+        if (mode == null || mode.isEmpty()) {
+            mode = "KING_OF_THE_HILL";
+        }
         ArrayList<String> ids = getIntent().getStringArrayListExtra(EXTRA_CARD_IDS);
 
         List<IdolCard> roster = new ArrayList<>();
@@ -156,7 +159,7 @@ public class MatchActivity extends AppCompatActivity {
             btnUndoMatch.setVisibility(engine.canUndo() ? View.VISIBLE : View.GONE);
         }
 
-        tvRoundBadge.setText(engine.getCurrentRoundTitle());
+        tvRoundBadge.setText(engine.getCurrentRoundTitle(this));
         progressBar.setProgress(engine.getProgressPercent());
 
         cardSlotTop.removeAllViews();

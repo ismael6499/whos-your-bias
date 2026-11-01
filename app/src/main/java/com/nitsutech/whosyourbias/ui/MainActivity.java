@@ -1270,7 +1270,7 @@ public class MainActivity extends AppCompatActivity {
         ppLp.setMargins(0, 0, dp(6), 0);
         btnPlayPill.setLayoutParams(ppLp);
         btnPlayPill.setOnClickListener(v -> {
-            String mode = members.size() <= 6 ? "KING_OF_THE_HILL" : "BRACKET";
+            String mode = "KING_OF_THE_HILL";
             launchMatch("Who is your bias in " + groupName + "?", mode, members);
         });
         headerRow.addView(btnPlayPill);
@@ -1285,7 +1285,7 @@ public class MainActivity extends AppCompatActivity {
             List<String> ids = new ArrayList<>();
             for (IdolCard m : members) ids.add(m.getId());
             CustomMatch gm = new CustomMatch(null, "Who is your bias in " + groupName + "?", "Friend",
-                    members.size() <= 6 ? "KING_OF_THE_HILL" : "BRACKET", ids, System.currentTimeMillis());
+                    "KING_OF_THE_HILL", ids, System.currentTimeMillis());
             showShareChoiceDialog(groupName + " Pack", gm, members);
         });
         headerRow.addView(btnSharePill);
@@ -2038,10 +2038,10 @@ public class MainActivity extends AppCompatActivity {
         root.addView(tvTitle);
 
         addSmallLabel(root, getString(R.string.label_game_mode));
-        final String[] modeValues = {"BRACKET", "KING_OF_THE_HILL", "ROUND_ROBIN", "DOUBLE_ELIMINATION"};
+        final String[] modeValues = {"KING_OF_THE_HILL", "BRACKET", "ROUND_ROBIN", "DOUBLE_ELIMINATION"};
         final String[] modeLabels = {
-                getString(R.string.mode_bracket),
                 getString(R.string.mode_koth),
+                getString(R.string.mode_bracket),
                 getString(R.string.mode_round_robin),
                 getString(R.string.mode_double_elim)
         };
@@ -2135,10 +2135,10 @@ public class MainActivity extends AppCompatActivity {
 
         EditText etTitle = addFormInput(root, getString(R.string.hint_match_custom_title), "");
 
-        final String[] modeValues = {"BRACKET", "KING_OF_THE_HILL", "ROUND_ROBIN", "DOUBLE_ELIMINATION"};
+        final String[] modeValues = {"KING_OF_THE_HILL", "BRACKET", "ROUND_ROBIN", "DOUBLE_ELIMINATION"};
         final String[] modeLabels = {
-                getString(R.string.mode_bracket),
                 getString(R.string.mode_koth),
+                getString(R.string.mode_bracket),
                 getString(R.string.mode_round_robin),
                 getString(R.string.mode_double_elim)
         };
@@ -3961,7 +3961,7 @@ public class MainActivity extends AppCompatActivity {
                     if (checkedCardIds.contains(c.getId())) playList.add(c);
                 }
                 if (playList.size() < 2) playList = payload.cards;
-                String mode = payload.customMatch != null ? payload.customMatch.getGameMode() : "BRACKET";
+                String mode = payload.customMatch != null ? payload.customMatch.getGameMode() : "KING_OF_THE_HILL";
                 launchMatch(payload.packTitle, mode, playList);
             });
         }
@@ -4467,9 +4467,9 @@ public class MainActivity extends AppCompatActivity {
     private String getAppVersionName() {
         try {
             android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pInfo.versionName != null ? pInfo.versionName : "1.2.24";
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.25";
         } catch (Exception e) {
-            return "1.2.24";
+            return "1.2.25";
         }
     }
 

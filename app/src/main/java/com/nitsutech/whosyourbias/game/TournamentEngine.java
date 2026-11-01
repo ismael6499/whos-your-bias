@@ -1,5 +1,7 @@
 package com.nitsutech.whosyourbias.game;
 
+import android.content.Context;
+import com.nitsutech.whosyourbias.R;
 import com.nitsutech.whosyourbias.data.IdolCard;
 
 import java.io.Serializable;
@@ -141,7 +143,7 @@ public class TournamentEngine implements Serializable {
 
     public TournamentEngine(String tournamentTitle, String gameMode, List<IdolCard> cards) {
         this.tournamentTitle = tournamentTitle != null ? tournamentTitle : "Who's your Bias";
-        this.gameMode = gameMode != null ? gameMode : "BRACKET";
+        this.gameMode = gameMode != null ? gameMode : "KING_OF_THE_HILL";
         this.initialRoster = new ArrayList<>(cards);
         Collections.shuffle(this.initialRoster);
         initMode();
@@ -395,9 +397,16 @@ public class TournamentEngine implements Serializable {
     }
 
     public String getCurrentRoundTitle() {
+        return getCurrentRoundTitle(null);
+    }
+
+    public String getCurrentRoundTitle(Context context) {
         switch (gameMode) {
             case "KING_OF_THE_HILL":
                 int totalCh = initialRoster.size() - 1;
+                if (context != null) {
+                    return context.getString(R.string.koth_round_badge, kothQueueIndex, totalCh, currentKingStreak);
+                }
                 return "👑 KING OF THE HILL • CHALLENGER " + kothQueueIndex + "/" + totalCh
                         + " • STREAK: " + currentKingStreak + "🔥";
 

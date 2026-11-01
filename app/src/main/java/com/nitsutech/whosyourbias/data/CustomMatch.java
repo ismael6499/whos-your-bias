@@ -21,7 +21,7 @@ public class CustomMatch implements Serializable {
         this.id = UUID.randomUUID().toString();
         this.title = "Custom Bias Battle";
         this.creatorName = "Player";
-        this.gameMode = "BRACKET";
+        this.gameMode = "KING_OF_THE_HILL";
         this.cardIds = new ArrayList<>();
         this.createdAt = System.currentTimeMillis();
     }
@@ -30,7 +30,7 @@ public class CustomMatch implements Serializable {
         this.id = (id == null || id.isEmpty()) ? UUID.randomUUID().toString() : id;
         this.title = title != null ? title : "Custom Bias Battle";
         this.creatorName = creatorName != null ? creatorName : "Player";
-        this.gameMode = gameMode != null ? gameMode : "BRACKET";
+        this.gameMode = gameMode != null ? gameMode : "KING_OF_THE_HILL";
         this.cardIds = cardIds != null ? cardIds : new ArrayList<>();
         this.createdAt = createdAt > 0 ? createdAt : System.currentTimeMillis();
     }
@@ -64,7 +64,7 @@ public class CustomMatch implements Serializable {
                 obj.optString("id", UUID.randomUUID().toString()),
                 obj.optString("title", "Custom Match"),
                 obj.optString("creatorName", "Friend"),
-                obj.optString("gameMode", "BRACKET"),
+                obj.optString("gameMode", "KING_OF_THE_HILL"),
                 ids,
                 obj.optLong("createdAt", System.currentTimeMillis())
         );

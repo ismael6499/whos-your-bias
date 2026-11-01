@@ -27,8 +27,8 @@
     <string name="arena_quick_title">⚡ Partida Rápida CPU (Aleatoria)</string>
     <string name="arena_quick_desc">Elegí el modo de juego, filtro de mazo y cantidad de cartas. ¡La CPU armará el torneo al azar!</string>
     <string name="label_game_mode">Modo de Juego</string>
+    <string name="mode_koth">👑 Rey de la Colina (El que gana sigue vs el siguiente)</string>
     <string name="mode_bracket">🏆 Torneo Clásico (Eliminatoria / World Cup)</string>
-    <string name="mode_koth">👑 Rey de la Colina (El ganador se queda en mesa)</string>
     <string name="mode_round_robin">📊 Liga Todos contra Todos (Ranking por Puntos)</string>
     <string name="mode_double_elim">⚔️ Doble Eliminación (Con Repechaje)</string>
     <string name="label_card_count">Cantidad de Cartas</string>
@@ -395,4 +395,5 @@
     <string name="btn_import_only">💾 Solo Guardar</string>
     <string name="toast_match_saved_with_id">Partida guardada en Arena (%1$s)</string>
     <string name="gacha_choose_binder_title">📖 Elegir Colección para Abrir</string>
+    <string name="koth_round_badge">👑 REY DE LA COLINA • RETADOR %1$d/%2$d • RACHA: %3$d🔥</string>
 </resources>

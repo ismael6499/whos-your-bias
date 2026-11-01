@@ -27,10 +27,10 @@
     <string name="arena_quick_title">⚡ CPU Quick Tournament</string>
     <string name="arena_quick_desc">Pick your game mode, deck filter, and card count. The CPU will deal a random tournament bracket!</string>
     <string name="label_game_mode">Game Mode</string>
-    <string name="mode_bracket">🏆 Classic World Cup (Elimination Bracket)</string>
-    <string name="mode_koth">👑 King of the Hill (Winner Stays On)</string>
-    <string name="mode_round_robin">📊 Points League (Round Robin Ranking)</string>
-    <string name="mode_double_elim">⚔️ Double Elimination (Redemption Bracket)</string>
+    <string name="mode_koth">👑 King of the Hill (Winner stays on vs next idol)</string>
+    <string name="mode_bracket">🏆 Tournament Bracket (Single Elimination)</string>
+    <string name="mode_round_robin">📊 Points League (Round Robin • All vs All)</string>
+    <string name="mode_double_elim">⚔️ Double Elimination (With Redemption)</string>
     <string name="label_card_count">Number of Cards</string>
     <string name="label_filter_deck">Filter Pool (Group / Collection)</string>
     <string name="btn_start_cpu_match">🚀 START RANDOM MATCH</string>
@@ -395,4 +395,5 @@
     <string name="btn_import_only">💾 Save to Matches</string>
     <string name="toast_match_saved_with_id">Match saved in Arena (%1$s)</string>
     <string name="gacha_choose_binder_title">📖 Choose Binder to Open</string>
+    <string name="koth_round_badge">👑 KING OF THE HILL • CHALLENGER %1$d/%2$d • STREAK: %3$d🔥</string>
 </resources>
