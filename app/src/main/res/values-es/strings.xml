@@ -310,7 +310,7 @@
     <string name="game_mode_round_robin">Liga Todos contra Todos</string>
     <string name="game_mode_double_elim">Doble Eliminación</string>
     <string name="share_msg_caption">🔥 Who\'s your Bias — \"%1$s\" (%2$d Idols)\n👉 ¡Tocá el archivo adjunto .wyb para abrir y jugar en Who\'s your Bias!</string>
-    <string name="share_msg_code">👑 *Who\'s your Bias* — *%1$s* (%2$d Idols)\n\n👉 *¿Cómo jugar?* Tocá el link de abajo para abrirlo directo en la app, o copiá este código:\n\n</string>
+    <string name="share_msg_code">👑 *Who\'s your Bias* — *%1$s* (%2$d Idols)\n\n👉 *¿Cómo jugar?* Tocá el link de abajo para abrirlo directo en la app:\n</string>
 
     <!-- Theme Studio -->
     <string name="theme_studio_title">🎨 Personalizar Tema y Colores</string>

@@ -288,8 +288,7 @@ public class ShareImportManager {
             String clickableLink = "https://ismael6499.github.io/whos-your-bias/?code=" + code;
 
             String message = activity.getString(R.string.share_msg_code, title, (cards != null ? cards.size() : 0))
-                    + "👉 *Tap to Play / Tocá para Jugar:*\n" + clickableLink + "\n\n"
-                    + "📋 *Code / Código:*\n" + code + "\n\n"
+                    + "🔗 " + clickableLink + "\n\n"
                     + "📥 *Download App / Descargar APK:*\nhttps://is.gd/whosyourbias";
 
             ClipboardManager cb = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);

@@ -310,7 +310,7 @@
     <string name="game_mode_round_robin">Points League (Round Robin)</string>
     <string name="game_mode_double_elim">Double Elimination</string>
     <string name="share_msg_caption">🔥 Who\'s your Bias — \"%1$s\" (%2$d Idols)\n👉 Tap the attached .wyb file to open and play in Who\'s your Bias!</string>
-    <string name="share_msg_code">👑 *Who\'s your Bias* — *%1$s* (%2$d Idols)\n\n👉 *How to play?* Tap the link below to open directly in the app, or copy this code:\n\n</string>
+    <string name="share_msg_code">👑 *Who\'s your Bias* — *%1$s* (%2$d Idols)\n\n👉 *How to play?* Tap the link below to open directly in the app:\n</string>
 
     <!-- Theme Studio -->
     <string name="theme_studio_title">🎨 Customize Theme &amp; Colors</string>
