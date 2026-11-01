@@ -265,14 +265,26 @@ public class ShareImportManager {
                 fos.write(json.toString().getBytes(StandardCharsets.UTF_8));
             }
 
+            String code = encodeToCode(json);
+            String clickableLink = "https://ismael6499.github.io/whos-your-bias/?code=" + code;
+
+            String message = activity.getString(R.string.share_msg_code, title, (cards != null ? cards.size() : 0))
+                    + "🔗 " + clickableLink + "\n\n"
+                    + "📥 *Download App / Descargar APK:*\nhttps://is.gd/whosyourbias";
+
+            ClipboardManager cb = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cb != null) {
+                cb.setPrimaryClip(ClipData.newPlainText("Who's your Bias Code", message));
+            }
+
             Uri uri = FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", wybFile);
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("application/octet-stream");
             intent.putExtra(Intent.EXTRA_STREAM, uri);
-            String caption = activity.getString(R.string.share_msg_caption, title, (cards != null ? cards.size() : 0));
-            intent.putExtra(Intent.EXTRA_TEXT, caption);
+            intent.putExtra(Intent.EXTRA_TEXT, message);
+            intent.putExtra(Intent.EXTRA_SUBJECT, "Who's your Bias: " + title);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            activity.startActivity(Intent.createChooser(intent, "Share .wyb File"));
+            activity.startActivity(Intent.createChooser(intent, activity.getString(R.string.share_option_file)));
         } catch (Exception e) {
             Toast.makeText(activity, "Error sharing file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }

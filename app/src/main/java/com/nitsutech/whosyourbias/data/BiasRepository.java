@@ -177,6 +177,9 @@ public class BiasRepository {
                     if (c.getId().startsWith("idol_illit_")) {
                         // Always use curated 30 unique photocards without duplicates for ILLIT
                         c.setPhotocards(new ArrayList<>(bundledList));
+                        if ("idol_illit_moka".equals(c.getId())) {
+                            c.setPhotoUri(bundledList.get(0));
+                        }
                         changed = true;
                     } else if (needsSync) {
                         List<String> updated = new ArrayList<>(bundledList);
