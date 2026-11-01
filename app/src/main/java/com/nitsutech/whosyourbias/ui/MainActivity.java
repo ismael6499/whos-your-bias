@@ -4467,9 +4467,9 @@ public class MainActivity extends AppCompatActivity {
     private String getAppVersionName() {
         try {
             android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pInfo.versionName != null ? pInfo.versionName : "1.2.25";
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.26";
         } catch (Exception e) {
-            return "1.2.25";
+            return "1.2.26";
         }
     }
 

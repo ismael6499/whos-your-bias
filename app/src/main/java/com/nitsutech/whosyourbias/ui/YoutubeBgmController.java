@@ -26,6 +26,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.ConsoleMessage;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -117,6 +118,35 @@ public class YoutubeBgmController {
     private static MutableContextWrapper contextWrapper = null;
     private static String currentLoadedVideoId = null;
     private boolean isVideoExpanded = false;
+    private static final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    public static class YoutubeJsBridge {
+        @JavascriptInterface
+        public void onPlayerStateChange(int state) {
+            mainHandler.post(() -> handleYoutubeStateChange(state));
+        }
+    }
+
+    public static void handleYoutubeStateChange(int state) {
+        if (state == 1) { // PLAYING
+            isPlaying = true;
+            isPrepared = true;
+        } else if (state == 2 || state == 0) { // PAUSED or ENDED
+            isPlaying = false;
+        }
+        YoutubeBgmController active = activeControllerRef != null ? activeControllerRef.get() : null;
+        if (active != null) {
+            if (state == 1) {
+                active.prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
+            } else if (state == 2) {
+                active.prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
+            }
+            active.updateButtonsUi();
+            if (active.activity != null && !active.activity.isFinishing()) {
+                showOrUpdateMusicNotification(active.activity.getApplicationContext());
+            }
+        }
+    }
 
     private WebView getTargetWebView() {
         return sharedWebView;
@@ -171,6 +201,11 @@ public class YoutubeBgmController {
                             "        setTimeout(function(){ try { if (player && player.getPlayerState() !== 1) player.playVideo(); } catch(x){} }, 1000);\n" : "") +
                 "      },\n" +
                 "      'onStateChange': function(e) {\n" +
+                "        try {\n" +
+                "          if (window.AndroidBridge && window.AndroidBridge.onPlayerStateChange) {\n" +
+                "            window.AndroidBridge.onPlayerStateChange(e.data);\n" +
+                "          }\n" +
+                "        } catch(x){}\n" +
                 "        if (e.data === 0) {\n" +
                 "          try { e.target.seekTo(0); e.target.playVideo(); } catch(x){}\n" +
                 "        }\n" +
@@ -184,6 +219,34 @@ public class YoutubeBgmController {
                 "    }\n" +
                 "  });\n" +
                 "}\n" +
+                "function hookVideoEvents() {\n" +
+                "  try {\n" +
+                "    var v = document.querySelector('video');\n" +
+                "    if (v && !v.__hooked) {\n" +
+                "      v.__hooked = true;\n" +
+                "      v.addEventListener('play', function() { if (window.AndroidBridge) window.AndroidBridge.onPlayerStateChange(1); });\n" +
+                "      v.addEventListener('playing', function() { if (window.AndroidBridge) window.AndroidBridge.onPlayerStateChange(1); });\n" +
+                "      v.addEventListener('pause', function() { if (window.AndroidBridge) window.AndroidBridge.onPlayerStateChange(2); });\n" +
+                "      v.addEventListener('ended', function() { if (window.AndroidBridge) window.AndroidBridge.onPlayerStateChange(0); });\n" +
+                "    }\n" +
+                "  } catch(e){}\n" +
+                "}\n" +
+                "var lastReportedState = -1;\n" +
+                "function checkPlayerState() {\n" +
+                "  try {\n" +
+                "    if (typeof player !== 'undefined' && player && typeof player.getPlayerState === 'function') {\n" +
+                "      var s = player.getPlayerState();\n" +
+                "      if (s !== lastReportedState && (s === 0 || s === 1 || s === 2)) {\n" +
+                "        lastReportedState = s;\n" +
+                "        if (window.AndroidBridge && window.AndroidBridge.onPlayerStateChange) {\n" +
+                "          window.AndroidBridge.onPlayerStateChange(s);\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "    hookVideoEvents();\n" +
+                "  } catch(e){}\n" +
+                "}\n" +
+                "setInterval(checkPlayerState, 800);\n" +
                 "window.bgmPlay = function() { if (player && player.playVideo) player.playVideo(); };\n" +
                 "window.bgmPause = function() { if (player && player.pauseVideo) player.pauseVideo(); };\n" +
                 "window.bgmSetVol = function(v) { if (player && player.setVolume) player.setVolume(v); };\n" +
@@ -208,6 +271,7 @@ public class YoutubeBgmController {
         ws.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         ws.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
         wv.setBackgroundColor(Color.BLACK);
+        wv.addJavascriptInterface(new YoutubeJsBridge(), "AndroidBridge");
         wv.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(PermissionRequest request) {
@@ -236,6 +300,13 @@ public class YoutubeBgmController {
                     "    v.volume = " + fVol + ";" +
                     "    v.muted = " + isMuted + ";" +
                     "    v.play().catch(function(e){ console.error('Play error: ' + e); });" +
+                    "    if (!v.__hooked) {" +
+                    "      v.__hooked = true;" +
+                    "      v.addEventListener('play', function() { if (window.AndroidBridge) window.AndroidBridge.onPlayerStateChange(1); });" +
+                    "      v.addEventListener('playing', function() { if (window.AndroidBridge) window.AndroidBridge.onPlayerStateChange(1); });" +
+                    "      v.addEventListener('pause', function() { if (window.AndroidBridge) window.AndroidBridge.onPlayerStateChange(2); });" +
+                    "      v.addEventListener('ended', function() { if (window.AndroidBridge) window.AndroidBridge.onPlayerStateChange(0); });" +
+                    "    }" +
                     "  }" +
                     "  var b = document.querySelector('.ytp-large-play-button');" +
                     "  if (b) b.click();" +
@@ -294,7 +365,6 @@ public class YoutubeBgmController {
     }
 
     private static final ExecutorService searchExecutor = Executors.newSingleThreadExecutor();
-    private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private final Activity activity;
     private final FrameLayout webContainer;
@@ -576,25 +646,39 @@ public class YoutubeBgmController {
         if (isYoutubeUrl(activeStreamUrl)) {
             WebView target = getTargetWebView();
             if (target != null) {
-                if (isPlaying) {
-                    target.evaluateJavascript("(function(){ if (window.bgmPause) window.bgmPause(); var v = document.querySelector('video'); if (v) v.pause(); })();", null);
-                    isPlaying = false;
-                    prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, false).apply();
-                } else {
-                    String vid = extractYoutubeId(activeStreamUrl);
-                    if (!isPrepared || currentLoadedVideoId == null || !currentLoadedVideoId.equals(vid)) {
-                        loadYoutubeVideo(vid, true);
-                    } else {
-                        int vol = isMuted ? 0 : getActiveVolumeLevel();
-                        float fVol = vol / 100f;
-                        target.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play().catch(function(e){}); } var b = document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
-                        isPlaying = true;
-                    }
+                String vid = extractYoutubeId(activeStreamUrl);
+                if (!isPrepared || currentLoadedVideoId == null || !currentLoadedVideoId.equals(vid)) {
+                    loadYoutubeVideo(vid, true);
                     prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
+                    return;
                 }
+                int vol = isMuted ? 0 : getActiveVolumeLevel();
+                float fVol = vol / 100f;
+                target.evaluateJavascript(
+                    "(function(){" +
+                    "  var isPl = false;" +
+                    "  var v = document.querySelector('video');" +
+                    "  if (typeof player !== 'undefined' && player && typeof player.getPlayerState === 'function') {" +
+                    "    isPl = (player.getPlayerState() === 1);" +
+                    "  } else if (v) {" +
+                    "    isPl = !v.paused;" +
+                    "  }" +
+                    "  if (isPl) {" +
+                    "    if (typeof window.bgmPause === 'function') window.bgmPause();" +
+                    "    if (v) v.pause();" +
+                    "    if (window.AndroidBridge && window.AndroidBridge.onPlayerStateChange) window.AndroidBridge.onPlayerStateChange(2);" +
+                    "  } else {" +
+                    "    if (typeof window.bgmPlay === 'function') window.bgmPlay();" +
+                    "    if (v) {" +
+                    "      v.volume = " + fVol + ";" +
+                    "      if (v.paused) v.play().catch(function(e){});" +
+                    "    }" +
+                    "    var b = document.querySelector('.ytp-large-play-button');" +
+                    "    if (b) b.click();" +
+                    "    if (window.AndroidBridge && window.AndroidBridge.onPlayerStateChange) window.AndroidBridge.onPlayerStateChange(1);" +
+                    "  }" +
+                    "})();", null);
             }
-            updateButtonsUi();
-            showOrUpdateMusicNotification(activity.getApplicationContext());
             return;
         }
 
@@ -757,6 +841,28 @@ public class YoutubeBgmController {
             YoutubeBgmController active = activeControllerRef != null ? activeControllerRef.get() : null;
             if (active != null) {
                 active.togglePlayPause();
+            } else if (isYoutubeUrl(activeStreamUrl) && sharedWebView != null) {
+                sharedWebView.evaluateJavascript(
+                    "(function(){" +
+                    "  var isPl = false;" +
+                    "  var v = document.querySelector('video');" +
+                    "  if (typeof player !== 'undefined' && player && typeof player.getPlayerState === 'function') {" +
+                    "    isPl = (player.getPlayerState() === 1);" +
+                    "  } else if (v) {" +
+                    "    isPl = !v.paused;" +
+                    "  }" +
+                    "  if (isPl) {" +
+                    "    if (typeof window.bgmPause === 'function') window.bgmPause();" +
+                    "    if (v) v.pause();" +
+                    "    if (window.AndroidBridge && window.AndroidBridge.onPlayerStateChange) window.AndroidBridge.onPlayerStateChange(2);" +
+                    "  } else {" +
+                    "    if (typeof window.bgmPlay === 'function') window.bgmPlay();" +
+                    "    if (v && v.paused) v.play().catch(function(e){});" +
+                    "    var b = document.querySelector('.ytp-large-play-button');" +
+                    "    if (b) b.click();" +
+                    "    if (window.AndroidBridge && window.AndroidBridge.onPlayerStateChange) window.AndroidBridge.onPlayerStateChange(1);" +
+                    "  }" +
+                    "})();", null);
             } else if (sharedPlayer != null && isPrepared) {
                 if (sharedPlayer.isPlaying()) {
                     sharedPlayer.pause();
@@ -774,6 +880,9 @@ public class YoutubeBgmController {
                     sharedPlayer.reset();
                 } catch (Exception ignored) {
                 }
+            }
+            if (sharedWebView != null) {
+                sharedWebView.evaluateJavascript("(function(){ if (window.bgmPause) window.bgmPause(); var v = document.querySelector('video'); if (v) v.pause(); })();", null);
             }
             isPlaying = false;
             isPrepared = false;
@@ -1579,22 +1688,57 @@ public class YoutubeBgmController {
                 btnVideoToggle.setVisibility(View.VISIBLE);
                 btnVideoToggle.setText(isVideoExpanded ? "✕" : "📺");
             }
-            if (isPlaying && sharedWebView != null) {
+            if (sharedWebView != null) {
                 String vid = extractYoutubeId(activeStreamUrl);
-                if (!vid.equals(currentLoadedVideoId)) {
-                    loadYoutubeVideo(vid, true);
+                if (isPlaying) {
+                    if (!vid.equals(currentLoadedVideoId)) {
+                        loadYoutubeVideo(vid, true);
+                    } else {
+                        int vol = isMuted ? 0 : getActiveVolumeLevel();
+                        float fVol = vol / 100f;
+                        sharedWebView.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play().catch(function(e){}); } var b = document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
+                    }
                 } else {
-                    int vol = isMuted ? 0 : getActiveVolumeLevel();
-                    float fVol = vol / 100f;
-                    sharedWebView.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play().catch(function(e){}); } var b = document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
+                    setVideoVisible(false);
                 }
-            } else if (!isPlaying) {
-                setVideoVisible(false);
+                sharedWebView.evaluateJavascript(
+                    "(function(){" +
+                    "  var v = document.querySelector('video');" +
+                    "  if (typeof player !== 'undefined' && player && typeof player.getPlayerState === 'function') {" +
+                    "    var st = player.getPlayerState();" +
+                    "    if (st === 1 || st === 2 || st === 0) return st;" +
+                    "  }" +
+                    "  if (v) return v.paused ? 2 : 1;" +
+                    "  return -1;" +
+                    "})();",
+                    val -> {
+                        if (val != null && !val.equals("null") && !val.equals("-1")) {
+                            try {
+                                int st = Integer.parseInt(val.replace("\"", "").trim());
+                                if (st == 1) {
+                                    isPlaying = true;
+                                } else if (st == 2 || st == 0) {
+                                    isPlaying = false;
+                                }
+                                updateButtonsUi();
+                                if (activity != null && !activity.isFinishing()) {
+                                    showOrUpdateMusicNotification(activity.getApplicationContext());
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                );
             }
         } else {
             currentLoadedVideoId = null;
             if (btnVideoToggle != null) btnVideoToggle.setVisibility(View.GONE);
             setVideoVisible(false);
+            if (sharedPlayer != null && isPrepared) {
+                try {
+                    isPlaying = sharedPlayer.isPlaying();
+                    updateButtonsUi();
+                } catch (Exception ignored) {}
+            }
         }
     }
 
