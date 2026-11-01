@@ -363,4 +363,27 @@
     <string name="reorder_pc_moved">Photocard position updated (#%1$d)</string>
     <string name="btn_share_photocard">Share Photocard 💖</string>
     <string name="share_photocard_invite_text">✨ Check out this photocard of %1$s (%2$s) from Who\'s Your Bias! 📸💖\n\nWho is your ultimate K-Pop Bias? 👑 Play tournaments, collect photocards, and pick your favorite idols!\n\n👇 Download and play free here:\n%3$s</string>
+    <string name="gacha_btn_view_binder_named">Open %1$s\'s Binder</string>
+    <string name="btn_add_photocard_menu">➕ Add Photocard</string>
+    <string name="menu_upload_gallery">📁 Upload from Gallery</string>
+    <string name="menu_paste_clipboard">📋 Paste from Clipboard</string>
+    <string name="menu_enter_url">🔗 Enter Image URL</string>
+    <string name="zoom_btn_delete_photocard">🗑️ Delete Photocard</string>
+    <string name="dialog_delete_pc_title">Delete Photocard</string>
+    <string name="dialog_delete_pc_msg">Are you sure you want to remove this photocard from %1$s?</string>
+    <string name="dialog_paste_pc_confirm_title">Add Photocard?</string>
+    <string name="dialog_paste_pc_confirm_msg">Would you like to add this image as a new photocard for %1$s?</string>
+    <string name="btn_add_photocard">Add Photocard</string>
+    <string name="toast_pc_deleted">🗑️ Photocard deleted</string>
+    <string name="toast_pc_added">✨ Photocard added to binder</string>
+    <string name="toast_cannot_delete_only_pc">Cannot delete the only photocard</string>
+    <string name="menu_share_whatsapp">📤 Share via WhatsApp</string>
+    <string name="menu_delete_match">🗑️ Delete Match</string>
+    <string name="title_edit_idol">✏️ Edit Idol Card</string>
+    <string name="title_new_idol">🃏 New Idol Card</string>
+    <string name="notif_pause">⏸ Pause</string>
+    <string name="notif_play">▶ Play</string>
+    <string name="notif_close">⏹ Close</string>
+    <string name="theme_choose_color_format">🎨 Choose Color: %1$s</string>
+    <string name="theme_btn_choose_color">Select this Color</string>
 </resources>

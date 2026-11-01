@@ -185,10 +185,20 @@ public class BiasRepository {
                         changed = true;
                     }
 
-                    if (c.getPhotoUri() == null || c.getPhotoUri().isEmpty() || c.getPhotoUri().startsWith("fandom_pc://")) {
+                    if (c.getPhotoUri() == null || c.getPhotoUri().isEmpty() || c.getPhotoUri().startsWith("fandom_pc://")
+                            || (c.getPhotocards() != null && !c.getPhotocards().contains(c.getPhotoUri()))) {
                         if (!c.getPhotocards().isEmpty()) {
                             c.setPhotoUri(c.getPhotocards().get(0));
                             changed = true;
+                        }
+                    }
+                    if (c.getUnlockedPhotocards() != null) {
+                        List<String> unl = c.getUnlockedPhotocards();
+                        for (int i = unl.size() - 1; i >= 0; i--) {
+                            if (!c.getPhotocards().contains(unl.get(i))) {
+                                unl.remove(i);
+                                changed = true;
+                            }
                         }
                     }
                     // Restore unlocked count if any virtual unlocked slots were replaced

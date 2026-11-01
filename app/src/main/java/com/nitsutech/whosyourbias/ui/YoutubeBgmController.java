@@ -818,8 +818,8 @@ public class YoutubeBgmController {
                     .setAutoCancel(!isPlaying)
                     .setPriority(NotificationCompat.PRIORITY_LOW)
                     .addAction(isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
-                            isPlaying ? "⏸ Pausar" : "▶ Reproducir", togglePi)
-                    .addAction(android.R.drawable.ic_menu_close_clear_cancel, "⏹ Cerrar", stopPi);
+                            isPlaying ? context.getString(R.string.notif_pause) : context.getString(R.string.notif_play), togglePi)
+                    .addAction(android.R.drawable.ic_menu_close_clear_cancel, context.getString(R.string.notif_close), stopPi);
 
             nm.notify(NOTIF_ID, nb.build());
         } catch (Exception ignored) {

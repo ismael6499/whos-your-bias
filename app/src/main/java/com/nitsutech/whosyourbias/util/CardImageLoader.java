@@ -975,8 +975,10 @@ public class CardImageLoader {
                 conn.setReadTimeout(5500);
                 conn.setInstanceFollowRedirects(true);
                 conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-                conn.setRequestProperty("Referer", "https://kpop.fandom.com/");
-                conn.setRequestProperty("Origin", "https://kpop.fandom.com");
+                if (currentUrl.contains("wikia.nocookie.net") || currentUrl.contains("fandom.com")) {
+                    conn.setRequestProperty("Referer", "https://kpop.fandom.com/");
+                    conn.setRequestProperty("Origin", "https://kpop.fandom.com");
+                }
                 conn.setRequestProperty("Accept", "image/jpeg,image/png,image/webp,image/*,*/*;q=0.8");
                 conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,es;q=0.8");
                 int code = conn.getResponseCode();

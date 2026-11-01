@@ -363,4 +363,27 @@
     <string name="reorder_pc_moved">Posición de photocard actualizada (#%1$d)</string>
     <string name="btn_share_photocard">Compartir Photocard 💖</string>
     <string name="share_photocard_invite_text">✨ ¡Mirá esta photocard de %1$s (%2$s) que conseguí en Who\'s Your Bias! 📸💖\n\n¿Quién es tu Bias definitivo del K-Pop? 👑 ¡Jugá torneos, coleccioná photocards y elegí a tus idols favoritos!\n\n👇 Descargá y jugá gratis acá:\n%3$s</string>
+    <string name="gacha_btn_view_binder_named">Abrir Binder de %1$s</string>
+    <string name="btn_add_photocard_menu">➕ Agregar Photocard</string>
+    <string name="menu_upload_gallery">📁 Subir desde Galería</string>
+    <string name="menu_paste_clipboard">📋 Pegar del Portapapeles</string>
+    <string name="menu_enter_url">🔗 Ingresar Link / URL</string>
+    <string name="zoom_btn_delete_photocard">🗑️ Borrar Photocard</string>
+    <string name="dialog_delete_pc_title">Borrar Photocard</string>
+    <string name="dialog_delete_pc_msg">¿Estás seguro de que querés eliminar esta photocard de %1$s?</string>
+    <string name="dialog_paste_pc_confirm_title">¿Agregar Photocard?</string>
+    <string name="dialog_paste_pc_confirm_msg">¿Querés agregar esta imagen como nueva photocard de %1$s?</string>
+    <string name="btn_add_photocard">Agregar Photocard</string>
+    <string name="toast_pc_deleted">🗑️ Photocard eliminada</string>
+    <string name="toast_pc_added">✨ Photocard agregada al binder</string>
+    <string name="toast_cannot_delete_only_pc">No se puede borrar la única photocard</string>
+    <string name="menu_share_whatsapp">📤 Compartir por WhatsApp</string>
+    <string name="menu_delete_match">🗑️ Eliminar Partida</string>
+    <string name="title_edit_idol">✏️ Editar Carta de Idol</string>
+    <string name="title_new_idol">🃏 Nueva Carta de Idol</string>
+    <string name="notif_pause">⏸ Pausar</string>
+    <string name="notif_play">▶ Reproducir</string>
+    <string name="notif_close">⏹ Cerrar</string>
+    <string name="theme_choose_color_format">🎨 Elegir Color: %1$s</string>
+    <string name="theme_btn_choose_color">Elegir este Color</string>
 </resources>

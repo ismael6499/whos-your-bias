@@ -759,7 +759,11 @@ public class MainActivity extends AppCompatActivity {
         card.setOnLongClickListener(v -> {
             new AlertDialog.Builder(this)
                     .setTitle(cm.getTitle())
-                    .setItems(new String[]{"▶ Jugar Partida", "📤 Compartir por WhatsApp", "🗑️ Eliminar Partida"}, (d, which) -> {
+                    .setItems(new CharSequence[]{
+                            getString(R.string.menu_play_match),
+                            getString(R.string.menu_share_whatsapp),
+                            getString(R.string.menu_delete_match)
+                    }, (d, which) -> {
                         if (which == 0) card.performClick();
                         else if (which == 1) btnShare.performClick();
                         else if (which == 2) {
@@ -2610,93 +2614,67 @@ public class MainActivity extends AppCompatActivity {
 
         KpopWikiImporter.resolveAllPhotocardSlotsAsync(card, repo, rebuildPhotocardsRow);
 
-        // Add Photocard Buttons (Upload, Paste Clipboard Image/URL, or Paste Link)
-        LinearLayout addPcRow = new LinearLayout(this);
-        addPcRow.setOrientation(LinearLayout.HORIZONTAL);
+        // Consolidated Add Photocard Menu (Upload Gallery, Paste Clipboard, or Image Link)
+        TextView btnAddPcMenu = new TextView(this);
+        btnAddPcMenu.setText(getString(R.string.btn_add_photocard_menu));
+        btnAddPcMenu.setTypeface(Typeface.DEFAULT_BOLD);
+        btnAddPcMenu.setTextSize(12.5f);
+        btnAddPcMenu.setGravity(Gravity.CENTER);
+        btnAddPcMenu.setBackground(ThemeManager.createPillDrawable(this, themeBinder.primaryColor, 18));
+        btnAddPcMenu.setTextColor(themeBinder.getButtonTextColor(themeBinder.primaryColor));
+        btnAddPcMenu.setPadding(dp(14), dp(10), dp(14), dp(10));
         LinearLayout.LayoutParams apcLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         apcLp.setMargins(0, 0, 0, dp(10));
-        addPcRow.setLayoutParams(apcLp);
-
-        TextView btnAddPcFile = new TextView(this);
-        btnAddPcFile.setText(getString(R.string.btn_upload_photo));
-        btnAddPcFile.setTypeface(Typeface.DEFAULT_BOLD);
-        btnAddPcFile.setTextSize(11.5f);
-        btnAddPcFile.setGravity(Gravity.CENTER);
-        btnAddPcFile.setBackground(ThemeManager.createPillDrawable(this, themeBinder.primaryColor, 18));
-        btnAddPcFile.setTextColor(themeBinder.getButtonTextColor(themeBinder.primaryColor));
-        btnAddPcFile.setPadding(dp(8), dp(9), dp(8), dp(9));
-        LinearLayout.LayoutParams b1Lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        b1Lp.setMargins(0, 0, dp(5), 0);
-        btnAddPcFile.setLayoutParams(b1Lp);
-        btnAddPcFile.setOnClickListener(v -> {
-            pendingPhotocardTargetIdol = card;
-            pendingPhotocardRefreshCallback = () -> {
-                CardImageLoader.loadCardImage(MainActivity.this, card, ivMain);
-                rebuildPhotocardsRow.run();
-                refreshCurrentTab();
+        btnAddPcMenu.setLayoutParams(apcLp);
+        btnAddPcMenu.setOnClickListener(v -> {
+            CharSequence[] options = new CharSequence[]{
+                    getString(R.string.menu_upload_gallery),
+                    getString(R.string.menu_paste_clipboard),
+                    getString(R.string.menu_enter_url)
             };
-            Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
-            pick.setType("image/*");
-            startActivityForResult(Intent.createChooser(pick, getString(R.string.btn_upload_photo)), REQ_PICK_EXTRA_PHOTOCARD);
-        });
-        addPcRow.addView(btnAddPcFile);
-
-        TextView btnPasteClipboardPc = new TextView(this);
-        btnPasteClipboardPc.setText(getString(R.string.btn_paste_clipboard));
-        btnPasteClipboardPc.setTextColor(Color.parseColor("#111827"));
-        btnPasteClipboardPc.setTypeface(Typeface.DEFAULT_BOLD);
-        btnPasteClipboardPc.setTextSize(11.5f);
-        btnPasteClipboardPc.setGravity(Gravity.CENTER);
-        btnPasteClipboardPc.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 18));
-        btnPasteClipboardPc.setPadding(dp(8), dp(9), dp(8), dp(9));
-        LinearLayout.LayoutParams b2Lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.15f);
-        b2Lp.setMargins(0, 0, dp(5), 0);
-        btnPasteClipboardPc.setLayoutParams(b2Lp);
-        btnPasteClipboardPc.setOnClickListener(v -> {
-            String pasted = pasteImageOrUrlFromClipboard();
-            if (pasted != null && !pasted.isEmpty()) {
-                card.addPhotocard(pasted);
-                card.setPhotoUri(pasted);
-                repo.saveOrUpdateIdol(card);
-                CardImageLoader.loadCardImage(this, card, ivMain);
-                rebuildPhotocardsRow.run();
-                refreshCurrentTab();
-            }
-        });
-        addPcRow.addView(btnPasteClipboardPc);
-
-        TextView btnAddPcUrl = new TextView(this);
-        btnAddPcUrl.setText(getString(R.string.btn_link_url));
-        btnAddPcUrl.setTextColor(Color.parseColor("#111827"));
-        btnAddPcUrl.setTypeface(Typeface.DEFAULT_BOLD);
-        btnAddPcUrl.setTextSize(11.5f);
-        btnAddPcUrl.setGravity(Gravity.CENTER);
-        btnAddPcUrl.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 18));
-        btnAddPcUrl.setPadding(dp(8), dp(9), dp(8), dp(9));
-        btnAddPcUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.9f));
-        btnAddPcUrl.setOnClickListener(v -> {
-            EditText urlIn = new EditText(this);
-            urlIn.setHint(getString(R.string.hint_photo_url));
             new AlertDialog.Builder(this)
-                    .setTitle(getString(R.string.btn_link_url))
-                    .setView(urlIn)
-                    .setPositiveButton(getString(R.string.btn_save), (d, w) -> {
-                        String u = urlIn.getText().toString().trim();
-                        if (!u.isEmpty()) {
-                            card.addPhotocard(u);
-                            card.setPhotoUri(u);
-                            repo.saveOrUpdateIdol(card);
-                            CardImageLoader.loadCardImage(this, card, ivMain);
-                            rebuildPhotocardsRow.run();
-                            refreshCurrentTab();
+                    .setTitle(getString(R.string.btn_add_photocard_menu))
+                    .setItems(options, (dlg, which) -> {
+                        if (which == 0) {
+                            // Gallery Upload
+                            pendingPhotocardTargetIdol = card;
+                            pendingPhotocardRefreshCallback = () -> {
+                                CardImageLoader.loadCardImage(MainActivity.this, card, ivMain);
+                                rebuildPhotocardsRow.run();
+                                refreshCurrentTab();
+                            };
+                            Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
+                            pick.setType("image/*");
+                            startActivityForResult(Intent.createChooser(pick, getString(R.string.menu_upload_gallery)), REQ_PICK_EXTRA_PHOTOCARD);
+                        } else if (which == 1) {
+                            // Paste from Clipboard with Validation & Confirmation Dialog
+                            String pasted = pasteImageOrUrlFromClipboard();
+                            if (pasted == null || pasted.trim().isEmpty()) {
+                                Toast.makeText(this, getString(R.string.toast_copy_first), Toast.LENGTH_SHORT).show();
+                            } else {
+                                showConfirmAddPastedPhotocardDialog(card, pasted.trim(), ivMain, rebuildPhotocardsRow);
+                            }
+                        } else if (which == 2) {
+                            // Enter Image URL
+                            EditText urlIn = new EditText(this);
+                            urlIn.setHint(getString(R.string.hint_photo_url));
+                            new AlertDialog.Builder(this)
+                                    .setTitle(getString(R.string.menu_enter_url))
+                                    .setView(urlIn)
+                                    .setPositiveButton(getString(R.string.btn_add_photocard), (d, w) -> {
+                                        String u = urlIn.getText() != null ? urlIn.getText().toString().trim() : "";
+                                        if (!u.isEmpty()) {
+                                            showConfirmAddPastedPhotocardDialog(card, u, ivMain, rebuildPhotocardsRow);
+                                        }
+                                    })
+                                    .setNegativeButton(getString(R.string.btn_cancel), null)
+                                    .show();
                         }
                     })
-                    .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show();
         });
-        addPcRow.addView(btnAddPcUrl);
-        root.addView(addPcRow);
+        root.addView(btnAddPcMenu);
 
         // Edit & Share Row
         LinearLayout bottomRow = new LinearLayout(this);
@@ -2760,6 +2738,103 @@ public class MainActivity extends AppCompatActivity {
         dialogRef[0].show();
     }
 
+    private void showConfirmAddPastedPhotocardDialog(IdolCard card, String photoUri, ImageView ivMain, Runnable rebuildCallback) {
+        if (card == null || photoUri == null || photoUri.trim().isEmpty()) return;
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        int pad = dp(20);
+        box.setPadding(pad, pad, pad, pad);
+        box.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText(getString(R.string.dialog_paste_pc_confirm_title));
+        tvTitle.setTextColor(theme.textColor);
+        tvTitle.setTextSize(18f);
+        tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        box.addView(tvTitle);
+
+        TextView tvMsg = new TextView(this);
+        tvMsg.setText(getString(R.string.dialog_paste_pc_confirm_msg, card.getStageName()));
+        tvMsg.setTextColor(theme.getMutedTextColor());
+        tvMsg.setTextSize(12f);
+        tvMsg.setGravity(Gravity.CENTER);
+        tvMsg.setPadding(0, dp(4), 0, dp(12));
+        box.addView(tvMsg);
+
+        CardView pcCard = new CardView(this);
+        pcCard.setRadius(dp(18));
+        pcCard.setCardElevation(dp(4));
+        LinearLayout.LayoutParams ivLp = new LinearLayout.LayoutParams(dp(160), dp(220));
+        ivLp.setMargins(0, 0, 0, dp(16));
+        pcCard.setLayoutParams(ivLp);
+
+        ImageView iv = new ImageView(this);
+        iv.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        CardImageLoader.loadUriIntoImageView(this, photoUri, iv, card.getStageName(), theme.primaryColor);
+        pcCard.addView(iv);
+        box.addView(pcCard);
+
+        LinearLayout btnsRow = new LinearLayout(this);
+        btnsRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnsRow.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        AlertDialog[] ref = new AlertDialog[1];
+
+        TextView btnAdd = new TextView(this);
+        btnAdd.setText(getString(R.string.btn_add_photocard));
+        btnAdd.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+        btnAdd.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+        btnAdd.setTextSize(13f);
+        btnAdd.setTypeface(Typeface.DEFAULT_BOLD);
+        btnAdd.setGravity(Gravity.CENTER);
+        btnAdd.setPadding(dp(12), dp(10), dp(12), dp(10));
+        LinearLayout.LayoutParams baLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f);
+        baLp.setMargins(0, 0, dp(6), 0);
+        btnAdd.setLayoutParams(baLp);
+        btnAdd.setOnClickListener(v -> {
+            card.addPhotocard(photoUri);
+            card.setPhotoUri(photoUri);
+            repo.saveOrUpdateIdol(card);
+            if (ivMain != null) {
+                CardImageLoader.loadCardImage(this, card, ivMain);
+            }
+            if (rebuildCallback != null) rebuildCallback.run();
+            refreshCurrentTab();
+            if (ref[0] != null) ref[0].dismiss();
+            Toast.makeText(this, getString(R.string.toast_pc_added), Toast.LENGTH_SHORT).show();
+        });
+        btnsRow.addView(btnAdd);
+
+        TextView btnCancel = new TextView(this);
+        btnCancel.setText(getString(R.string.btn_cancel));
+        btnCancel.setTextColor(Color.parseColor("#374151"));
+        btnCancel.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#E5E7EB"), 20));
+        btnCancel.setTextSize(13f);
+        btnCancel.setTypeface(Typeface.DEFAULT_BOLD);
+        btnCancel.setGravity(Gravity.CENTER);
+        btnCancel.setPadding(dp(12), dp(10), dp(12), dp(10));
+        btnCancel.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        btnCancel.setOnClickListener(v -> {
+            if (ref[0] != null) ref[0].dismiss();
+        });
+        btnsRow.addView(btnCancel);
+
+        box.addView(btnsRow);
+
+        builder.setView(box);
+        ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        ref[0].show();
+    }
+
     private View buildPhotocardBinderCell(IdolCard card, String pcUri, int idx, int totalPcs, ImageView ivMain, Runnable rebuildCallback) {
         LinearLayout pcItem = new LinearLayout(this);
         pcItem.setOrientation(LinearLayout.VERTICAL);
@@ -2805,6 +2880,31 @@ public class MainActivity extends AppCompatActivity {
 
             // Tapping the photocard opens the Full-HD Pinch-to-Zoom Preview (does NOT overwrite main cover)
             frame.setOnClickListener(v -> showPhotocardZoomPreviewDialog(card, pcUri, idx + 1, ivMain, rebuildCallback));
+            frame.setOnLongClickListener(v -> {
+                if (card.getPhotocards().size() > 1) {
+                    new AlertDialog.Builder(this)
+                            .setTitle(getString(R.string.dialog_delete_pc_title))
+                            .setMessage(getString(R.string.dialog_delete_pc_msg, card.getStageName()))
+                            .setPositiveButton(getString(R.string.btn_delete_card), (d, w) -> {
+                                boolean removed = card.removePhotocard(pcUri);
+                                if (removed) {
+                                    repo.saveOrUpdateIdol(card);
+                                    if (ivMain != null) {
+                                        CardImageLoader.loadCardImage(this, card, ivMain);
+                                    }
+                                    if (rebuildCallback != null) rebuildCallback.run();
+                                    refreshCurrentTab();
+                                    Toast.makeText(this, getString(R.string.toast_pc_deleted), Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .setNegativeButton(getString(R.string.btn_cancel), null)
+                            .show();
+                    return true;
+                } else {
+                    Toast.makeText(this, getString(R.string.toast_cannot_delete_only_pc), Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+            });
         } else {
             frame.setBackgroundColor(Color.parseColor("#1F2937"));
             TextView tvLock = new TextView(this);
@@ -3010,63 +3110,40 @@ public class MainActivity extends AppCompatActivity {
         btnSharePc.setOnClickListener(v -> shareIdolPhotocardInvite(card, pcUri));
         root.addView(btnSharePc);
 
-        final int currentIdx = Math.max(0, pcNumber - 1);
         if (card.getPhotocards().size() > 1) {
-            LinearLayout zoomReorderRow = new LinearLayout(this);
-            zoomReorderRow.setOrientation(LinearLayout.HORIZONTAL);
-            LinearLayout.LayoutParams zrLp = new LinearLayout.LayoutParams(
+            TextView btnDeletePc = new TextView(this);
+            btnDeletePc.setText(getString(R.string.zoom_btn_delete_photocard));
+            btnDeletePc.setTextColor(Color.parseColor("#DC2626"));
+            btnDeletePc.setTypeface(Typeface.DEFAULT_BOLD);
+            btnDeletePc.setTextSize(13f);
+            btnDeletePc.setGravity(Gravity.CENTER);
+            btnDeletePc.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#FEE2E2"), 20));
+            btnDeletePc.setPadding(dp(14), dp(11), dp(14), dp(11));
+            LinearLayout.LayoutParams dpLp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            zrLp.bottomMargin = dp(8);
-            zoomReorderRow.setLayoutParams(zrLp);
-
-            TextView btnZLeft = new TextView(this);
-            btnZLeft.setText("◀ Anterior");
-            btnZLeft.setTextColor(currentIdx > 0 ? Color.parseColor("#374151") : Color.parseColor("#9CA3AF"));
-            btnZLeft.setTypeface(Typeface.DEFAULT_BOLD);
-            btnZLeft.setTextSize(12f);
-            btnZLeft.setGravity(Gravity.CENTER);
-            btnZLeft.setBackground(ThemeManager.createPillDrawable(this,
-                    currentIdx > 0 ? Color.parseColor("#E5E7EB") : Color.parseColor("#F3F4F6"), 16));
-            btnZLeft.setPadding(dp(8), dp(9), dp(8), dp(9));
-            LinearLayout.LayoutParams zlpc = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            zlpc.rightMargin = dp(4);
-            btnZLeft.setLayoutParams(zlpc);
-            if (currentIdx > 0) {
-                btnZLeft.setOnClickListener(v -> {
-                    card.swapPhotocards(currentIdx, currentIdx - 1);
-                    repo.saveOrUpdateIdol(card);
-                    if (rebuildBinderCallback != null) rebuildBinderCallback.run();
-                    refreshCurrentTab();
-                    if (ref[0] != null) ref[0].dismiss();
-                    showPhotocardZoomPreviewDialog(card, pcUri, currentIdx, ivMainInBinder, rebuildBinderCallback);
-                });
-            }
-            zoomReorderRow.addView(btnZLeft);
-
-            TextView btnZRight = new TextView(this);
-            btnZRight.setText("Siguiente ▶");
-            btnZRight.setTextColor(currentIdx < card.getPhotocards().size() - 1 ? Color.parseColor("#374151") : Color.parseColor("#9CA3AF"));
-            btnZRight.setTypeface(Typeface.DEFAULT_BOLD);
-            btnZRight.setTextSize(12f);
-            btnZRight.setGravity(Gravity.CENTER);
-            btnZRight.setBackground(ThemeManager.createPillDrawable(this,
-                    currentIdx < card.getPhotocards().size() - 1 ? Color.parseColor("#E5E7EB") : Color.parseColor("#F3F4F6"), 16));
-            btnZRight.setPadding(dp(8), dp(9), dp(8), dp(9));
-            LinearLayout.LayoutParams zrpc = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            zrpc.leftMargin = dp(4);
-            btnZRight.setLayoutParams(zrpc);
-            if (currentIdx < card.getPhotocards().size() - 1) {
-                btnZRight.setOnClickListener(v -> {
-                    card.swapPhotocards(currentIdx, currentIdx + 1);
-                    repo.saveOrUpdateIdol(card);
-                    if (rebuildBinderCallback != null) rebuildBinderCallback.run();
-                    refreshCurrentTab();
-                    if (ref[0] != null) ref[0].dismiss();
-                    showPhotocardZoomPreviewDialog(card, pcUri, currentIdx + 2, ivMainInBinder, rebuildBinderCallback);
-                });
-            }
-            zoomReorderRow.addView(btnZRight);
-            root.addView(zoomReorderRow);
+            dpLp.bottomMargin = dp(8);
+            btnDeletePc.setLayoutParams(dpLp);
+            btnDeletePc.setOnClickListener(v -> {
+                new AlertDialog.Builder(this)
+                        .setTitle(getString(R.string.dialog_delete_pc_title))
+                        .setMessage(getString(R.string.dialog_delete_pc_msg, card.getStageName()))
+                        .setPositiveButton(getString(R.string.btn_delete_card), (d, w) -> {
+                            boolean removed = card.removePhotocard(pcUri);
+                            if (removed) {
+                                repo.saveOrUpdateIdol(card);
+                                if (ivMainInBinder != null) {
+                                    CardImageLoader.loadCardImage(this, card, ivMainInBinder);
+                                }
+                                if (rebuildBinderCallback != null) rebuildBinderCallback.run();
+                                refreshCurrentTab();
+                                if (ref[0] != null) ref[0].dismiss();
+                                Toast.makeText(this, getString(R.string.toast_pc_deleted), Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .setNegativeButton(getString(R.string.btn_cancel), null)
+                        .show();
+            });
+            root.addView(btnDeletePc);
         }
 
         TextView btnClose = new TextView(this);
@@ -3092,8 +3169,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void shareIdolPhotocardInvite(IdolCard card, String pcUri) {
         if (card == null) return;
-        String appUrl = "https://github.com/ismael6499/whos-your-bias/releases/latest";
-        String groupLabel = card.isSoloist() ? "Soloist" : card.getGroupName();
+        String appUrl = "https://is.gd/whosyourbias";
+        String groupLabel = card.isSoloist() ? getString(R.string.label_soloist) : card.getGroupName();
         String inviteText = getString(R.string.share_photocard_invite_text,
                 card.getStageName(), groupLabel, appUrl);
 
@@ -3155,7 +3232,7 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog[] ref = new AlertDialog[1];
 
         TextView tvTitle = new TextView(this);
-        tvTitle.setText(isEditing ? "✏️ Editar Carta de Idol" : "🃏 Nueva Carta de Idol");
+        tvTitle.setText(isEditing ? getString(R.string.title_edit_idol) : getString(R.string.title_new_idol));
         tvTitle.setTextColor(theme.textColor);
         tvTitle.setTextSize(18f);
         tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
@@ -3467,7 +3544,7 @@ public class MainActivity extends AppCompatActivity {
             if (ref[0] != null) ref[0].dismiss();
             Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
             intent.setType("*/*");
-            startActivityForResult(Intent.createChooser(intent, "Elegir archivo .wyb"), REQ_PICK_WYB_FILE);
+            startActivityForResult(Intent.createChooser(intent, getString(R.string.btn_import_file)), REQ_PICK_WYB_FILE);
         });
         root.addView(btnPickWyb);
 
@@ -3975,6 +4052,22 @@ public class MainActivity extends AppCompatActivity {
             tvSub.setPadding(0, dp(4), 0, dp(10));
             box.addView(tvSub);
 
+            final IdolCard[] currentSelected = new IdolCard[]{finalShowcase};
+
+            TextView btnAlbum = new TextView(this);
+            btnAlbum.setText(finalUnlockedList.size() > 1
+                    ? getString(R.string.gacha_btn_view_binder_named, finalShowcase.getStageName())
+                    : getString(R.string.gacha_btn_view_binder));
+            btnAlbum.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+            btnAlbum.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+            btnAlbum.setTextSize(12.5f);
+            btnAlbum.setTypeface(Typeface.DEFAULT_BOLD);
+            btnAlbum.setGravity(Gravity.CENTER);
+            btnAlbum.setPadding(dp(12), dp(10), dp(12), dp(10));
+            LinearLayout.LayoutParams baLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f);
+            baLp.setMargins(0, 0, dp(6), 0);
+            btnAlbum.setLayoutParams(baLp);
+
             // If multiple photocards unlocked (5, 10, or all remaining of an idol), show horizontal thumbnail drawer!
             if (finalUnlockedList.size() > 1) {
                 HorizontalScrollView pcThumbScroll = new HorizontalScrollView(this);
@@ -4000,14 +4093,35 @@ public class MainActivity extends AppCompatActivity {
 
                     thumbCard.setOnClickListener(v -> {
                         triggerHapticFeedback();
+                        currentSelected[0] = uc;
                         CardImageLoader.loadCardImage(this, uc, iv);
                         tvName.setText(uc.getStageName() + " (" + uc.getGroupName() + ")");
+                        btnAlbum.setText(getString(R.string.gacha_btn_view_binder_named, uc.getStageName()));
                     });
                     thumbsRow.addView(thumbCard);
                 }
                 pcThumbScroll.addView(thumbsRow);
                 box.addView(pcThumbScroll);
             }
+
+            // Share Photocard button from Gacha Result!
+            TextView btnShareGacha = new TextView(this);
+            btnShareGacha.setText(getString(R.string.btn_share_photocard));
+            btnShareGacha.setTextColor(Color.WHITE);
+            btnShareGacha.setBackground(ThemeManager.createPillDrawable(this, theme.secondaryColor, 20));
+            btnShareGacha.setTextSize(13f);
+            btnShareGacha.setTypeface(Typeface.DEFAULT_BOLD);
+            btnShareGacha.setGravity(Gravity.CENTER);
+            btnShareGacha.setPadding(dp(14), dp(11), dp(14), dp(11));
+            LinearLayout.LayoutParams sgLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            sgLp.bottomMargin = dp(8);
+            btnShareGacha.setLayoutParams(sgLp);
+            btnShareGacha.setOnClickListener(v -> {
+                IdolCard c = currentSelected[0];
+                shareIdolPhotocardInvite(c, c.getPhotoUri());
+            });
+            box.addView(btnShareGacha);
 
             LinearLayout btnsRow = new LinearLayout(this);
             btnsRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -4016,21 +4130,10 @@ public class MainActivity extends AppCompatActivity {
 
             AlertDialog[] gRef = new AlertDialog[1];
 
-            TextView btnAlbum = new TextView(this);
-            btnAlbum.setText(getString(R.string.gacha_btn_view_binder));
-            btnAlbum.setTextColor(theme.getButtonTextColor(theme.primaryColor));
-            btnAlbum.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
-            btnAlbum.setTextSize(12.5f);
-            btnAlbum.setTypeface(Typeface.DEFAULT_BOLD);
-            btnAlbum.setGravity(Gravity.CENTER);
-            btnAlbum.setPadding(dp(12), dp(10), dp(12), dp(10));
-            LinearLayout.LayoutParams baLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f);
-            baLp.setMargins(0, 0, dp(6), 0);
-            btnAlbum.setLayoutParams(baLp);
             btnAlbum.setOnClickListener(v -> {
                 if (gRef[0] != null) gRef[0].dismiss();
-                IdolCard fullIdol = repo.getIdolById(finalShowcase.getId());
-                showIdolDetailAndPhotocardBinderDialog(fullIdol != null ? fullIdol : finalShowcase);
+                IdolCard fullIdol = repo.getIdolById(currentSelected[0].getId());
+                showIdolDetailAndPhotocardBinderDialog(fullIdol != null ? fullIdol : currentSelected[0]);
             });
             btnsRow.addView(btnAlbum);
 

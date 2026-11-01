@@ -306,6 +306,31 @@ public class IdolCard implements Serializable {
         return true;
     }
 
+    public synchronized boolean removePhotocard(String uri) {
+        if (uri == null || photocards == null || photocards.size() <= 1) return false;
+        String norm = normalizePhotoIdentity(uri);
+        boolean removed = false;
+        for (int i = 0; i < photocards.size(); i++) {
+            if (norm.equals(normalizePhotoIdentity(photocards.get(i)))) {
+                photocards.remove(i);
+                removed = true;
+                break;
+            }
+        }
+        if (unlockedPhotocards != null) {
+            for (int i = 0; i < unlockedPhotocards.size(); i++) {
+                if (norm.equals(normalizePhotoIdentity(unlockedPhotocards.get(i)))) {
+                    unlockedPhotocards.remove(i);
+                    break;
+                }
+            }
+        }
+        if (removed && norm.equals(normalizePhotoIdentity(this.photoUri))) {
+            this.photoUri = (!photocards.isEmpty()) ? photocards.get(0) : "";
+        }
+        return removed;
+    }
+
     public boolean isUseRandomPhotocard() {
         return useRandomPhotocard;
     }

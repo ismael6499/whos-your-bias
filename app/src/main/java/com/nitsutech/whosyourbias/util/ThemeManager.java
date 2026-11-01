@@ -534,7 +534,7 @@ public class ThemeManager {
         final boolean[] updatingHex = {false};
 
         TextView tvTitle = new TextView(activity);
-        tvTitle.setText("🎨 Elegir Color: " + partTitle);
+        tvTitle.setText(activity.getString(R.string.theme_choose_color_format, partTitle));
         tvTitle.setTextColor(Color.parseColor("#111827"));
         tvTitle.setTextSize(16f);
         tvTitle.setTypeface(Typeface.DEFAULT_BOLD);
@@ -702,10 +702,10 @@ public class ThemeManager {
         scroll.addView(root);
 
         builder.setView(scroll);
-        builder.setPositiveButton("Elegir este Color", (d, w) -> {
+        builder.setPositiveButton(activity.getString(R.string.theme_btn_choose_color), (d, w) -> {
             if (listener != null) listener.onColorPicked(chosenColor[0]);
         });
-        builder.setNegativeButton("Cancelar", null);
+        builder.setNegativeButton(activity.getString(R.string.btn_cancel), null);
         builder.show();
     }
 
