@@ -74,7 +74,9 @@ public class BiasRepository {
                     if ((ex.getPhotoUri() == null || ex.getPhotoUri().isEmpty()
                             || ex.getPhotoUri().startsWith("fandom_pc://")
                             || ex.getPhotoUri().contains("wikimedia.org")
-                            || ex.getPhotoUri().contains("I_Got_Your_Back_concept_photo_4"))
+                            || ex.getPhotoUri().contains("I_Got_Your_Back_concept_photo_4")
+                            || ex.getPhotoUri().toLowerCase(java.util.Locale.ROOT).contains("poster")
+                            || ex.getPhotoUri().toLowerCase(java.util.Locale.ROOT).contains("lyric"))
                             && seed.getPhotoUri() != null && !seed.getPhotoUri().isEmpty()) {
                         ex.setPhotoUri(seed.getPhotoUri());
                         updatedAny = true;
@@ -186,6 +188,8 @@ public class BiasRepository {
                     }
 
                     if (c.getPhotoUri() == null || c.getPhotoUri().isEmpty() || c.getPhotoUri().startsWith("fandom_pc://")
+                            || c.getPhotoUri().toLowerCase(java.util.Locale.ROOT).contains("poster")
+                            || c.getPhotoUri().toLowerCase(java.util.Locale.ROOT).contains("lyric")
                             || (c.getPhotocards() != null && !c.getPhotocards().contains(c.getPhotoUri()))) {
                         if (!c.getPhotocards().isEmpty()) {
                             c.setPhotoUri(c.getPhotocards().get(0));

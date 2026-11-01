@@ -75,14 +75,14 @@ public class ShareImportManager {
                             pcArr.put(CardImageLoader.encodeLocalPhotoAsDataUri(pc));
                         }
                         cJson.put("photocards", pcArr);
-                    } else if (c.getPhotoUri() != null && !c.getPhotoUri().startsWith("http")) {
-                        // Keep text codes compact by omitting local file paths
-                        cJson.put("photoUri", "");
-                        JSONArray pcArr = new JSONArray();
-                        for (String pc : c.getPhotocards()) {
-                            if (pc != null && pc.startsWith("http")) pcArr.put(pc);
+                    } else {
+                        // Stripping extra photocards keeps text codes/URLs ultra-compact (under 300 chars)
+                        // so WhatsApp, SMS, and Android deep-link parsers NEVER truncate or break the link!
+                        cJson.remove("photocards");
+                        cJson.remove("unlockedPhotocards");
+                        if (c.getPhotoUri() != null && !c.getPhotoUri().startsWith("http")) {
+                            cJson.put("photoUri", "");
                         }
-                        cJson.put("photocards", pcArr);
                     }
                     cardsArr.put(cJson);
                 }
@@ -160,41 +160,48 @@ public class ShareImportManager {
     public static SharedPayload decodeFromUri(Context context, Uri uri) {
         if (uri == null) return null;
         try {
-            // 1. Check if the full URI string itself contains a valid WYB1-... code (e.g. wiyb://import?code=... or wiyb://WYB1-...)
-            String uriString = uri.toString();
-            SharedPayload fromUri = decodeFromTextOrCode(context, uriString);
-            if (fromUri != null && !fromUri.cards.isEmpty()) {
-                return fromUri;
-            }
-
-            // 2. Check if it's a deep link with ?code=WYB1-... or ?c=WYB1-...
-            String codeParam = uri.getQueryParameter("code");
-            if (codeParam == null || codeParam.isEmpty()) {
-                codeParam = uri.getQueryParameter("c");
-            }
+            // 1. Check if it's a deep link or web link with ?code=WYB1-... or ?c=WYB1-...
+            String codeParam = null;
+            try {
+                codeParam = uri.getQueryParameter("code");
+                if (codeParam == null || codeParam.isEmpty()) {
+                    codeParam = uri.getQueryParameter("c");
+                }
+            } catch (Exception ignored) {}
             if (codeParam != null && !codeParam.isEmpty()) {
                 SharedPayload payload = decodeFromTextOrCode(context, codeParam);
-                if (payload != null && !payload.cards.isEmpty()) {
+                if (payload != null && (!payload.cards.isEmpty() || payload.customMatch != null)) {
                     return payload;
                 }
             }
 
+            // 2. Check if the full URI string itself contains a valid WYB1-... code (e.g. wiyb://import?code=... or wiyb://WYB1-...)
+            String uriString = uri.toString();
+            SharedPayload fromUri = decodeFromTextOrCode(context, uriString);
+            if (fromUri != null && (!fromUri.cards.isEmpty() || fromUri.customMatch != null)) {
+                return fromUri;
+            }
+
             // 3. Fall back to reading as a file stream (.wyb)
-            try (InputStream is = context.getContentResolver().openInputStream(uri)) {
-                if (is == null) return null;
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                byte[] buf = new byte[4096];
-                int n;
-                while ((n = is.read(buf)) > 0) {
-                    baos.write(buf, 0, n);
+            if (context != null && context.getContentResolver() != null) {
+                try (InputStream is = context.getContentResolver().openInputStream(uri)) {
+                    if (is != null) {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        byte[] buf = new byte[4096];
+                        int n;
+                        while ((n = is.read(buf)) > 0) {
+                            baos.write(buf, 0, n);
+                        }
+                        String content = new String(baos.toByteArray(), StandardCharsets.UTF_8).trim();
+                        return decodeFromTextOrCode(context, content);
+                    }
                 }
-                String content = new String(baos.toByteArray(), StandardCharsets.UTF_8).trim();
-                return decodeFromTextOrCode(context, content);
             }
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
+        return null;
     }
 
     private static SharedPayload parsePayloadJson(Context context, JSONObject root) {
@@ -213,12 +220,27 @@ public class ShareImportManager {
                 }
             }
         }
-        // If match references starter cards not explicitly in cards array, resolve them from repo
-        if (payload.customMatch != null && payload.cards.isEmpty()) {
+        // If match references cards, ensure full roster is resolved using repo when available
+        if (payload.customMatch != null && context != null) {
             BiasRepository repo = BiasRepository.getInstance(context);
+            List<IdolCard> resolved = new ArrayList<>();
             for (String cid : payload.customMatch.getCardIds()) {
-                IdolCard existing = repo.getIdolById(cid);
-                if (existing != null) payload.cards.add(existing);
+                IdolCard found = null;
+                for (IdolCard inc : payload.cards) {
+                    if (inc.getId().equals(cid)) {
+                        found = inc;
+                        break;
+                    }
+                }
+                if (found == null) {
+                    found = repo.getIdolById(cid);
+                }
+                if (found != null) {
+                    resolved.add(found);
+                }
+            }
+            if (!resolved.isEmpty()) {
+                payload.cards = resolved;
             }
         }
         return payload;

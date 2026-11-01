@@ -700,8 +700,8 @@ public class StarterPackSeeder {
         PHOTO_MAP.put("idol_ive_wonyoung", "https://static.wikia.nocookie.net/kpop/images/d/d8/IVE_Jang_Wonyoung_Looks_Can_Kill_concept_photo_6.png/revision/latest/scale-to-width-down/400?cb=20261007123240");
         PHOTO_MAP.put("idol_svt_woozi", "https://static.wikia.nocookie.net/kpop/images/4/48/SEVENTEEN_Woozi_2026_Season%27s_Greetings_concept_photo.png/revision/latest/scale-to-width-down/400?cb=20251125234612");
         PHOTO_MAP.put("idol_svt_wonwoo", "https://static.wikia.nocookie.net/kpop/images/c/c4/SEVENTEEN_Wonwoo_Happy_Burstday_concept_photo_11.png/revision/latest/scale-to-width-down/440?cb=20250508141542");
-        PHOTO_MAP.put("idol_svt_scoups", "https://static.wikia.nocookie.net/kpop/images/f/f1/S.Coups_X_Mingyu_S.Coups_CxM_%27Double_Up%27_Live_Party_in_Incheon_poster.png/revision/latest/scale-to-width-down/424?cb=20260122021446");
-        PHOTO_MAP.put("idol_svt_mingyu", "https://static.wikia.nocookie.net/kpop/images/a/ad/S.Coups_X_Mingyu_Mingyu_CxM_%27Double_Up%27_Live_Party_in_Incheon_poster.png/revision/latest/scale-to-width-down/424?cb=20260122021442");
+        PHOTO_MAP.put("idol_svt_scoups", "https://static.wikia.nocookie.net/kpop/images/c/c8/S.Coups_X_Mingyu_HYPEBEAST_Issue_36_%281%29.png/revision/latest?cb=20250928142451");
+        PHOTO_MAP.put("idol_svt_mingyu", "https://static.wikia.nocookie.net/kpop/images/f/f0/S.Coups_X_Mingyu_HYPEBEAST_Issue_36_%282%29.png/revision/latest?cb=20250928142451");
         PHOTO_MAP.put("idol_ive_leeseo", "https://static.wikia.nocookie.net/kpop/images/3/38/IVE_Leeseo_Looks_Can_Kill_concept_photo_3.png/revision/latest/scale-to-width-down/400?cb=20261007123050");
         PHOTO_MAP.put("idol_bp_rose", "https://static.wikia.nocookie.net/kpop/images/8/85/Ros%C3%A9_New_Trick_concept_photo.png/revision/latest/scale-to-width-down/600?cb=20260917131328");
         PHOTO_MAP.put("idol_ive_yujin", "https://static.wikia.nocookie.net/kpop/images/7/70/IVE_An_Yujin_Looks_Can_Kill_concept_photo_3.png/revision/latest/scale-to-width-down/400?cb=20261008150935");
@@ -713,10 +713,10 @@ public class StarterPackSeeder {
         PHOTO_MAP.put("idol_gidle_minnie", "https://static.wikia.nocookie.net/kpop/images/6/61/Minnie_I_Love_You_to_the_Moon_and_Back_concept_photo_9.png/revision/latest/scale-to-width-down/400?cb=20261019143015");
         PHOTO_MAP.put("idol_bm_asa", "https://static.wikia.nocookie.net/kpop/images/3/30/BABYMONSTER_Asa_Deserve_concept_photo.png/revision/latest/scale-to-width-down/600?cb=20261023163904");
         PHOTO_MAP.put("idol_svt_dino", "https://static.wikia.nocookie.net/kpop/images/b/b9/Picheolin_Gilboard_concept_photo_11.png/revision/latest/scale-to-width-down/450?cb=20260803113019");
-        PHOTO_MAP.put("idol_svt_dk", "https://static.wikia.nocookie.net/kpop/images/7/75/DK_X_Seungkwan_DK_Serenade_on_Stage_poster.png/revision/latest/scale-to-width-down/424?cb=20260316101847");
+        PHOTO_MAP.put("idol_svt_dk", "https://static.wikia.nocookie.net/kpop/images/e/eb/DK_X_Seungkwan_DK_Serenade_concept_photo_1.png/revision/latest?cb=20251222140707");
         PHOTO_MAP.put("idol_gidle_soyeon", "https://static.wikia.nocookie.net/kpop/images/6/61/Soyeon_What_a_Wonderful_Life_concept_photo_2.png/revision/latest/scale-to-width-down/400?cb=20260901145008");
         PHOTO_MAP.put("idol_gidle_miyeon", "https://static.wikia.nocookie.net/kpop/images/e/e1/I-dle_Miyeon_2026_profile_photo_5.png/revision/latest/scale-to-width-down/400?cb=20261012140630");
-        PHOTO_MAP.put("idol_svt_seungkwan", "https://static.wikia.nocookie.net/kpop/images/3/3e/DK_X_Seungkwan_Seungkwan_Serenade_on_Stage_poster.png/revision/latest/scale-to-width-down/424?cb=20260316101849");
+        PHOTO_MAP.put("idol_svt_seungkwan", "https://static.wikia.nocookie.net/kpop/images/a/a3/DK_X_Seungkwan_DK_Serenade_concept_photo_10.png/revision/latest?cb=20251223141040");
         PHOTO_MAP.put("idol_gidle_yuqi", "https://static.wikia.nocookie.net/kpop/images/f/fe/Yuqi_27_concept_photo_3.png/revision/latest/scale-to-width-down/400?cb=20260928144918");
         PHOTO_MAP.put("idol_gidle_shuhua", "https://static.wikia.nocookie.net/kpop/images/7/79/I-dle_Shuhua_Gimme_Dat_Love_concept_photo_2.png/revision/latest/scale-to-width-down/400?cb=20260628153336");
         PHOTO_MAP.put("idol_svt_jun", "https://static.wikia.nocookie.net/kpop/images/5/56/SEVENTEEN_Jun_2026_Season%27s_Greetings_concept_photo.png/revision/latest/scale-to-width-down/400?cb=20251125231710");
@@ -877,7 +877,7 @@ public class StarterPackSeeder {
         PHOTO_MAP.put("idol_treasure_jihoon", "https://static.wikia.nocookie.net/kpop/images/2/2e/TREASURE_Jihoon_Shock_concept_photo.png/revision/latest/scale-to-width-down/480?cb=20261027133501");
         PHOTO_MAP.put("idol_treasure_haruto", "https://static.wikia.nocookie.net/kpop/images/4/44/TREASURE_Haruto_Shock_concept_photo.png/revision/latest/scale-to-width-down/480?cb=20261029170957");
         PHOTO_MAP.put("idol_treasure_doyoung", "https://static.wikia.nocookie.net/kpop/images/1/1f/TREASURE_Doyoung_Shock_concept_photo.png/revision/latest/scale-to-width-down/480?cb=20261028144801");
-        PHOTO_MAP.put("idol_winner_mino", "https://static.wikia.nocookie.net/kpop/images/0/0a/WINNER_Mino_Holiday_lyric_poster.png/revision/latest/scale-to-width-down/400?cb=20220628192714");
+        PHOTO_MAP.put("idol_winner_mino", "https://static.wikia.nocookie.net/kpop/images/6/67/WINNER_Mino_2014_SS_promotional_photo.png/revision/latest?cb=20190515211557");
         PHOTO_MAP.put("idol_ikon_bi", "https://static.wikia.nocookie.net/kpop/images/d/d3/B.I_Wonderland_concept_photo_12.png/revision/latest/scale-to-width-down/600?cb=20250527155242");
         PHOTO_MAP.put("idol_treasure_asahi", "https://static.wikia.nocookie.net/kpop/images/6/61/TREASURE_Asahi_Shock_concept_photo.png/revision/latest/scale-to-width-down/480?cb=20261028144752");
         PHOTO_MAP.put("idol_treasure_jaehyuk", "https://static.wikia.nocookie.net/kpop/images/2/23/TREASURE_Yoon_Jae_Hyuk_Shock_concept_photo.png/revision/latest/scale-to-width-down/480?cb=20261028144801");

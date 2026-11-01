@@ -72,6 +72,14 @@ public class CustomMatch implements Serializable {
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
+    public String getShortId() {
+        if (id == null || id.isEmpty()) return "#0000";
+        String clean = id.replace("-", "").replace("match_", "");
+        if (clean.length() >= 4) {
+            return "#" + clean.substring(0, 4).toUpperCase(java.util.Locale.ROOT);
+        }
+        return "#" + clean.toUpperCase(java.util.Locale.ROOT);
+    }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getCreatorName() { return creatorName; }

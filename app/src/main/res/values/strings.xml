@@ -386,4 +386,13 @@
     <string name="notif_close">⏹ Close</string>
     <string name="theme_choose_color_format">🎨 Choose Color: %1$s</string>
     <string name="theme_btn_choose_color">Select this Color</string>
+    <string name="custom_match_selected_counter">🎯 Selected: %1$d Idols</string>
+    <string name="custom_match_selected_counter_hint">🎯 Selected: %1$d Idols (Pick at least 2)</string>
+    <string name="dialog_import_match_title">📥 Custom Match Received!</string>
+    <string name="dialog_import_match_msg">\"%1$s\"\n\n• Code: %2$s\n• Format: %3$s\n• Cards: %4$d Idols\n\nChoose an option to play or save:</string>
+    <string name="btn_import_and_play">🚀 Import &amp; Play</string>
+    <string name="btn_play_only">▶ Play Only</string>
+    <string name="btn_import_only">💾 Save to Matches</string>
+    <string name="toast_match_saved_with_id">Match saved in Arena (%1$s)</string>
+    <string name="gacha_choose_binder_title">📖 Choose Binder to Open</string>
 </resources>

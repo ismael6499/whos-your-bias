@@ -16,6 +16,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Vibrator;
 import android.os.VibrationEffect;
 import android.text.Editable;
@@ -221,13 +223,8 @@ public class MainActivity extends AppCompatActivity {
                     if (str.contains("WYB1-") && !str.equals(lastImportedClip)) {
                         lastImportedClip = str;
                         ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, str);
-                        if (payload != null && !payload.cards.isEmpty()) {
-                            new AlertDialog.Builder(this)
-                                    .setTitle("📥 " + getString(R.string.import_preview_title))
-                                    .setMessage(getString(R.string.import_detected_banner) + "\n\n• " + payload.packTitle + " (" + payload.cards.size() + " Idols)")
-                                    .setPositiveButton(getString(R.string.import_btn_action), (d, w) -> showSelectiveImportDialog(payload))
-                                    .setNegativeButton(getString(R.string.btn_cancel), null)
-                                    .show();
+                        if (payload != null && (!payload.cards.isEmpty() || payload.customMatch != null)) {
+                            dispatchImportPayload(payload);
                         }
                     }
                 }
@@ -525,8 +522,23 @@ public class MainActivity extends AppCompatActivity {
         Calendar dayCal = Calendar.getInstance();
         long daySeed = dayCal.get(Calendar.YEAR) * 1000L + dayCal.get(Calendar.DAY_OF_YEAR);
 
-        List<CustomMatch> dailyMatches = new ArrayList<>(repo.getCustomMatches());
-        Collections.shuffle(dailyMatches, new Random(daySeed));
+        List<CustomMatch> allMatches = new ArrayList<>(repo.getCustomMatches());
+        List<CustomMatch> userMatches = new ArrayList<>();
+        List<CustomMatch> defaultMatches = new ArrayList<>();
+        for (CustomMatch cm : allMatches) {
+            String mid = cm.getId();
+            if (mid != null && (mid.startsWith("custom_") || mid.startsWith("match_") || !mid.startsWith("default_"))) {
+                userMatches.add(cm);
+            } else {
+                defaultMatches.add(cm);
+            }
+        }
+        // Most recent user & imported matches appear right first!
+        Collections.reverse(userMatches);
+        Collections.shuffle(defaultMatches, new Random(daySeed));
+
+        List<CustomMatch> dailyMatches = new ArrayList<>(userMatches);
+        dailyMatches.addAll(defaultMatches);
         for (CustomMatch cm : dailyMatches) {
             matchesRow.addView(buildMoshiDeckCard(cm));
         }
@@ -702,6 +714,23 @@ public class MainActivity extends AppCompatActivity {
         tvTag.setLayoutParams(tLp);
         imgBox.addView(tvTag);
 
+        // Pill badge on top-right with Match Short ID (e.g. #B8A1)
+        TextView tvIdBadge = new TextView(this);
+        tvIdBadge.setText(cm.getShortId());
+        tvIdBadge.setTextColor(Color.WHITE);
+        tvIdBadge.setTextSize(9.5f);
+        tvIdBadge.setTypeface(Typeface.DEFAULT_BOLD);
+        GradientDrawable idGd = new GradientDrawable();
+        idGd.setColor(Color.parseColor("#99111827"));
+        idGd.setCornerRadius(dp(12));
+        tvIdBadge.setBackground(idGd);
+        tvIdBadge.setPadding(dp(7), dp(3), dp(7), dp(3));
+        FrameLayout.LayoutParams idLp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
+        idLp.setMargins(0, dp(8), dp(8), 0);
+        tvIdBadge.setLayoutParams(idLp);
+        imgBox.addView(tvIdBadge);
+
         col.addView(imgBox);
 
         LinearLayout footer = new LinearLayout(this);
@@ -716,6 +745,12 @@ public class MainActivity extends AppCompatActivity {
         tvTitle.setMaxLines(1);
         tvTitle.setEllipsize(TextUtils.TruncateAt.END);
         footer.addView(tvTitle);
+
+        TextView tvSubId = new TextView(this);
+        tvSubId.setText(cm.getShortId() + " • " + cm.getCardIds().size() + " Idols");
+        tvSubId.setTextColor(theme.getMutedTextColor());
+        tvSubId.setTextSize(10.5f);
+        footer.addView(tvSubId);
 
         LinearLayout actRow = new LinearLayout(this);
         actRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -1291,6 +1326,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private View buildVibrarySquircleMemberCell(IdolCard member, Set<String> selectionSet) {
+        return buildVibrarySquircleMemberCell(member, selectionSet, null);
+    }
+
+    private View buildVibrarySquircleMemberCell(IdolCard member, Set<String> selectionSet, Runnable onSelectionChanged) {
         ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
         LinearLayout cell = new LinearLayout(this);
         cell.setOrientation(LinearLayout.VERTICAL);
@@ -1369,6 +1408,7 @@ public class MainActivity extends AppCompatActivity {
                     selectionSet.add(member.getId());
                 }
                 updateSquircleSelectionVisuals(checkBadge, selBorder, selectionSet.contains(member.getId()));
+                if (onSelectionChanged != null) onSelectionChanged.run();
             } else {
                 showIdolDetailAndPhotocardBinderDialog(member);
             }
@@ -2107,6 +2147,13 @@ public class MainActivity extends AppCompatActivity {
 
         EditText etFilter = addFormInput(root, getString(R.string.filter_group_or_name_hint), "");
 
+        TextView tvCounter = new TextView(this);
+        tvCounter.setGravity(Gravity.CENTER);
+        tvCounter.setTextSize(13f);
+        tvCounter.setTypeface(Typeface.DEFAULT_BOLD);
+        tvCounter.setPadding(0, dp(6), 0, dp(6));
+        root.addView(tvCounter);
+
         ScrollView gridScroll = new ScrollView(this);
         gridScroll.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(310)));
@@ -2114,6 +2161,20 @@ public class MainActivity extends AppCompatActivity {
         groupsBox.setOrientation(LinearLayout.VERTICAL);
         gridScroll.addView(groupsBox);
         root.addView(gridScroll);
+
+        TextView btnSavePlay = new TextView(this);
+
+        Runnable updateCounter = () -> {
+            int count = chosenIds.size();
+            if (count < 2) {
+                tvCounter.setText(getString(R.string.custom_match_selected_counter_hint, count));
+                tvCounter.setTextColor(Color.parseColor("#EF4444"));
+            } else {
+                tvCounter.setText(getString(R.string.custom_match_selected_counter, count));
+                tvCounter.setTextColor(themeVib.primaryColor);
+            }
+            btnSavePlay.setText("🚀 " + getString(R.string.btn_save_and_play) + " (" + count + ")");
+        };
 
         Runnable renderGrid = new Runnable() {
             @Override
@@ -2171,6 +2232,7 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             for (IdolCard m : finalMembers) chosenIds.add(m.getId());
                         }
+                        updateCounter.run();
                         run();
                     });
                     hRow.addView(btnTodo);
@@ -2182,7 +2244,7 @@ public class MainActivity extends AppCompatActivity {
                         r.setPadding(0, 0, 0, dp(8));
                         for (int c = 0; c < 4; c++) {
                             if (i + c < members.size()) {
-                                r.addView(buildVibrarySquircleMemberCell(members.get(i + c), chosenIds));
+                                r.addView(buildVibrarySquircleMemberCell(members.get(i + c), chosenIds, updateCounter));
                             } else {
                                 View emp = new View(MainActivity.this);
                                 emp.setLayoutParams(new LinearLayout.LayoutParams(0, 1, 1f));
@@ -2195,6 +2257,7 @@ public class MainActivity extends AppCompatActivity {
             }
         };
         renderGrid.run();
+        updateCounter.run();
 
         etFilter.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -2225,12 +2288,11 @@ public class MainActivity extends AppCompatActivity {
         btnReset.setLayoutParams(rmLp);
         btnReset.setOnClickListener(v -> {
             chosenIds.clear();
+            updateCounter.run();
             renderGrid.run();
         });
         bottomBar.addView(btnReset);
 
-        TextView btnSavePlay = new TextView(this);
-        btnSavePlay.setText("🚀 " + getString(R.string.btn_save_and_play));
         btnSavePlay.setTextColor(theme.getButtonTextColor(theme.primaryColor));
         btnSavePlay.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 22));
         btnSavePlay.setGravity(Gravity.CENTER);
@@ -3168,6 +3230,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void shareIdolPhotocardInvite(IdolCard card, String pcUri) {
+        shareIdolPhotocardInvite(card, pcUri, null);
+    }
+
+    private void shareIdolPhotocardInvite(IdolCard card, String pcUri, ImageView ivSource) {
         if (card == null) return;
         String appUrl = "https://is.gd/whosyourbias";
         String groupLabel = card.isSoloist() ? getString(R.string.label_soloist) : card.getGroupName();
@@ -3181,6 +3247,9 @@ public class MainActivity extends AppCompatActivity {
             }
             if (bmp == null && card.getPhotoUri() != null) {
                 bmp = CardImageLoader.getCachedBitmap(this, card.getPhotoUri());
+            }
+            if (bmp == null && ivSource != null && ivSource.getDrawable() instanceof android.graphics.drawable.BitmapDrawable) {
+                bmp = ((android.graphics.drawable.BitmapDrawable) ivSource.getDrawable()).getBitmap();
             }
 
             File sharedDir = new File(getCacheDir(), "shared");
@@ -3572,9 +3641,9 @@ public class MainActivity extends AppCompatActivity {
             btnPasteClip.setLayoutParams(pcLp);
             btnPasteClip.setOnClickListener(v -> {
                 ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, finalClip);
-                if (payload != null && !payload.cards.isEmpty()) {
+                if (payload != null && (!payload.cards.isEmpty() || payload.customMatch != null)) {
                     if (ref[0] != null) ref[0].dismiss();
-                    showSelectiveImportDialog(payload);
+                    dispatchImportPayload(payload);
                 } else {
                     Toast.makeText(this, getString(R.string.toast_invalid_wyb_clipboard), Toast.LENGTH_SHORT).show();
                 }
@@ -3602,12 +3671,12 @@ public class MainActivity extends AppCompatActivity {
         btnDoImport.setOnClickListener(v -> {
             String raw = etCode.getText().toString().trim();
             ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, raw);
-            if (payload == null || payload.cards.isEmpty()) {
+            if (payload == null || (payload.cards.isEmpty() && payload.customMatch == null)) {
                 Toast.makeText(this, getString(R.string.toast_invalid_wyb_code), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (ref[0] != null) ref[0].dismiss();
-            showSelectiveImportDialog(payload);
+            dispatchImportPayload(payload);
         });
         root.addView(btnDoImport);
 
@@ -3615,17 +3684,166 @@ public class MainActivity extends AppCompatActivity {
         builder.setPositiveButton(getString(R.string.import_btn_action), (d, w) -> {
             String raw = etCode.getText().toString().trim();
             ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, raw);
-            if (payload == null || payload.cards.isEmpty()) {
+            if (payload == null || (payload.cards.isEmpty() && payload.customMatch == null)) {
                 Toast.makeText(this, getString(R.string.toast_invalid_wyb_code), Toast.LENGTH_SHORT).show();
                 return;
             }
-            showSelectiveImportDialog(payload);
+            dispatchImportPayload(payload);
         });
         builder.setNegativeButton(getString(R.string.btn_cancel), null);
         ref[0] = builder.create();
         if (ref[0].getWindow() != null) {
             ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
+        ref[0].show();
+    }
+
+    private void dispatchImportPayload(ShareImportManager.SharedPayload payload) {
+        if (payload == null) return;
+        if (payload.customMatch != null) {
+            showImportMatchActionDialog(payload);
+        } else if (!payload.cards.isEmpty()) {
+            showSelectiveImportDialog(payload);
+        }
+    }
+
+    private void showImportMatchActionDialog(ShareImportManager.SharedPayload payload) {
+        if (payload == null) return;
+        if (payload.customMatch == null) {
+            showSelectiveImportDialog(payload);
+            return;
+        }
+
+        CustomMatch cm = payload.customMatch;
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(20);
+        box.setPadding(pad, pad, pad, pad);
+        box.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 24));
+
+        AlertDialog[] ref = new AlertDialog[1];
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText(getString(R.string.dialog_import_match_title));
+        tvTitle.setTextColor(theme.textColor);
+        tvTitle.setTextSize(18f);
+        tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        box.addView(tvTitle);
+
+        TextView tvMsg = new TextView(this);
+        tvMsg.setText(getString(R.string.dialog_import_match_msg,
+                cm.getTitle(),
+                cm.getShortId(),
+                cm.getGameMode(),
+                payload.cards != null ? payload.cards.size() : cm.getCardIds().size()));
+        tvMsg.setTextColor(Color.parseColor("#4B5563"));
+        tvMsg.setTextSize(13f);
+        tvMsg.setPadding(0, dp(8), 0, dp(16));
+        box.addView(tvMsg);
+
+        // 1. [ 🚀 Import & Play ]
+        TextView btnImportPlay = new TextView(this);
+        btnImportPlay.setText(getString(R.string.btn_import_and_play));
+        btnImportPlay.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+        btnImportPlay.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+        btnImportPlay.setTextSize(13.5f);
+        btnImportPlay.setTypeface(Typeface.DEFAULT_BOLD);
+        btnImportPlay.setGravity(Gravity.CENTER);
+        btnImportPlay.setPadding(dp(14), dp(12), dp(14), dp(12));
+        LinearLayout.LayoutParams ipLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        ipLp.bottomMargin = dp(8);
+        btnImportPlay.setLayoutParams(ipLp);
+        btnImportPlay.setOnClickListener(v -> {
+            if (ref[0] != null) ref[0].dismiss();
+            if (payload.cards != null) {
+                for (IdolCard c : payload.cards) repo.saveOrUpdateIdol(c);
+            }
+            repo.saveOrUpdateCustomMatch(cm);
+            refreshCurrentTab();
+            List<IdolCard> matchCards = new ArrayList<>();
+            for (String cid : cm.getCardIds()) {
+                IdolCard c = repo.getIdolById(cid);
+                if (c != null) matchCards.add(c);
+            }
+            if (matchCards.isEmpty() && payload.cards != null) matchCards.addAll(payload.cards);
+            launchMatch(cm.getTitle(), cm.getGameMode(), matchCards);
+        });
+        box.addView(btnImportPlay);
+
+        // 2. [ ▶ Play Only ]
+        TextView btnPlayOnly = new TextView(this);
+        btnPlayOnly.setText(getString(R.string.btn_play_only));
+        btnPlayOnly.setTextColor(theme.getButtonTextColor(theme.secondaryColor));
+        btnPlayOnly.setBackground(ThemeManager.createPillDrawable(this, theme.secondaryColor, 20));
+        btnPlayOnly.setTextSize(13f);
+        btnPlayOnly.setTypeface(Typeface.DEFAULT_BOLD);
+        btnPlayOnly.setGravity(Gravity.CENTER);
+        btnPlayOnly.setPadding(dp(14), dp(11), dp(14), dp(11));
+        LinearLayout.LayoutParams poLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        poLp.bottomMargin = dp(8);
+        btnPlayOnly.setLayoutParams(poLp);
+        btnPlayOnly.setOnClickListener(v -> {
+            if (ref[0] != null) ref[0].dismiss();
+            List<IdolCard> matchCards = new ArrayList<>();
+            if (payload.cards != null && !payload.cards.isEmpty()) {
+                matchCards.addAll(payload.cards);
+            } else {
+                for (String cid : cm.getCardIds()) {
+                    IdolCard c = repo.getIdolById(cid);
+                    if (c != null) matchCards.add(c);
+                }
+            }
+            launchMatch(cm.getTitle(), cm.getGameMode(), matchCards);
+        });
+        box.addView(btnPlayOnly);
+
+        // 3. [ 💾 Save to Matches ]
+        TextView btnImportOnly = new TextView(this);
+        btnImportOnly.setText(getString(R.string.btn_import_only));
+        btnImportOnly.setTextColor(Color.parseColor("#374151"));
+        btnImportOnly.setBackground(ThemeManager.createPillDrawable(this, Color.parseColor("#F3F4F6"), 20));
+        btnImportOnly.setTextSize(12.5f);
+        btnImportOnly.setTypeface(Typeface.DEFAULT_BOLD);
+        btnImportOnly.setGravity(Gravity.CENTER);
+        btnImportOnly.setPadding(dp(14), dp(10), dp(14), dp(10));
+        LinearLayout.LayoutParams ioLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        ioLp.bottomMargin = dp(8);
+        btnImportOnly.setLayoutParams(ioLp);
+        btnImportOnly.setOnClickListener(v -> {
+            if (ref[0] != null) ref[0].dismiss();
+            if (payload.cards != null) {
+                for (IdolCard c : payload.cards) repo.saveOrUpdateIdol(c);
+            }
+            repo.saveOrUpdateCustomMatch(cm);
+            refreshCurrentTab();
+            Toast.makeText(this, getString(R.string.toast_match_saved_with_id, cm.getShortId()), Toast.LENGTH_SHORT).show();
+        });
+        box.addView(btnImportOnly);
+
+        // 4. [ Cancel ]
+        TextView btnCancel = new TextView(this);
+        btnCancel.setText(getString(R.string.btn_cancel));
+        btnCancel.setTextColor(Color.parseColor("#6B7280"));
+        btnCancel.setTextSize(12.5f);
+        btnCancel.setGravity(Gravity.CENTER);
+        btnCancel.setPadding(dp(12), dp(8), dp(12), dp(8));
+        btnCancel.setOnClickListener(v -> {
+            if (ref[0] != null) ref[0].dismiss();
+        });
+        box.addView(btnCancel);
+
+        builder.setView(box);
+        ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        ref[0].show();
         ref[0].show();
     }
 
@@ -4119,7 +4337,7 @@ public class MainActivity extends AppCompatActivity {
             btnShareGacha.setLayoutParams(sgLp);
             btnShareGacha.setOnClickListener(v -> {
                 IdolCard c = currentSelected[0];
-                shareIdolPhotocardInvite(c, c.getPhotoUri());
+                shareIdolPhotocardInvite(c, c.getPhotoUri(), iv);
             });
             box.addView(btnShareGacha);
 
@@ -4132,8 +4350,31 @@ public class MainActivity extends AppCompatActivity {
 
             btnAlbum.setOnClickListener(v -> {
                 if (gRef[0] != null) gRef[0].dismiss();
-                IdolCard fullIdol = repo.getIdolById(currentSelected[0].getId());
-                showIdolDetailAndPhotocardBinderDialog(fullIdol != null ? fullIdol : currentSelected[0]);
+                Map<String, IdolCard> distinctIdols = new LinkedHashMap<>();
+                for (IdolCard uc : finalUnlockedList) {
+                    IdolCard real = repo.getIdolById(uc.getId());
+                    if (real != null && !distinctIdols.containsKey(real.getId())) {
+                        distinctIdols.put(real.getId(), real);
+                    }
+                }
+                if (distinctIdols.size() > 1) {
+                    List<IdolCard> idolList = new ArrayList<>(distinctIdols.values());
+                    CharSequence[] names = new CharSequence[idolList.size()];
+                    for (int i = 0; i < idolList.size(); i++) {
+                        IdolCard idl = idolList.get(i);
+                        names[i] = "📖 " + idl.getStageName() + " (" + (idl.isSoloist() ? "Soloist" : idl.getGroupName()) + ")";
+                    }
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle(getString(R.string.gacha_choose_binder_title))
+                            .setItems(names, (dialogInterface, which) -> {
+                                showIdolDetailAndPhotocardBinderDialog(idolList.get(which));
+                            })
+                            .setNegativeButton(getString(R.string.btn_cancel), null)
+                            .show();
+                } else {
+                    IdolCard fullIdol = repo.getIdolById(currentSelected[0].getId());
+                    showIdolDetailAndPhotocardBinderDialog(fullIdol != null ? fullIdol : currentSelected[0]);
+                }
             });
             btnsRow.addView(btnAlbum);
 
@@ -4170,23 +4411,23 @@ public class MainActivity extends AppCompatActivity {
 
         if (Intent.ACTION_VIEW.equals(action) && dataUri != null) {
             ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromUri(this, dataUri);
-            if (payload != null && !payload.cards.isEmpty()) {
-                showSelectiveImportDialog(payload);
+            if (payload != null && (!payload.cards.isEmpty() || payload.customMatch != null)) {
+                new Handler(Looper.getMainLooper()).post(() -> dispatchImportPayload(payload));
             }
         } else if (Intent.ACTION_SEND.equals(action)) {
             String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
             Uri streamUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
             if (streamUri != null) {
                 ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromUri(this, streamUri);
-                if (payload != null && !payload.cards.isEmpty()) {
-                    showSelectiveImportDialog(payload);
+                if (payload != null && (!payload.cards.isEmpty() || payload.customMatch != null)) {
+                    new Handler(Looper.getMainLooper()).post(() -> dispatchImportPayload(payload));
                     return;
                 }
             }
             if (sharedText != null) {
                 ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromTextOrCode(this, sharedText);
-                if (payload != null && !payload.cards.isEmpty()) {
-                    showSelectiveImportDialog(payload);
+                if (payload != null && (!payload.cards.isEmpty() || payload.customMatch != null)) {
+                    new Handler(Looper.getMainLooper()).post(() -> dispatchImportPayload(payload));
                 }
             }
         }
@@ -4217,8 +4458,8 @@ public class MainActivity extends AppCompatActivity {
             }
         } else if (requestCode == REQ_PICK_WYB_FILE) {
             ShareImportManager.SharedPayload payload = ShareImportManager.decodeFromUri(this, uri);
-            if (payload != null && !payload.cards.isEmpty()) {
-                showSelectiveImportDialog(payload);
+            if (payload != null && (!payload.cards.isEmpty() || payload.customMatch != null)) {
+                dispatchImportPayload(payload);
             }
         }
     }
@@ -4226,9 +4467,9 @@ public class MainActivity extends AppCompatActivity {
     private String getAppVersionName() {
         try {
             android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pInfo.versionName != null ? pInfo.versionName : "1.2.21";
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.23";
         } catch (Exception e) {
-            return "1.2.21";
+            return "1.2.23";
         }
     }
 
