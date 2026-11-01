@@ -93,6 +93,61 @@ public class MainActivity extends AppCompatActivity {
     private IdolCard pendingPhotocardTargetIdol;
     private Runnable pendingPhotocardRefreshCallback;
 
+    // Continuous auto-scroll controller for Drag & Drop in Binder Carousel
+    private HorizontalScrollView activeBinderScroll;
+    private final Handler binderAutoScrollHandler = new Handler(Looper.getMainLooper());
+    private int binderAutoScrollVelocity = 0;
+    private final Runnable binderAutoScrollRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (binderAutoScrollVelocity != 0 && activeBinderScroll != null) {
+                activeBinderScroll.scrollBy(binderAutoScrollVelocity, 0);
+                binderAutoScrollHandler.postDelayed(this, 16);
+            }
+        }
+    };
+
+    private void checkBinderDragAutoScroll(View v, DragEvent event) {
+        if (activeBinderScroll == null || v == null) return;
+        int[] viewLoc = new int[2];
+        v.getLocationOnScreen(viewLoc);
+        float screenX = viewLoc[0] + event.getX();
+
+        int[] scrollLoc = new int[2];
+        activeBinderScroll.getLocationOnScreen(scrollLoc);
+        float relX = screenX - scrollLoc[0];
+        int scrollWidth = activeBinderScroll.getWidth();
+        if (scrollWidth <= 0) return;
+
+        int edgeZone = dp(75);
+        if (relX < edgeZone && relX >= -dp(40)) {
+            float factor = Math.max(0.25f, (edgeZone - relX) / (float) edgeZone);
+            int speed = -(int) (dp(8) + factor * dp(18));
+            if (binderAutoScrollVelocity == 0) {
+                binderAutoScrollVelocity = speed;
+                binderAutoScrollHandler.post(binderAutoScrollRunnable);
+            } else {
+                binderAutoScrollVelocity = speed;
+            }
+        } else if (relX > scrollWidth - edgeZone && relX <= scrollWidth + dp(40)) {
+            float factor = Math.max(0.25f, (relX - (scrollWidth - edgeZone)) / (float) edgeZone);
+            int speed = (int) (dp(8) + factor * dp(18));
+            if (binderAutoScrollVelocity == 0) {
+                binderAutoScrollVelocity = speed;
+                binderAutoScrollHandler.post(binderAutoScrollRunnable);
+            } else {
+                binderAutoScrollVelocity = speed;
+            }
+        } else {
+            stopBinderAutoScroll();
+        }
+    }
+
+    private void stopBinderAutoScroll() {
+        binderAutoScrollVelocity = 0;
+        binderAutoScrollHandler.removeCallbacks(binderAutoScrollRunnable);
+    }
+
     @Override
     protected void attachBaseContext(Context newBase) {
         super.attachBaseContext(LocaleManager.applyLocale(newBase));
@@ -2638,17 +2693,18 @@ public class MainActivity extends AppCompatActivity {
         root.addView(tvPcSubHint);
 
         HorizontalScrollView pcScroll = new HorizontalScrollView(this);
+        activeBinderScroll = pcScroll;
         pcScroll.setHorizontalScrollBarEnabled(false);
         pcScroll.setOnDragListener((v, event) -> {
-            if (event.getAction() == DragEvent.ACTION_DRAG_LOCATION) {
-                float x = event.getX();
-                int width = v.getWidth();
-                int edgeMargin = dp(45);
-                if (x < edgeMargin) {
-                    pcScroll.smoothScrollBy(-dp(20), 0);
-                } else if (x > width - edgeMargin) {
-                    pcScroll.smoothScrollBy(dp(20), 0);
-                }
+            switch (event.getAction()) {
+                case DragEvent.ACTION_DRAG_LOCATION:
+                    checkBinderDragAutoScroll(v, event);
+                    return true;
+                case DragEvent.ACTION_DRAG_EXITED:
+                case DragEvent.ACTION_DROP:
+                case DragEvent.ACTION_DRAG_ENDED:
+                    stopBinderAutoScroll();
+                    return true;
             }
             return true;
         });
@@ -2811,6 +2867,10 @@ public class MainActivity extends AppCompatActivity {
         if (dialogRef[0].getWindow() != null) {
             dialogRef[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
+        dialogRef[0].setOnDismissListener(d -> {
+            stopBinderAutoScroll();
+            activeBinderScroll = null;
+        });
         dialogRef[0].show();
     }
 
@@ -3026,6 +3086,9 @@ public class MainActivity extends AppCompatActivity {
             switch (event.getAction()) {
                 case DragEvent.ACTION_DRAG_STARTED:
                     return true;
+                case DragEvent.ACTION_DRAG_LOCATION:
+                    checkBinderDragAutoScroll(v, event);
+                    return true;
                 case DragEvent.ACTION_DRAG_ENTERED:
                     thumbCard.animate().scaleX(1.10f).scaleY(1.10f).setDuration(120).start();
                     thumbCard.setCardElevation(dp(8));
@@ -3035,6 +3098,7 @@ public class MainActivity extends AppCompatActivity {
                     thumbCard.setCardElevation(dp(isPrimaryCover ? 3 : 1));
                     return true;
                 case DragEvent.ACTION_DROP:
+                    stopBinderAutoScroll();
                     thumbCard.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
                     thumbCard.setCardElevation(dp(isPrimaryCover ? 3 : 1));
                     Object stateObj = event.getLocalState();
@@ -3051,6 +3115,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     return true;
                 case DragEvent.ACTION_DRAG_ENDED:
+                    stopBinderAutoScroll();
                     thumbCard.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
                     thumbCard.setCardElevation(dp(isPrimaryCover ? 3 : 1));
                     return true;
@@ -4449,9 +4514,9 @@ public class MainActivity extends AppCompatActivity {
     private String getAppVersionName() {
         try {
             android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pInfo.versionName != null ? pInfo.versionName : "1.2.28";
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.29";
         } catch (Exception e) {
-            return "1.2.28";
+            return "1.2.29";
         }
     }
 
@@ -4570,6 +4635,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        stopBinderAutoScroll();
+        activeBinderScroll = null;
         if (bgmController != null) bgmController.destroy();
         super.onDestroy();
     }
