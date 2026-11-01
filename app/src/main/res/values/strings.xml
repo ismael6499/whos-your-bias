@@ -360,4 +360,7 @@
     <string name="dev_btn_unlock">⚡ Unlock All</string>
     <string name="dev_toast_success">🎉 DEV: All %1$d idol photocards unlocked successfully!</string>
     <string name="dev_toast_invalid">❌ Invalid developer passcode</string>
+    <string name="reorder_pc_moved">Photocard position updated (#%1$d)</string>
+    <string name="btn_share_photocard">Share Photocard 💖</string>
+    <string name="share_photocard_invite_text">✨ Check out this photocard of %1$s (%2$s) from Who\'s Your Bias! 📸💖\n\nWho is your ultimate K-Pop Bias? 👑 Play tournaments, collect photocards, and pick your favorite idols!\n\n👇 Download and play free here:\n%3$s</string>
 </resources>

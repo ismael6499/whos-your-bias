@@ -80,6 +80,9 @@ public class YoutubeBgmController {
     private static final String CHANNEL_ID = "wyb_music_channel";
     private static final int NOTIF_ID = 4040;
 
+    public static final String DEFAULT_BGM_TITLE = "ILLIT (아일릿) 'It's Me' Official MV";
+    public static final String DEFAULT_BGM_URL = "https://www.youtube.com/watch?v=bMhDJ0S0OBA";
+
     // Verified high-speed studio audio streams (.m4a)
     public static final String[][] PRESETS = new String[][]{
             {"✨ ILLIT - It's Me", "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/08/ae/11/08ae11aa-40b1-231d-4013-12ca6de70701/mzaf_12606446026212796138.plus.aac.p.m4a"},
@@ -105,7 +108,7 @@ public class YoutubeBgmController {
 
     private static MediaPlayer sharedPlayer;
     private static String activeStreamUrl = "";
-    private static String activeSongTitle = PRESETS[0][0];
+    private static String activeSongTitle = DEFAULT_BGM_TITLE;
     private static boolean isPrepared = false;
     private static boolean isPlaying = false;
     private static boolean isMuted = false;
@@ -164,7 +167,13 @@ public class YoutubeBgmController {
                 "    events: {\n" +
                 "      'onReady': function(e) {\n" +
                 "        try { e.target.setVolume(" + initialVolume + "); } catch(x){}\n" +
-                (autoPlay ? "        try { e.target.playVideo(); } catch(x){}\n" : "") +
+                (autoPlay ? "        try { e.target.playVideo(); } catch(x){}\n" +
+                            "        setTimeout(function(){ try { if (player && player.getPlayerState() !== 1) player.playVideo(); } catch(x){} }, 1000);\n" : "") +
+                "      },\n" +
+                "      'onStateChange': function(e) {\n" +
+                "        if (e.data === 0) {\n" +
+                "          try { e.target.seekTo(0); e.target.playVideo(); } catch(x){}\n" +
+                "        }\n" +
                 "      },\n" +
                 "      'onError': function(e) {\n" +
                 "        console.error('YT Player onError: ' + e.data);\n" +
@@ -407,8 +416,18 @@ public class YoutubeBgmController {
             btnVideoToggle.setOnClickListener(v -> setVideoVisible(!isVideoExpanded));
         }
 
-        String savedUrl = prefs.getString(PREF_BGM_URL, PRESETS[0][1]);
-        String savedTitle = prefs.getString(PREF_BGM_TITLE, PRESETS[0][0]);
+        // Apply default ILLIT video as initial BGM and ensure saved in playlist for v1.2.21
+        if (!prefs.getBoolean("bgm_default_illit_v1_set", false)) {
+            prefs.edit()
+                    .putString(PREF_BGM_URL, DEFAULT_BGM_URL)
+                    .putString(PREF_BGM_TITLE, DEFAULT_BGM_TITLE)
+                    .putBoolean("bgm_default_illit_v1_set", true)
+                    .apply();
+            getSavedCustomSongs();
+        }
+
+        String savedUrl = prefs.getString(PREF_BGM_URL, DEFAULT_BGM_URL);
+        String savedTitle = prefs.getString(PREF_BGM_TITLE, DEFAULT_BGM_TITLE);
         boolean isMatch = (activity instanceof MatchActivity);
         // Only autoplay when entering a tournament/challenge (MatchActivity).
         // On app startup (MainActivity), music is NEVER started automatically.
@@ -490,7 +509,16 @@ public class YoutubeBgmController {
             }
             String vid = extractYoutubeId(streamUrl);
             if (autoPlay) {
-                loadYoutubeVideo(vid, true);
+                if (sharedWebView != null && vid.equals(currentLoadedVideoId)) {
+                    int vol = isMuted ? 0 : getActiveVolumeLevel();
+                    float fVol = vol / 100f;
+                    sharedWebView.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play().catch(function(e){}); } var b = document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
+                    isPlaying = true;
+                    isPrepared = true;
+                    showOrUpdateMusicNotification(activity.getApplicationContext());
+                } else {
+                    loadYoutubeVideo(vid, true);
+                }
             } else {
                 if (sharedWebView != null) sharedWebView.loadUrl("about:blank");
                 isPlaying = false;
@@ -571,8 +599,8 @@ public class YoutubeBgmController {
         }
 
         if (sharedPlayer == null || !isPrepared) {
-            String url = prefs.getString(PREF_BGM_URL, PRESETS[0][1]);
-            String title = prefs.getString(PREF_BGM_TITLE, PRESETS[0][0]);
+            String url = prefs.getString(PREF_BGM_URL, DEFAULT_BGM_URL);
+            String title = prefs.getString(PREF_BGM_TITLE, DEFAULT_BGM_TITLE);
             prefs.edit().putBoolean(PREF_BGM_AUTOPLAY, true).apply();
             startStream(title, url, true);
             return;
@@ -800,14 +828,31 @@ public class YoutubeBgmController {
 
     private List<String[]> getSavedCustomSongs() {
         List<String[]> list = new ArrayList<>();
-        String raw = prefs.getString(PREF_SAVED_SONGS, "[]");
-        try {
-            JSONArray arr = new JSONArray(raw);
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject o = arr.getJSONObject(i);
-                list.add(new String[]{o.optString("title"), o.optString("url")});
+        String raw = prefs.getString(PREF_SAVED_SONGS, null);
+        if (raw != null) {
+            try {
+                JSONArray arr = new JSONArray(raw);
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject o = arr.getJSONObject(i);
+                    list.add(new String[]{o.optString("title"), o.optString("url")});
+                }
+            } catch (Exception ignored) {
             }
-        } catch (Exception ignored) {
+        }
+        boolean defaultSavedInit = prefs.getBoolean("bgm_default_saved_illit_init", false);
+        if (!defaultSavedInit) {
+            boolean exists = false;
+            for (String[] item : list) {
+                if (isYoutubeUrl(item[1]) && "bMhDJ0S0OBA".equals(extractYoutubeId(item[1]))) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                list.add(0, new String[]{DEFAULT_BGM_TITLE, DEFAULT_BGM_URL});
+                persistCustomSongs(list);
+            }
+            prefs.edit().putBoolean("bgm_default_saved_illit_init", true).apply();
         }
         return list;
     }
@@ -1476,6 +1521,51 @@ public class YoutubeBgmController {
 
     public void resume() {
         updateButtonsUi();
+    }
+
+    public void ensureMatchPlaying() {
+        activeControllerRef = new WeakReference<>(this);
+        if (webContainer != null) {
+            attachSharedWebView(webContainer);
+        }
+        if (isYoutubeUrl(activeStreamUrl)) {
+            if (btnVideoToggle != null) {
+                btnVideoToggle.setVisibility(View.VISIBLE);
+                btnVideoToggle.setText(isVideoExpanded ? "✕" : "📺");
+            }
+            String vid = extractYoutubeId(activeStreamUrl);
+            if (sharedWebView != null) {
+                if (currentLoadedVideoId == null || !currentLoadedVideoId.equals(vid)) {
+                    loadYoutubeVideo(vid, true);
+                } else {
+                    int vol = isMuted ? 0 : getActiveVolumeLevel();
+                    float fVol = vol / 100f;
+                    sharedWebView.evaluateJavascript("(function(){ if (window.bgmPlay) window.bgmPlay(); var v = document.querySelector('video'); if (v) { v.volume = " + fVol + "; if (v.paused) v.play().catch(function(e){}); } var b = document.querySelector('.ytp-large-play-button'); if (b) b.click(); })();", null);
+                    isPlaying = true;
+                    isPrepared = true;
+                    showOrUpdateMusicNotification(activity.getApplicationContext());
+                }
+            }
+            updateButtonsUi();
+            return;
+        }
+
+        if (sharedPlayer != null && isPrepared) {
+            try {
+                if (!sharedPlayer.isPlaying()) {
+                    float vol = isMuted ? 0f : (getActiveVolumeLevel() / 100f);
+                    sharedPlayer.setVolume(vol, vol);
+                    sharedPlayer.start();
+                }
+                isPlaying = true;
+                updateButtonsUi();
+                showOrUpdateMusicNotification(activity.getApplicationContext());
+                return;
+            } catch (Exception ignored) {}
+        }
+        String url = prefs.getString(PREF_BGM_URL, DEFAULT_BGM_URL);
+        String title = prefs.getString(PREF_BGM_TITLE, DEFAULT_BGM_TITLE);
+        startStream(title, url, true);
     }
 
     public void syncState() {

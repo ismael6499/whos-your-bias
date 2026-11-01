@@ -360,4 +360,7 @@
     <string name="dev_btn_unlock">⚡ Desbloquear Todo</string>
     <string name="dev_toast_success">🎉 DEV: ¡Las %1$d fotocartas fueron desbloqueadas con éxito!</string>
     <string name="dev_toast_invalid">❌ Contraseña de desarrollador incorrecta</string>
+    <string name="reorder_pc_moved">Posición de photocard actualizada (#%1$d)</string>
+    <string name="btn_share_photocard">Compartir Photocard 💖</string>
+    <string name="share_photocard_invite_text">✨ ¡Mirá esta photocard de %1$s (%2$s) que conseguí en Who\'s Your Bias! 📸💖\n\n¿Quién es tu Bias definitivo del K-Pop? 👑 ¡Jugá torneos, coleccioná photocards y elegí a tus idols favoritos!\n\n👇 Descargá y jugá gratis acá:\n%3$s</string>
 </resources>

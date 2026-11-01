@@ -296,6 +296,16 @@ public class IdolCard implements Serializable {
         }
     }
 
+    public synchronized boolean swapPhotocards(int indexA, int indexB) {
+        if (photocards == null || indexA < 0 || indexB < 0 || indexA >= photocards.size() || indexB >= photocards.size()) {
+            return false;
+        }
+        String temp = photocards.get(indexA);
+        photocards.set(indexA, photocards.get(indexB));
+        photocards.set(indexB, temp);
+        return true;
+    }
+
     public boolean isUseRandomPhotocard() {
         return useRandomPhotocard;
     }

@@ -115,6 +115,9 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     private void startTournamentFromIntent() {
+        if (bgmController != null) {
+            bgmController.ensureMatchPlaying();
+        }
         String title = getIntent().getStringExtra(EXTRA_TITLE);
         String mode = getIntent().getStringExtra(EXTRA_MODE);
         ArrayList<String> ids = getIntent().getStringArrayListExtra(EXTRA_CARD_IDS);
@@ -654,6 +657,7 @@ public class MatchActivity extends AppCompatActivity {
         btnRematch.setOnClickListener(v -> {
             duelCount = 0;
             engine = new TournamentEngine(engine.getTournamentTitle(), engine.getGameMode(), engine.getInitialRoster());
+            if (bgmController != null) bgmController.ensureMatchPlaying();
             renderCurrentDuel();
         });
         rowRematch.addView(btnRematch);
@@ -731,7 +735,10 @@ public class MatchActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (bgmController != null) bgmController.syncState();
+        if (bgmController != null) {
+            bgmController.syncState();
+            bgmController.ensureMatchPlaying();
+        }
     }
 
     @Override

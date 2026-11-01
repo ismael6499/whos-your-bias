@@ -331,6 +331,25 @@ public class CardImageLoader {
         });
     }
 
+    public static Bitmap getCachedBitmap(Context context, String uri) {
+        if (uri == null || uri.trim().isEmpty()) return null;
+        String rawKey = "uri_" + IdolCard.normalizePhotoIdentity(uri);
+        Bitmap b = rawMemoryCache.get(rawKey);
+        if (b != null && !b.isRecycled()) return b;
+        if (context != null) {
+            IdolCard dummy = new IdolCard("temp_id", "temp", "temp", "temp", false, "temp", "temp", "temp", uri, "#000000", "", "");
+            File diskCached = getExistingDiskCacheFile(context.getApplicationContext(), dummy);
+            if (diskCached != null) {
+                Bitmap disk = decodeSampledFile(diskCached, 720, 720);
+                if (disk != null && !disk.isRecycled()) {
+                    rawMemoryCache.put(rawKey, disk);
+                    return disk;
+                }
+            }
+        }
+        return null;
+    }
+
     public static void loadCardImageWithSize(Context context, IdolCard card, ImageView imageView, int targetW, int targetH) {
         if (card == null || imageView == null) return;
         imageView.setScaleType(ImageView.ScaleType.FIT_XY);

@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.graphics.drawable.ColorDrawable;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -40,6 +41,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.core.content.FileProvider;
 
 import com.nitsutech.whosyourbias.R;
 import com.nitsutech.whosyourbias.data.BiasRepository;
@@ -51,6 +53,9 @@ import com.nitsutech.whosyourbias.util.KpopWikiImporter;
 import com.nitsutech.whosyourbias.util.LocaleManager;
 import com.nitsutech.whosyourbias.util.ShareImportManager;
 import com.nitsutech.whosyourbias.util.ThemeManager;
+
+import java.io.File;
+import java.io.FileOutputStream;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -895,9 +900,12 @@ public class MainActivity extends AppCompatActivity {
         filterScroll.addView(filterRow);
         root.addView(filterScroll);
 
-        // 3. Vibrary 2-Column Photo Grid (Screenshot #5 style!)
+        // 3. Vibrary 2-Column Photo Grid (Ultra-smooth 60/120fps scrolling)
         ScrollView gridScroll = new ScrollView(this);
         gridScroll.setVerticalScrollBarEnabled(false);
+        gridScroll.setSmoothScrollingEnabled(true);
+        gridScroll.setNestedScrollingEnabled(true);
+        gridScroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
         gridScroll.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         LinearLayout gridRowsContainer = new LinearLayout(this);
@@ -948,24 +956,16 @@ public class MainActivity extends AppCompatActivity {
         container.removeAllViews();
         final List<IdolCard> list = getFilteredIdolsList();
 
-        // Render first 12 cards (6 rows) immediately so tab switch is instantaneous (<10ms)
-        final int initialLimit = Math.min(list.size(), 12);
+        // Render first 24 cards (12 rows) immediately so screen is full (<5ms)
+        final int initialLimit = Math.min(list.size(), 24);
         appendTwoColumnRowsChunk(container, list, 0, initialLimit);
 
         if (initialLimit < list.size()) {
-            scheduleNextIdolsGridChunk(container, list, initialLimit, token);
+            container.post(() -> {
+                if (token != idolsGridRenderToken || isFinishing()) return;
+                appendTwoColumnRowsChunk(container, list, initialLimit, list.size());
+            });
         }
-    }
-
-    private void scheduleNextIdolsGridChunk(LinearLayout container, List<IdolCard> list, int startIndex, int token) {
-        container.postDelayed(() -> {
-            if (token != idolsGridRenderToken || isFinishing()) return;
-            int end = Math.min(list.size(), startIndex + 12);
-            appendTwoColumnRowsChunk(container, list, startIndex, end);
-            if (end < list.size()) {
-                scheduleNextIdolsGridChunk(container, list, end, token);
-            }
-        }, 18);
     }
 
     private void appendTwoColumnRowsChunk(LinearLayout container, List<IdolCard> list, int startIdx, int endIdx) {
@@ -1120,6 +1120,9 @@ public class MainActivity extends AppCompatActivity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);
+        scroll.setSmoothScrollingEnabled(true);
+        scroll.setNestedScrollingEnabled(true);
+        scroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
         scroll.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         LinearLayout groupsContainer = new LinearLayout(this);
@@ -1175,29 +1178,20 @@ public class MainActivity extends AppCompatActivity {
             matchedMembersList.add(members);
         }
 
-        // Render first 4 groups immediately so switching to Artistas tab is instant (<10ms)
-        int initialCount = Math.min(4, matchedGroups.size());
+        // Render first 8 groups immediately so switching to Artistas tab is instant (<10ms)
+        int initialCount = Math.min(8, matchedGroups.size());
         for (int i = 0; i < initialCount; i++) {
             container.addView(buildVibraryGroupSection(matchedGroups.get(i), matchedMembersList.get(i)));
         }
 
         if (initialCount < matchedGroups.size()) {
-            scheduleNextGroupsChunk(container, matchedGroups, matchedMembersList, initialCount, token);
+            container.post(() -> {
+                if (token != groupsTabRenderToken || isFinishing()) return;
+                for (int i = initialCount; i < matchedGroups.size(); i++) {
+                    container.addView(buildVibraryGroupSection(matchedGroups.get(i), matchedMembersList.get(i)));
+                }
+            });
         }
-    }
-
-    private void scheduleNextGroupsChunk(LinearLayout container, List<String> groupNames,
-                                         List<List<IdolCard>> membersList, int startIndex, int token) {
-        container.postDelayed(() -> {
-            if (token != groupsTabRenderToken || isFinishing()) return;
-            int end = Math.min(groupNames.size(), startIndex + 4);
-            for (int i = startIndex; i < end; i++) {
-                container.addView(buildVibraryGroupSection(groupNames.get(i), membersList.get(i)));
-            }
-            if (end < groupNames.size()) {
-                scheduleNextGroupsChunk(container, groupNames, membersList, end, token);
-            }
-        }, 18);
     }
 
     /**
@@ -2595,13 +2589,13 @@ public class MainActivity extends AppCompatActivity {
 
                 int firstBatch = Math.min(8, allPcs.size());
                 for (int i = 0; i < firstBatch; i++) {
-                    pcRow.addView(buildPhotocardBinderCell(card, allPcs.get(i), i, ivMain, this));
+                    pcRow.addView(buildPhotocardBinderCell(card, allPcs.get(i), i, allPcs.size(), ivMain, this));
                 }
                 if (firstBatch < allPcs.size()) {
                     pcRow.post(() -> {
                         if (isFinishing() || (dialogRef[0] != null && !dialogRef[0].isShowing())) return;
                         for (int i = firstBatch; i < allPcs.size(); i++) {
-                            pcRow.addView(buildPhotocardBinderCell(card, allPcs.get(i), i, ivMain, this));
+                            pcRow.addView(buildPhotocardBinderCell(card, allPcs.get(i), i, allPcs.size(), ivMain, this));
                         }
                     });
                 }
@@ -2725,7 +2719,7 @@ public class MainActivity extends AppCompatActivity {
         bottomRow.addView(btnEdit);
 
         TextView btnShareOne = new TextView(this);
-        btnShareOne.setText(getString(R.string.btn_share_short));
+        btnShareOne.setText(getString(R.string.btn_share_photocard));
         btnShareOne.setTextColor(Color.parseColor("#111827"));
         btnShareOne.setTypeface(Typeface.DEFAULT_BOLD);
         btnShareOne.setGravity(Gravity.CENTER);
@@ -2733,8 +2727,7 @@ public class MainActivity extends AppCompatActivity {
         btnShareOne.setPadding(dp(12), dp(9), dp(12), dp(9));
         btnShareOne.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         btnShareOne.setOnClickListener(v -> {
-            List<IdolCard> single = Collections.singletonList(card);
-            showShareChoiceDialog(card.getStageName() + " (" + card.getGroupName() + ")", null, single);
+            shareIdolPhotocardInvite(card, card.getPhotoUri());
         });
         bottomRow.addView(btnShareOne);
         root.addView(bottomRow);
@@ -2767,7 +2760,7 @@ public class MainActivity extends AppCompatActivity {
         dialogRef[0].show();
     }
 
-    private View buildPhotocardBinderCell(IdolCard card, String pcUri, int idx, ImageView ivMain, Runnable rebuildCallback) {
+    private View buildPhotocardBinderCell(IdolCard card, String pcUri, int idx, int totalPcs, ImageView ivMain, Runnable rebuildCallback) {
         LinearLayout pcItem = new LinearLayout(this);
         pcItem.setOrientation(LinearLayout.VERTICAL);
         pcItem.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -2863,6 +2856,65 @@ public class MainActivity extends AppCompatActivity {
             pcItem.addView(tvLockedSub);
         }
 
+        // Reorder buttons (◀ / ▶) to customize photocard positions!
+        if (totalPcs > 1) {
+            LinearLayout reorderRow = new LinearLayout(this);
+            reorderRow.setOrientation(LinearLayout.HORIZONTAL);
+            reorderRow.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams roLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            roLp.topMargin = dp(4);
+            reorderRow.setLayoutParams(roLp);
+
+            TextView btnLeft = new TextView(this);
+            btnLeft.setText("◀");
+            btnLeft.setTextSize(11f);
+            btnLeft.setTextColor(idx > 0 ? Color.parseColor("#374151") : Color.parseColor("#D1D5DB"));
+            btnLeft.setTypeface(Typeface.DEFAULT_BOLD);
+            btnLeft.setGravity(Gravity.CENTER);
+            btnLeft.setBackground(ThemeManager.createPillDrawable(this,
+                    idx > 0 ? Color.parseColor("#E5E7EB") : Color.parseColor("#F9FAFB"), 10));
+            btnLeft.setPadding(dp(8), dp(3), dp(8), dp(3));
+            LinearLayout.LayoutParams bllp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            bllp.rightMargin = dp(2);
+            btnLeft.setLayoutParams(bllp);
+            if (idx > 0) {
+                btnLeft.setOnClickListener(v -> {
+                    card.swapPhotocards(idx, idx - 1);
+                    repo.saveOrUpdateIdol(card);
+                    if (rebuildCallback != null) rebuildCallback.run();
+                    refreshCurrentTab();
+                    Toast.makeText(this, getString(R.string.reorder_pc_moved, idx), Toast.LENGTH_SHORT).show();
+                });
+            }
+            reorderRow.addView(btnLeft);
+
+            TextView btnRight = new TextView(this);
+            btnRight.setText("▶");
+            btnRight.setTextSize(11f);
+            btnRight.setTextColor(idx < totalPcs - 1 ? Color.parseColor("#374151") : Color.parseColor("#D1D5DB"));
+            btnRight.setTypeface(Typeface.DEFAULT_BOLD);
+            btnRight.setGravity(Gravity.CENTER);
+            btnRight.setBackground(ThemeManager.createPillDrawable(this,
+                    idx < totalPcs - 1 ? Color.parseColor("#E5E7EB") : Color.parseColor("#F9FAFB"), 10));
+            btnRight.setPadding(dp(8), dp(3), dp(8), dp(3));
+            LinearLayout.LayoutParams brlp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            brlp.leftMargin = dp(2);
+            btnRight.setLayoutParams(brlp);
+            if (idx < totalPcs - 1) {
+                btnRight.setOnClickListener(v -> {
+                    card.swapPhotocards(idx, idx + 1);
+                    repo.saveOrUpdateIdol(card);
+                    if (rebuildCallback != null) rebuildCallback.run();
+                    refreshCurrentTab();
+                    Toast.makeText(this, getString(R.string.reorder_pc_moved, idx + 2), Toast.LENGTH_SHORT).show();
+                });
+            }
+            reorderRow.addView(btnRight);
+
+            pcItem.addView(reorderRow);
+        }
+
         return pcItem;
     }
 
@@ -2942,6 +2994,81 @@ public class MainActivity extends AppCompatActivity {
         });
         root.addView(btnSetAsMain);
 
+        // Motivating invite share button for photocard (with app link at the end)
+        TextView btnSharePc = new TextView(this);
+        btnSharePc.setText(getString(R.string.btn_share_photocard));
+        btnSharePc.setTextColor(Color.WHITE);
+        btnSharePc.setTypeface(Typeface.DEFAULT_BOLD);
+        btnSharePc.setTextSize(13f);
+        btnSharePc.setGravity(Gravity.CENTER);
+        btnSharePc.setBackground(ThemeManager.createPillDrawable(this, theme.secondaryColor, 20));
+        btnSharePc.setPadding(dp(14), dp(11), dp(14), dp(11));
+        LinearLayout.LayoutParams spLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        spLp.bottomMargin = dp(8);
+        btnSharePc.setLayoutParams(spLp);
+        btnSharePc.setOnClickListener(v -> shareIdolPhotocardInvite(card, pcUri));
+        root.addView(btnSharePc);
+
+        final int currentIdx = Math.max(0, pcNumber - 1);
+        if (card.getPhotocards().size() > 1) {
+            LinearLayout zoomReorderRow = new LinearLayout(this);
+            zoomReorderRow.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams zrLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            zrLp.bottomMargin = dp(8);
+            zoomReorderRow.setLayoutParams(zrLp);
+
+            TextView btnZLeft = new TextView(this);
+            btnZLeft.setText("◀ Anterior");
+            btnZLeft.setTextColor(currentIdx > 0 ? Color.parseColor("#374151") : Color.parseColor("#9CA3AF"));
+            btnZLeft.setTypeface(Typeface.DEFAULT_BOLD);
+            btnZLeft.setTextSize(12f);
+            btnZLeft.setGravity(Gravity.CENTER);
+            btnZLeft.setBackground(ThemeManager.createPillDrawable(this,
+                    currentIdx > 0 ? Color.parseColor("#E5E7EB") : Color.parseColor("#F3F4F6"), 16));
+            btnZLeft.setPadding(dp(8), dp(9), dp(8), dp(9));
+            LinearLayout.LayoutParams zlpc = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            zlpc.rightMargin = dp(4);
+            btnZLeft.setLayoutParams(zlpc);
+            if (currentIdx > 0) {
+                btnZLeft.setOnClickListener(v -> {
+                    card.swapPhotocards(currentIdx, currentIdx - 1);
+                    repo.saveOrUpdateIdol(card);
+                    if (rebuildBinderCallback != null) rebuildBinderCallback.run();
+                    refreshCurrentTab();
+                    if (ref[0] != null) ref[0].dismiss();
+                    showPhotocardZoomPreviewDialog(card, pcUri, currentIdx, ivMainInBinder, rebuildBinderCallback);
+                });
+            }
+            zoomReorderRow.addView(btnZLeft);
+
+            TextView btnZRight = new TextView(this);
+            btnZRight.setText("Siguiente ▶");
+            btnZRight.setTextColor(currentIdx < card.getPhotocards().size() - 1 ? Color.parseColor("#374151") : Color.parseColor("#9CA3AF"));
+            btnZRight.setTypeface(Typeface.DEFAULT_BOLD);
+            btnZRight.setTextSize(12f);
+            btnZRight.setGravity(Gravity.CENTER);
+            btnZRight.setBackground(ThemeManager.createPillDrawable(this,
+                    currentIdx < card.getPhotocards().size() - 1 ? Color.parseColor("#E5E7EB") : Color.parseColor("#F3F4F6"), 16));
+            btnZRight.setPadding(dp(8), dp(9), dp(8), dp(9));
+            LinearLayout.LayoutParams zrpc = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            zrpc.leftMargin = dp(4);
+            btnZRight.setLayoutParams(zrpc);
+            if (currentIdx < card.getPhotocards().size() - 1) {
+                btnZRight.setOnClickListener(v -> {
+                    card.swapPhotocards(currentIdx, currentIdx + 1);
+                    repo.saveOrUpdateIdol(card);
+                    if (rebuildBinderCallback != null) rebuildBinderCallback.run();
+                    refreshCurrentTab();
+                    if (ref[0] != null) ref[0].dismiss();
+                    showPhotocardZoomPreviewDialog(card, pcUri, currentIdx + 2, ivMainInBinder, rebuildBinderCallback);
+                });
+            }
+            zoomReorderRow.addView(btnZRight);
+            root.addView(zoomReorderRow);
+        }
+
         TextView btnClose = new TextView(this);
         btnClose.setText(getString(R.string.zoom_btn_close));
         btnClose.setTextColor(Color.parseColor("#374151"));
@@ -2961,6 +3088,55 @@ public class MainActivity extends AppCompatActivity {
             ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
         ref[0].show();
+    }
+
+    private void shareIdolPhotocardInvite(IdolCard card, String pcUri) {
+        if (card == null) return;
+        String appUrl = "https://github.com/ismael6499/whos-your-bias/releases/latest";
+        String groupLabel = card.isSoloist() ? "Soloist" : card.getGroupName();
+        String inviteText = getString(R.string.share_photocard_invite_text,
+                card.getStageName(), groupLabel, appUrl);
+
+        try {
+            Bitmap bmp = null;
+            if (pcUri != null && !pcUri.trim().isEmpty()) {
+                bmp = CardImageLoader.getCachedBitmap(this, pcUri);
+            }
+            if (bmp == null && card.getPhotoUri() != null) {
+                bmp = CardImageLoader.getCachedBitmap(this, card.getPhotoUri());
+            }
+
+            File sharedDir = new File(getCacheDir(), "shared");
+            if (!sharedDir.exists()) sharedDir.mkdirs();
+            File shareFile = new File(sharedDir, "photocard_" + card.getStageName().replaceAll("[^a-zA-Z0-9]", "_") + ".jpg");
+
+            if (bmp != null) {
+                try (FileOutputStream fos = new FileOutputStream(shareFile)) {
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 92, fos);
+                }
+            }
+
+            if (shareFile.exists() && shareFile.length() > 0) {
+                Uri contentUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", shareFile);
+                Intent share = new Intent(Intent.ACTION_SEND);
+                share.setType("image/jpeg");
+                share.putExtra(Intent.EXTRA_STREAM, contentUri);
+                share.putExtra(Intent.EXTRA_TEXT, inviteText);
+                share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivity(Intent.createChooser(share, getString(R.string.btn_share_photocard)));
+                return;
+            }
+        } catch (Exception ignored) {
+        }
+
+        String fallbackMsg = inviteText;
+        if (pcUri != null && pcUri.startsWith("http")) {
+            fallbackMsg = "📸 " + pcUri + "\n\n" + inviteText;
+        }
+        Intent txtShare = new Intent(Intent.ACTION_SEND);
+        txtShare.setType("text/plain");
+        txtShare.putExtra(Intent.EXTRA_TEXT, fallbackMsg);
+        startActivity(Intent.createChooser(txtShare, getString(R.string.btn_share_photocard)));
     }
 
     public void showCreateOrEditIdolDialog(IdolCard existing, Runnable onSavedCallback) {
@@ -3947,9 +4123,9 @@ public class MainActivity extends AppCompatActivity {
     private String getAppVersionName() {
         try {
             android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pInfo.versionName != null ? pInfo.versionName : "1.2.20";
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.21";
         } catch (Exception e) {
-            return "1.2.20";
+            return "1.2.21";
         }
     }
 
