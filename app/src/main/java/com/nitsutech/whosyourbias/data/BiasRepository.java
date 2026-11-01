@@ -424,6 +424,16 @@ public class BiasRepository {
         }
     }
 
+    public synchronized int unlockAllIdolsPhotocards() {
+        int totalUnlocked = 0;
+        for (IdolCard c : idols) {
+            c.unlockAllPhotocards();
+            totalUnlocked += c.getPhotocards().size();
+        }
+        saveIdols();
+        return totalUnlocked;
+    }
+
     public synchronized List<CustomMatch> getCustomMatches() {
         return new ArrayList<>(customMatches);
     }

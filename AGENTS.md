@@ -12,7 +12,10 @@
    - **Exclusively** deploy compiled APKs to:
      `C:\Users\agust\Documents\Mobile Drop\whos-your-bias-v<version>.apk`
    - **NEVER** copy or deploy APKs to `Downloads`. Copying to `Downloads` is deprecated and no longer permitted.
-2. **ADB Installation:**
+2. **Single Versioned APK Rule (No Duplicates):**
+   - **ONLY** copy the single versioned APK file (e.g., `whos-your-bias-v<version>.apk`).
+   - **NEVER** generate, copy, or maintain duplicate unversioned APKs (e.g., do NOT create `WhosYourBias.apk`).
+3. **ADB Installation:**
    - Use wireless ADB at `C:\Users\agust\AppData\Local\Microsoft\WinGet\Packages\Genymobile.scrcpy_Microsoft.Winget.Source_8wekyb3d8bbwe\scrcpy-win64-v3.3.3\adb.exe`
    - Install command: `adb install -r "C:\Users\agust\Documents\Mobile Drop\whos-your-bias-v<version>.apk"`
 

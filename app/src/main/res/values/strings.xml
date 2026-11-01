@@ -150,7 +150,7 @@
     <string name="gacha_unlocked_sub">✨ New photocard unlocked! (%1$d/%2$d in your binder)</string>
     <string name="gacha_btn_view_binder">📸 View Binder</string>
     <string name="gacha_cooldown_title">⏳ Photocard Gacha on Cooldown</string>
-    <string name="gacha_cooldown_msg">Your next pack will be ready in %1$s!\n\nYou can open a free pack every 3 minutes to collect exclusive new photocards.</string>
+    <string name="gacha_cooldown_msg">Your next pack will be ready in %1$s!\n\nYou can open a free pack every 100 seconds to collect exclusive new photocards.</string>
     <string name="btn_understood">Understood</string>
     <string name="match_prep_title">⚔️ Preparing Battle…</string>
     <string name="match_prep_loading">Loading idol photocards… (%1$d/%2$d)</string>
@@ -348,4 +348,16 @@
     <string name="badge_new">NEW</string>
     <string name="update_installer_error">Could not launch installer: %1$s</string>
     <string name="toast_youtube_error">Could not open YouTube</string>
+    <string name="gacha_tier_jackpot">👑 3%% JACKPOT: ALL PHOTOCARDS OF %1$s UNLOCKED!</string>
+    <string name="gacha_tier_mega">🔥 10%% MEGA DROP: 10 PHOTOCARDS UNLOCKED!</string>
+    <string name="gacha_tier_lucky">✨ 33%% LUCKY PACK: 5 PHOTOCARDS UNLOCKED!</string>
+    <string name="gacha_tier_single">🌟 SSR PHOTOCARD PULL (1 CARD)</string>
+    <string name="gacha_tier_max_collection">💎 MAX COLLECTION: ALL PHOTOCARDS UNLOCKED!</string>
+    <string name="gacha_unlocked_multi_sub">🎉 Unlocked %1$d new photocards across your collection!</string>
+    <string name="dev_dialog_title">🔒 Secret Developer Access</string>
+    <string name="dev_dialog_msg">Enter dev passcode to unlock all idol photocards:</string>
+    <string name="dev_dialog_hint">Enter Passcode</string>
+    <string name="dev_btn_unlock">⚡ Unlock All</string>
+    <string name="dev_toast_success">🎉 DEV: All %1$d idol photocards unlocked successfully!</string>
+    <string name="dev_toast_invalid">❌ Invalid developer passcode</string>
 </resources>

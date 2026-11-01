@@ -150,7 +150,7 @@
     <string name="gacha_unlocked_sub">✨ ¡Nueva photocard desbloqueada! (%1$d/%2$d en tu binder)</string>
     <string name="gacha_btn_view_binder">📸 Ver Binder</string>
     <string name="gacha_cooldown_title">⏳ Photocard Gacha en Enfriamiento</string>
-    <string name="gacha_cooldown_msg">¡Tu próximo sobre estará listo en %1$s!\n\nPodés abrir un sobre gratuito cada 3 minutos para coleccionar nuevas photocards exclusivas.</string>
+    <string name="gacha_cooldown_msg">¡Tu próximo sobre estará listo en %1$s!\n\nPodés abrir un sobre gratuito cada 100 segundos para coleccionar nuevas photocards exclusivas.</string>
     <string name="btn_understood">Entendido</string>
     <string name="match_prep_title">⚔️ Preparando Batalla…</string>
     <string name="match_prep_loading">Cargando photocards de los idols… (%1$d/%2$d)</string>
@@ -348,4 +348,16 @@
     <string name="badge_new">NUEVO</string>
     <string name="update_installer_error">No se pudo iniciar el instalador: %1$s</string>
     <string name="toast_youtube_error">No se pudo abrir YouTube</string>
+    <string name="gacha_tier_jackpot">👑 ¡3%% JACKPOT: TODAS LAS CARTAS DE %1$s DESBLOQUEADAS!</string>
+    <string name="gacha_tier_mega">🔥 ¡10%% MEGA DROP: 10 FOTOCARTAS DESBLOQUEADAS!</string>
+    <string name="gacha_tier_lucky">✨ ¡33%% PACK DE LA SUERTE: 5 FOTOCARTAS DESBLOQUEADAS!</string>
+    <string name="gacha_tier_single">🌟 FOTOCARTA SSR OBTENIDA (1 CARTA)</string>
+    <string name="gacha_tier_max_collection">💎 ¡COLECCIÓN MÁXIMA: TODAS LAS CARTAS DESBLOQUEADAS!</string>
+    <string name="gacha_unlocked_multi_sub">🎉 ¡Desbloqueaste %1$d nuevas fotocartas en tu colección!</string>
+    <string name="dev_dialog_title">🔒 Acceso Secreto Developer</string>
+    <string name="dev_dialog_msg">Ingresá la contraseña dev para desbloquear todas las fotocartas:</string>
+    <string name="dev_dialog_hint">Ingresá Contraseña</string>
+    <string name="dev_btn_unlock">⚡ Desbloquear Todo</string>
+    <string name="dev_toast_success">🎉 DEV: ¡Las %1$d fotocartas fueron desbloqueadas con éxito!</string>
+    <string name="dev_toast_invalid">❌ Contraseña de desarrollador incorrecta</string>
 </resources>

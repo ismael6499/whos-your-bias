@@ -15,7 +15,10 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Vibrator;
+import android.os.VibrationEffect;
 import android.text.Editable;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -447,7 +450,7 @@ public class MainActivity extends AppCompatActivity {
 
         TextView tvGachaRight = new TextView(this);
         SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
-        long gachaCooldown = 3 * 60 * 1000L; // Free gacha every 3 minutes!
+        long gachaCooldown = 100 * 1000L; // Free gacha every 100 seconds!
         Runnable updateGachaTimer = new Runnable() {
             @Override
             public void run() {
@@ -457,7 +460,7 @@ public class MainActivity extends AppCompatActivity {
                 if (gachaRem > 0) {
                     long gm = gachaRem / (60 * 1000L);
                     long gs = (gachaRem % (60 * 1000L)) / 1000L;
-                    String timeStr = String.format(Locale.ROOT, "%02dm %02ds", gm, gs);
+                    String timeStr = gm > 0 ? String.format(Locale.ROOT, "%02dm %02ds", gm, gs) : String.format(Locale.ROOT, "%ds", gs);
                     tvGachaRight.setText(getString(R.string.gacha_cooldown_strip, timeStr));
                     tvGachaRight.postDelayed(this, 1000L);
                 } else {
@@ -483,7 +486,26 @@ public class MainActivity extends AppCompatActivity {
         tvGachaRight.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         gachaStrip.addView(tvGachaRight);
 
-        gachaStrip.setOnClickListener(v -> showPhotocardGachaDialog());
+        // Instant tactile bounce & haptic feedback on touch
+        gachaStrip.setOnClickListener(v -> {
+            triggerHapticFeedback();
+            v.animate()
+                    .scaleX(0.96f).scaleY(0.96f).setDuration(70)
+                    .withEndAction(() -> v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start())
+                    .start();
+            showPhotocardGachaDialog();
+        });
+
+        // Secret Dev option: long press to enter developer passcode (2468)
+        gachaStrip.setOnLongClickListener(v -> {
+            triggerHapticFeedback();
+            v.animate()
+                    .scaleX(0.94f).scaleY(0.94f).setDuration(80)
+                    .withEndAction(() -> v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start())
+                    .start();
+            showSecretDevGachaDialog();
+            return true;
+        });
         root.addView(gachaStrip);
 
         // 5. Section: Matches & Challenges (Rotating daily with daySeed)
@@ -1583,6 +1605,10 @@ public class MainActivity extends AppCompatActivity {
         tvAppVerBadge.setTypeface(Typeface.DEFAULT_BOLD);
         tvAppVerBadge.setGravity(Gravity.CENTER);
         tvAppVerBadge.setPadding(0, dp(10), 0, dp(2));
+        tvAppVerBadge.setOnClickListener(v -> {
+            triggerHapticFeedback();
+            showSecretDevGachaDialog();
+        });
         profileHeader.addView(tvAppVerBadge);
 
         root.addView(profileHeader);
@@ -3472,11 +3498,112 @@ public class MainActivity extends AppCompatActivity {
         builder.show();
     }
 
+    private void triggerHapticFeedback() {
+        try {
+            Vibrator vib = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (vib != null && vib.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vib.vibrate(VibrationEffect.createOneShot(55, VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    vib.vibrate(55);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void triggerGachaConfetti() {
+        try {
+            ViewGroup decor = (ViewGroup) getWindow().getDecorView();
+            ConfettiView cv = new ConfettiView(this);
+            decor.addView(cv, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            cv.burstConfetti();
+            cv.postDelayed(() -> {
+                try { decor.removeView(cv); } catch (Exception ignored) {}
+            }, 3200L);
+        } catch (Exception ignored) {}
+    }
+
+    private void showSecretDevGachaDialog() {
+        ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        int pad = dp(22);
+        box.setPadding(pad, pad, pad, pad);
+        box.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 24));
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText(getString(R.string.dev_dialog_title));
+        tvTitle.setTextColor(theme.textColor);
+        tvTitle.setTextSize(18f);
+        tvTitle.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        tvTitle.setPadding(0, 0, 0, dp(6));
+        box.addView(tvTitle);
+
+        TextView tvMsg = new TextView(this);
+        tvMsg.setText(getString(R.string.dev_dialog_msg));
+        tvMsg.setTextColor(theme.getMutedTextColor());
+        tvMsg.setTextSize(12.5f);
+        tvMsg.setGravity(Gravity.CENTER);
+        tvMsg.setPadding(0, 0, 0, dp(14));
+        box.addView(tvMsg);
+
+        EditText etPass = new EditText(this);
+        etPass.setHint(getString(R.string.dev_dialog_hint));
+        etPass.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        etPass.setTextSize(18f);
+        etPass.setGravity(Gravity.CENTER);
+        etPass.setTextColor(theme.textColor);
+        etPass.setHintTextColor(Color.parseColor("#9CA3AF"));
+        etPass.setBackground(ThemeManager.createCardDrawable(this, Color.parseColor("#10000000"), theme.cardBorderColor, 16));
+        etPass.setPadding(dp(16), dp(12), dp(16), dp(12));
+        LinearLayout.LayoutParams etLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        etLp.setMargins(0, 0, 0, dp(18));
+        etPass.setLayoutParams(etLp);
+        box.addView(etPass);
+
+        AlertDialog[] ref = new AlertDialog[1];
+
+        TextView btnUnlock = new TextView(this);
+        btnUnlock.setText(getString(R.string.dev_btn_unlock));
+        btnUnlock.setTextColor(theme.getButtonTextColor(theme.primaryColor));
+        btnUnlock.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 20));
+        btnUnlock.setTextSize(13.5f);
+        btnUnlock.setTypeface(Typeface.DEFAULT_BOLD);
+        btnUnlock.setGravity(Gravity.CENTER);
+        btnUnlock.setPadding(dp(16), dp(12), dp(16), dp(12));
+        btnUnlock.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        btnUnlock.setOnClickListener(v -> {
+            String entered = etPass.getText() != null ? etPass.getText().toString().trim() : "";
+            if ("2468".equals(entered)) {
+                if (ref[0] != null) ref[0].dismiss();
+                triggerHapticFeedback();
+                int total = repo.unlockAllIdolsPhotocards();
+                SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
+                wybPrefs.edit().putLong("last_gacha_open_time", 0).apply();
+                triggerGachaConfetti();
+                Toast.makeText(this, getString(R.string.dev_toast_success, total), Toast.LENGTH_LONG).show();
+                refreshCurrentTab();
+            } else {
+                Toast.makeText(this, getString(R.string.dev_toast_invalid), Toast.LENGTH_SHORT).show();
+            }
+        });
+        box.addView(btnUnlock);
+
+        builder.setView(box);
+        ref[0] = builder.create();
+        if (ref[0].getWindow() != null) {
+            ref[0].getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        ref[0].show();
+    }
+
     private void showPhotocardGachaDialog() {
         SharedPreferences wybPrefs = getSharedPreferences("wyb_prefs", MODE_PRIVATE);
         long lastTime = wybPrefs.getLong("last_gacha_open_time", 0);
         long now = System.currentTimeMillis();
-        long cooldown = 3 * 60 * 1000L; // 3 minutes
+        long cooldown = 100 * 1000L; // 100 seconds!
         long remaining = (lastTime + cooldown) - now;
 
         if (remaining > 0) {
@@ -3494,41 +3621,121 @@ public class MainActivity extends AppCompatActivity {
         List<IdolCard> all = repo.getAllIdols();
         if (all.isEmpty()) return;
 
-        // Prioritize idols that have locked photocards!
-        List<IdolCard> candidates = new ArrayList<>();
-        for (IdolCard c : all) {
-            if (!c.getLockedPhotocards().isEmpty()) {
-                candidates.add(c);
-            }
-        }
-        if (candidates.isEmpty()) candidates = all;
+        // Immediate tactile & haptic response
+        triggerHapticFeedback();
+        Toast.makeText(this, getString(R.string.gacha_opening_pack), Toast.LENGTH_SHORT).show();
 
         Random rnd = new Random();
-        IdolCard pulled = candidates.get(rnd.nextInt(candidates.size()));
-        List<String> locked = pulled.getLockedPhotocards();
-        String newlyUnlockedUri;
-        if (!locked.isEmpty()) {
-            newlyUnlockedUri = locked.get(rnd.nextInt(locked.size()));
-            pulled.unlockPhotocard(newlyUnlockedUri);
-            pulled.setPhotoUri(newlyUnlockedUri);
-        } else {
-            newlyUnlockedUri = pulled.getPhotoUri();
+        int roll = rnd.nextInt(100); // 0..99
+
+        List<IdolCard> candidatesWithLocked = new ArrayList<>();
+        for (IdolCard c : all) {
+            if (!c.getLockedPhotocards().isEmpty()) {
+                candidatesWithLocked.add(c);
+            }
         }
 
-        repo.saveOrUpdateIdol(pulled);
+        String tierTitle;
+        List<IdolCard> unlockedCardsList = new ArrayList<>();
+        IdolCard showcaseCard = null;
+
+        if (candidatesWithLocked.isEmpty()) {
+            // All cards in collection already unlocked!
+            tierTitle = getString(R.string.gacha_tier_max_collection);
+            showcaseCard = all.get(rnd.nextInt(all.size()));
+            unlockedCardsList.add(showcaseCard);
+        } else if (roll < 3) {
+            // === 3% JACKPOT: ALL REMAINING PHOTOCARDS OF ONE IDOL UNLOCKED! ===
+            IdolCard luckyIdol = candidatesWithLocked.get(rnd.nextInt(candidatesWithLocked.size()));
+            List<String> lockedBefore = new ArrayList<>(luckyIdol.getLockedPhotocards());
+            luckyIdol.unlockAllPhotocards();
+            if (!lockedBefore.isEmpty()) {
+                luckyIdol.setPhotoUri(lockedBefore.get(0));
+            }
+            repo.saveOrUpdateIdol(luckyIdol);
+            tierTitle = getString(R.string.gacha_tier_jackpot, luckyIdol.getStageName());
+            showcaseCard = luckyIdol;
+            for (String uri : lockedBefore) {
+                unlockedCardsList.add(new IdolCard(luckyIdol.getId(), luckyIdol.getStageName(),
+                        luckyIdol.getFullName(), luckyIdol.getGroupName(), luckyIdol.isSoloist(),
+                        luckyIdol.getCountry(), luckyIdol.getBirthDate(), luckyIdol.getRole(),
+                        uri, luckyIdol.getAccentColor(), luckyIdol.getBio(), luckyIdol.getCollections()));
+            }
+            if (unlockedCardsList.isEmpty()) unlockedCardsList.add(luckyIdol);
+            triggerGachaConfetti();
+        } else if (roll < 13) {
+            // === 10% MEGA DROP: 10 RANDOM PHOTOCARDS UNLOCKED! ===
+            tierTitle = getString(R.string.gacha_tier_mega);
+            int targetCount = 10;
+            while (unlockedCardsList.size() < targetCount) {
+                List<IdolCard> currentAvailable = new ArrayList<>();
+                for (IdolCard c : all) {
+                    if (!c.getLockedPhotocards().isEmpty()) currentAvailable.add(c);
+                }
+                if (currentAvailable.isEmpty()) break;
+                IdolCard pickedIdol = currentAvailable.get(rnd.nextInt(currentAvailable.size()));
+                List<String> locked = pickedIdol.getLockedPhotocards();
+                String uri = locked.get(rnd.nextInt(locked.size()));
+                pickedIdol.unlockPhotocard(uri);
+                pickedIdol.setPhotoUri(uri);
+                repo.saveOrUpdateIdol(pickedIdol);
+                IdolCard singleCard = new IdolCard(pickedIdol.getId(), pickedIdol.getStageName(),
+                        pickedIdol.getFullName(), pickedIdol.getGroupName(), pickedIdol.isSoloist(),
+                        pickedIdol.getCountry(), pickedIdol.getBirthDate(), pickedIdol.getRole(),
+                        uri, pickedIdol.getAccentColor(), pickedIdol.getBio(), pickedIdol.getCollections());
+                unlockedCardsList.add(singleCard);
+                if (showcaseCard == null) showcaseCard = singleCard;
+            }
+            if (showcaseCard == null) showcaseCard = all.get(rnd.nextInt(all.size()));
+            triggerGachaConfetti();
+        } else if (roll < 46) {
+            // === 33% LUCKY PACK: 5 RANDOM PHOTOCARDS UNLOCKED! ===
+            tierTitle = getString(R.string.gacha_tier_lucky);
+            int targetCount = 5;
+            while (unlockedCardsList.size() < targetCount) {
+                List<IdolCard> currentAvailable = new ArrayList<>();
+                for (IdolCard c : all) {
+                    if (!c.getLockedPhotocards().isEmpty()) currentAvailable.add(c);
+                }
+                if (currentAvailable.isEmpty()) break;
+                IdolCard pickedIdol = currentAvailable.get(rnd.nextInt(currentAvailable.size()));
+                List<String> locked = pickedIdol.getLockedPhotocards();
+                String uri = locked.get(rnd.nextInt(locked.size()));
+                pickedIdol.unlockPhotocard(uri);
+                pickedIdol.setPhotoUri(uri);
+                repo.saveOrUpdateIdol(pickedIdol);
+                IdolCard singleCard = new IdolCard(pickedIdol.getId(), pickedIdol.getStageName(),
+                        pickedIdol.getFullName(), pickedIdol.getGroupName(), pickedIdol.isSoloist(),
+                        pickedIdol.getCountry(), pickedIdol.getBirthDate(), pickedIdol.getRole(),
+                        uri, pickedIdol.getAccentColor(), pickedIdol.getBio(), pickedIdol.getCollections());
+                unlockedCardsList.add(singleCard);
+                if (showcaseCard == null) showcaseCard = singleCard;
+            }
+            if (showcaseCard == null) showcaseCard = all.get(rnd.nextInt(all.size()));
+        } else {
+            // === 54% STANDARD: 1 RANDOM PHOTOCARD ===
+            tierTitle = getString(R.string.gacha_tier_single);
+            IdolCard pickedIdol = candidatesWithLocked.get(rnd.nextInt(candidatesWithLocked.size()));
+            List<String> locked = pickedIdol.getLockedPhotocards();
+            String uri = locked.get(rnd.nextInt(locked.size()));
+            pickedIdol.unlockPhotocard(uri);
+            pickedIdol.setPhotoUri(uri);
+            repo.saveOrUpdateIdol(pickedIdol);
+            showcaseCard = new IdolCard(pickedIdol.getId(), pickedIdol.getStageName(),
+                    pickedIdol.getFullName(), pickedIdol.getGroupName(), pickedIdol.isSoloist(),
+                    pickedIdol.getCountry(), pickedIdol.getBirthDate(), pickedIdol.getRole(),
+                    uri, pickedIdol.getAccentColor(), pickedIdol.getBio(), pickedIdol.getCollections());
+            unlockedCardsList.add(showcaseCard);
+        }
+
         wybPrefs.edit().putLong("last_gacha_open_time", now).apply();
         refreshCurrentTab();
 
-        String[] tiers = {"🌟 SSR HOLOGRAPHIC PHOTOCARD", "✨ SSR LIMITED LUCKY DRAW", "💎 SR SPECIAL POB PHOTOCARD"};
-        String tier = tiers[rnd.nextInt(tiers.length)];
+        final IdolCard finalShowcase = showcaseCard;
+        final String finalTier = tierTitle;
+        final List<IdolCard> finalUnlockedList = unlockedCardsList;
 
-        IdolCard showcaseCard = new IdolCard(pulled.getId(), pulled.getStageName(),
-                pulled.getFullName(), pulled.getGroupName(), pulled.isSoloist(), pulled.getCountry(),
-                pulled.getBirthDate(), pulled.getRole(), newlyUnlockedUri, pulled.getAccentColor(), pulled.getBio(), pulled.getCollections());
-
-        Toast.makeText(this, getString(R.string.gacha_opening_pack), Toast.LENGTH_SHORT).show();
-
-        CardImageLoader.preloadSingleCardAsync(this, showcaseCard, () -> {
+        CardImageLoader.preloadSingleCardAsync(this, finalShowcase, () -> {
             if (isFinishing()) return;
             ThemeManager.AppTheme theme = ThemeManager.getActiveTheme(this);
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -3540,10 +3747,11 @@ public class MainActivity extends AppCompatActivity {
             box.setBackground(ThemeManager.createCardDrawable(this, theme.surfaceColor, theme.cardBorderColor, 26));
 
             TextView tvTier = new TextView(this);
-            tvTier.setText(tier);
+            tvTier.setText(finalTier);
             tvTier.setTextColor(theme.getButtonTextColor(theme.primaryColor));
             tvTier.setTextSize(11f);
             tvTier.setTypeface(Typeface.DEFAULT_BOLD);
+            tvTier.setGravity(Gravity.CENTER);
             tvTier.setPadding(dp(14), dp(6), dp(14), dp(6));
             tvTier.setBackground(ThemeManager.createPillDrawable(this, theme.primaryColor, 14));
             box.addView(tvTier);
@@ -3559,20 +3767,20 @@ public class MainActivity extends AppCompatActivity {
             iv.setLayoutParams(new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            CardImageLoader.loadCardImage(this, showcaseCard, iv);
+            CardImageLoader.loadCardImage(this, finalShowcase, iv);
             pcCard.addView(iv);
             box.addView(pcCard);
 
             TextView tvName = new TextView(this);
-            tvName.setText(pulled.getStageName() + " (" + pulled.getGroupName() + ")");
+            tvName.setText(finalShowcase.getStageName() + " (" + finalShowcase.getGroupName() + ")");
             tvName.setTextColor(theme.textColor);
             tvName.setTextSize(20f);
             tvName.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
             box.addView(tvName);
 
-            if (pulled.getNativeName() != null && !pulled.getNativeName().isEmpty()) {
+            if (finalShowcase.getNativeName() != null && !finalShowcase.getNativeName().isEmpty()) {
                 TextView tvNative = new TextView(this);
-                tvNative.setText(pulled.getNativeName());
+                tvNative.setText(finalShowcase.getNativeName());
                 tvNative.setTextColor(theme.primaryColor);
                 tvNative.setTextSize(14f);
                 tvNative.setTypeface(Typeface.DEFAULT_BOLD);
@@ -3580,12 +3788,50 @@ public class MainActivity extends AppCompatActivity {
             }
 
             TextView tvSub = new TextView(this);
-            tvSub.setText(getString(R.string.gacha_unlocked_sub, pulled.getUnlockedPhotocards().size(), pulled.getPhotocards().size()));
+            if (finalUnlockedList.size() > 1) {
+                tvSub.setText(getString(R.string.gacha_unlocked_multi_sub, finalUnlockedList.size()));
+            } else {
+                tvSub.setText(getString(R.string.gacha_unlocked_sub, finalShowcase.getUnlockedPhotocards().size(), finalShowcase.getPhotocards().size()));
+            }
             tvSub.setTextColor(theme.getMutedTextColor());
             tvSub.setTextSize(12f);
             tvSub.setGravity(Gravity.CENTER);
-            tvSub.setPadding(0, dp(4), 0, dp(14));
+            tvSub.setPadding(0, dp(4), 0, dp(10));
             box.addView(tvSub);
+
+            // If multiple photocards unlocked (5, 10, or all remaining of an idol), show horizontal thumbnail drawer!
+            if (finalUnlockedList.size() > 1) {
+                HorizontalScrollView pcThumbScroll = new HorizontalScrollView(this);
+                pcThumbScroll.setHorizontalScrollBarEnabled(false);
+                LinearLayout thumbsRow = new LinearLayout(this);
+                thumbsRow.setOrientation(LinearLayout.HORIZONTAL);
+                thumbsRow.setPadding(0, 0, 0, dp(10));
+
+                for (IdolCard uc : finalUnlockedList) {
+                    CardView thumbCard = new CardView(this);
+                    thumbCard.setRadius(dp(12));
+                    thumbCard.setCardElevation(dp(2));
+                    LinearLayout.LayoutParams tLp = new LinearLayout.LayoutParams(dp(48), dp(64));
+                    tLp.setMargins(dp(3), 0, dp(3), 0);
+                    thumbCard.setLayoutParams(tLp);
+
+                    ImageView thumbIv = new ImageView(this);
+                    thumbIv.setLayoutParams(new FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                    thumbIv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                    CardImageLoader.loadCardImage(this, uc, thumbIv);
+                    thumbCard.addView(thumbIv);
+
+                    thumbCard.setOnClickListener(v -> {
+                        triggerHapticFeedback();
+                        CardImageLoader.loadCardImage(this, uc, iv);
+                        tvName.setText(uc.getStageName() + " (" + uc.getGroupName() + ")");
+                    });
+                    thumbsRow.addView(thumbCard);
+                }
+                pcThumbScroll.addView(thumbsRow);
+                box.addView(pcThumbScroll);
+            }
 
             LinearLayout btnsRow = new LinearLayout(this);
             btnsRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -3607,7 +3853,8 @@ public class MainActivity extends AppCompatActivity {
             btnAlbum.setLayoutParams(baLp);
             btnAlbum.setOnClickListener(v -> {
                 if (gRef[0] != null) gRef[0].dismiss();
-                showIdolDetailAndPhotocardBinderDialog(pulled);
+                IdolCard fullIdol = repo.getIdolById(finalShowcase.getId());
+                showIdolDetailAndPhotocardBinderDialog(fullIdol != null ? fullIdol : finalShowcase);
             });
             btnsRow.addView(btnAlbum);
 
@@ -3700,9 +3947,9 @@ public class MainActivity extends AppCompatActivity {
     private String getAppVersionName() {
         try {
             android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pInfo.versionName != null ? pInfo.versionName : "1.2.19";
+            return pInfo.versionName != null ? pInfo.versionName : "1.2.20";
         } catch (Exception e) {
-            return "1.2.19";
+            return "1.2.20";
         }
     }
 
